@@ -1,0 +1,61 @@
+@model List<WisdomITNews.Models.AILog>
+@using WisdomITNews.Services
+@{ ViewData["Title"] = "AI Logs"; Layout = "_AdminLayout"; }
+
+<div style="margin-bottom:20px;">
+  <h1 style="font-size:22px;font-weight:700;">🤖 AI Logs</h1>
+  <p style="font-size:13px;color:#6c757d;margin-top:4px;">Lịch sử các lần gọi Gemini AI</p>
+</div>
+
+<form method="get" action="/Admin/AILogs" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+    <label style="font-size:13px;font-weight:600;">Tu ngay:</label>
+    <input type="date" name="from" value="@ViewBag.FromDate" style="padding:6px 10px;border:1px solid #ddd;border-radius:0px;" />
+    <label style="font-size:13px;font-weight:600;">Den ngay:</label>
+    <input type="date" name="to" value="@ViewBag.ToDate" style="padding:6px 10px;border:1px solid #ddd;border-radius:0px;" />
+    <button type="submit" style="padding:6px 16px;background:#476083;color:#fff;border:none;border-radius:0px;font-weight:600;cursor:pointer;">Loc</button>
+    <a href="/Admin/AILogs" style="padding:6px 12px;font-size:13px;color:#6c757d;">Xoa loc</a>
+</form>
+
+<div style="background:#fff;border-radius:0px;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden;">
+  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead>
+      <tr style="background:#f5f6f8;border-bottom:2px solid #e0e4e8;">
+        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Thời gian</th>
+        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Bài viết</th>
+        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Hành động</th>
+        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Model</th>
+        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Tokens</th>
+        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Kết quả</th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var l in Model)
+      {
+        <tr style="border-bottom:1px solid #f0f2f5;">
+          <td style="padding:12px 16px;color:#6c757d;white-space:nowrap;">@l.CreatedAt.ToString("dd/MM HH:mm")</td>
+          <td style="padding:12px 16px;max-width:200px;">
+            <div style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;font-size:12px;">
+              @(l.Article?.Title ?? "—")
+            </div>
+          </td>
+          <td style="padding:12px 16px;">
+            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(l.Action=="summarize"?"#f0eeff":"#fef9c3");color:@(l.Action=="summarize"?"#476083":"#ca8a04");">
+              @(l.Action == "summarize" ? "🤖 Tóm tắt" : l.Action == "suggest_title" ? "✍️ Gợi ý tiêu đề" : l.Action)
+            </span>
+          </td>
+          <td style="padding:12px 16px;font-size:12px;color:#6c757d;">@l.ModelUsed</td>
+          <td style="padding:12px 16px;color:#6c757d;">@l.TokensUsed</td>
+          <td style="padding:12px 16px;">
+            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(l.IsSuccess?"#dcfce7":"#fee2e2");color:@(l.IsSuccess?"#16a34a":"#ba1a1a");">
+              @(l.IsSuccess ? "✅ Thành công" : "❌ Thất bại")
+            </span>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+  @if (!Model.Any())
+  {
+    <div style="text-align:center;padding:40px;color:#6c757d;">Chưa có log nào.</div>
+  }
+</div>

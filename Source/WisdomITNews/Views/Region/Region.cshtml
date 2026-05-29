@@ -1,0 +1,103 @@
+@using WisdomITNews.Models
+@using WisdomITNews.Services
+@model RegionViewModel
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = $"Tin tức {Model.RegionName}";
+}
+
+<div class="page-wrapper" style="grid-template-columns:1fr;">
+    <main>
+        <section class="region-section" style="background:var(--bg-white);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow-sm);margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
+                <h1 style="font-family:'Playfair Display',serif;font-size:24px;display:flex;align-items:center;gap:10px;">
+                    <i class="fa fa-map-location-dot" style="color:var(--accent);"></i> Tin tức @Model.RegionName
+                </h1>
+                <span style="background:var(--bg-gray);font-size:13px;padding:4px 12px;border-radius:20px;">@(Model.FeaturedArticles.Count + Model.Articles.Count) bài</span>
+            </div>
+
+            <!-- HERO NỔI BẬT — thay thế bản đồ -->
+            @if (Model.FeaturedArticles.Count >= 2)
+            {
+                <div class="hero" style="margin-bottom:24px;">
+                    <article class="hero-main" onclick="location.href='/bai-viet/@Model.FeaturedArticles[0].Slug'">
+                        <img src="@Model.FeaturedArticles[0].Thumbnail" alt="@Model.FeaturedArticles[0].Title" />
+                        <div class="hero-overlay">
+                            <span class="badge">@Model.FeaturedArticles[0].Category?.Icon @Model.FeaturedArticles[0].Category?.Name</span>
+                            <h2 class="hero-title">@Model.FeaturedArticles[0].Title</h2>
+                            <div class="hero-meta">
+                                <span><i class="fa fa-clock"></i> @SlugHelper.FormatDate(Model.FeaturedArticles[0].PublishedAt)</span>
+                                <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(Model.FeaturedArticles[0].Views)</span>
+                            </div>
+                        </div>
+                    </article>
+                    @for (int i = 1; i < Math.Min(3, Model.FeaturedArticles.Count); i++)
+                    {
+                        var a = Model.FeaturedArticles[i];
+                        <article class="hero-sub" onclick="location.href='/bai-viet/@a.Slug'">
+                            <img src="@a.Thumbnail" alt="@a.Title" />
+                            <div class="hero-overlay">
+                                <span class="badge">@a.Category?.Icon @a.Category?.Name</span>
+                                <h3 class="hero-title sm">@a.Title</h3>
+                                <div class="hero-meta"><span><i class="fa fa-clock"></i> @SlugHelper.FormatDate(a.PublishedAt)</span></div>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+            else if (Model.FeaturedArticles.Count == 1)
+            {
+                <div class="hero" style="grid-template-columns:1fr;height:320px;margin-bottom:24px;">
+                    <article class="hero-main" onclick="location.href='/bai-viet/@Model.FeaturedArticles[0].Slug'">
+                        <img src="@Model.FeaturedArticles[0].Thumbnail" alt="@Model.FeaturedArticles[0].Title" />
+                        <div class="hero-overlay">
+                            <span class="badge">@Model.FeaturedArticles[0].Category?.Icon @Model.FeaturedArticles[0].Category?.Name</span>
+                            <h2 class="hero-title">@Model.FeaturedArticles[0].Title</h2>
+                            <div class="hero-meta">
+                                <span><i class="fa fa-clock"></i> @SlugHelper.FormatDate(Model.FeaturedArticles[0].PublishedAt)</span>
+                                <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(Model.FeaturedArticles[0].Views)</span>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            }
+            else
+            {
+                <div style="background:var(--bg-gray);border-radius:var(--radius);padding:60px 20px;text-align:center;margin-bottom:24px;">
+                    <i class="fa fa-newspaper" style="font-size:48px;color:var(--text-muted);margin-bottom:12px;display:block;"></i>
+                    <p style="color:var(--text-muted);font-size:15px;">Chưa có bài nổi bật cho khu vực @Model.RegionName</p>
+                </div>
+            }
+
+            <!-- DANH SÁCH BÀI CÒN LẠI -->
+            <div class="region-list">
+                @if (Model.Articles.Any())
+                {
+                    <h2 style="font-size:18px;margin-bottom:14px;font-family:'Playfair Display',serif;">
+                        <i class="fa fa-list" style="color:var(--accent);"></i> Bài viết khác
+                    </h2>
+                    <ul id="region-articles" class="region-articles" style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">
+                        @foreach (var a in Model.Articles)
+                        {
+                            <li class="region-article-item">
+                                <a href="/bai-viet/@a.Slug"
+                                   data-lat="@(a.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                   data-lng="@(a.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                   data-title="@a.Title">
+                                    @if (!string.IsNullOrEmpty(a.Thumbnail))
+                                    {
+                                        <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
+                                    }
+                                    <div>
+                                        <strong>@a.Title</strong>
+                                        <span class="region-meta">@a.Category?.Icon @a.Category?.Name · @SlugHelper.FormatDate(a.PublishedAt)</span>
+                                    </div>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    </main>
+</div>

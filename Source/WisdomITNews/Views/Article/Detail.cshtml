@@ -1,0 +1,396 @@
+@model WisdomITNews.Models.ArticleViewModel
+@using WisdomITNews.Services
+@{
+    ViewData["Title"] = Model.Article.Title;
+    Layout = "_Layout";
+    var article = Model.Article;
+    var authorName = article.Author?.FullName ?? "Admin";
+    var authorInitial = string.IsNullOrWhiteSpace(authorName) ? "A" : authorName.Substring(0, 1).ToUpper();
+    var allComments = Model.Comments ?? new List<WisdomITNews.Models.Comment>();
+    var rootComments = allComments.Where(c => c.ParentCommentId == null || c.ParentCommentId == 0).OrderBy(c => c.CreatedAt).ToList();
+    var sessionUserId = Context.Session.GetInt32("UserId");
+    var sessionUserName = Context.Session.GetString("UserName") ?? "";
+}
+
+@section Head {
+    <meta name="description" content="@article.Summary" />
+}
+
+<div id="readProgress" class="read-progress"></div>
+
+<div class="breadcrumb">
+    <div class="container">
+        <ul class="breadcrumb-list">
+            <li><a href="/"><i class="fa fa-home"></i> Trang chủ</a></li>
+            @if (article.Category != null)
+            {
+                <li><a href="/danh-muc/@article.Category.Slug">@article.Category.Icon @article.Category.Name</a></li>
+            }
+            <li>@article.Title</li>
+        </ul>
+    </div>
+</div>
+
+<div class="page-wrapper">
+    <main>
+
+        <div class="article-header">
+            @if (article.Category != null)
+            {
+                <span class="badge" style="background:@(article.Category.Color ?? "#ba1a1a");margin-bottom:12px;">
+                    @article.Category.Icon @article.Category.Name
+                </span>
+            }
+            <h1 class="article-title">@article.Title</h1>
+            <p class="article-sapo" style="color:var(--text-dark);">@article.Summary</p>
+            <div class="article-meta">
+                <div class="meta-author">
+                    <div class="author-avatar">@authorInitial</div>
+                    <div>
+                        <div class="author-name">@authorName</div>
+                        <div class="author-role">@(article.Author?.Role ?? "Editor")</div>
+                    </div>
+                </div>
+                <div class="meta-stats">
+                    <span><i class="fa fa-calendar"></i> @SlugHelper.FormatDate(article.PublishedAt)</span>
+                    <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(article.Views) lượt xem</span>
+                    <span><i class="fa fa-comments"></i> @allComments.Count bình luận</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="ai-toolbar">
+            <div class="ai-toolbar-label"><span class="dot"></span> AI Tools</div>
+            <button id="summaryBtn" class="ai-btn ai-btn-summarize" onclick="toggleSummary()">
+                <i class="fa fa-magic-wand-sparkles"></i> Tóm tắt bằng AI
+            </button>
+            <button class="ai-btn ai-btn-title" onclick="openTitleModal()">
+                <i class="fa fa-lightbulb"></i> Gợi ý tiêu đề
+            </button>
+            <button class="ai-btn ai-btn-share" onclick="shareArticle()">
+                <i class="fa fa-share-nodes"></i> Chia sẻ
+            </button>
+        </div>
+
+        <div id="summaryBox" class="ai-summary-box" style="display:none;">
+            <div class="ai-summary-header">
+                <i class="fa fa-robot"></i>
+                <h3>Tóm tắt bởi AI</h3>
+                <button class="close-btn" onclick="closeSummary()"><i class="fa fa-times"></i></button>
+            </div>
+            <div id="summaryContent" class="ai-summary-content">
+                <div class="loading-dots"><span></span><span></span><span></span></div>
+            </div>
+            <div class="ai-summary-footer">
+                <span id="tokenInfo"></span>
+                <span>Powered by AI</span>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(article.Thumbnail))
+        {
+            <div class="article-thumbnail">
+                <img src="@article.Thumbnail" alt="@(article.ThumbnailAlt ?? article.Title)" />
+            </div>
+        }
+
+        <div class="article-body">
+            <div class="article-content">
+                @Html.Raw(article.Content)
+            </div>
+            @if (Model.Tags.Any())
+            {
+                <div class="article-tags">
+                    @foreach (var tag in Model.Tags)
+                    {
+                        <a href="/tim-kiem?q=@Uri.EscapeDataString(tag.Name)" class="tag-link">#@tag.Name</a>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="share-bar" data-share-url="@Context.Request.Scheme://@Context.Request.Host/bai-viet/@article.Slug">
+            <span class="share-bar-label"><i class="fa fa-share-nodes"></i> Chia sẻ:</span>
+            <a href="https://www.facebook.com/sharer.php?u=@Uri.EscapeDataString($"{Context.Request.Scheme}://{Context.Request.Host}/bai-viet/{article.Slug}")"
+               target="_blank" class="share-btn share-fb"><i class="fa-brands fa-facebook-f"></i> Facebook</a>
+            <button class="share-btn share-copy js-share-copy"><i class="fa fa-link"></i> Sao chép</button>
+            <span class="share-toast"></span>
+        </div>
+
+        <div class="author-box">
+            <div class="author-box-avatar">@authorInitial</div>
+            <div class="author-box-info">
+                <div class="role"><i class="fa fa-pen-nib"></i> Tác giả</div>
+                <h3 style="font-family:'Playfair Display',serif;font-size:18px;">@authorName</h3>
+                <p style="font-size:13px;color:var(--text-muted);margin-top:6px;">@(article.Author?.Role ?? "Editor") tại Wisdom IT News</p>
+            </div>
+        </div>
+
+        <!-- Comments Section -->
+        <div class="comments-section">
+            <h2 class="comments-title">
+                <i class="fa fa-comments"></i> Bình luận
+                <span class="comment-count">@allComments.Count</span>
+            </h2>
+            <div class="comment-form">
+                @if (sessionUserId.HasValue)
+                {
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg-gray);border-radius:0px;">
+                        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0a2540,#476083);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">
+                            @(string.IsNullOrWhiteSpace(sessionUserName) ? "?" : sessionUserName.Substring(0, 1).ToUpper())
+                        </div>
+                        <span style="font-weight:600;font-size:14px;">Bình luận với tên: <strong>@sessionUserName</strong></span>
+                    </div>
+                    <input type="hidden" id="cName" value="@sessionUserName" />
+                    <input type="hidden" id="cEmail" value="" />
+                }
+                else
+                {
+                    <div class="comment-form-row">
+                        <input type="text" id="cName" placeholder="Họ và tên *" maxlength="80" />
+                        <input type="email" id="cEmail" placeholder="Email (tuỳ chọn)" maxlength="120" />
+                    </div>
+                }
+                <textarea id="cText" placeholder="Viết bình luận của bạn..." maxlength="1000"></textarea>
+                <button class="btn-comment" onclick="submitComment(@article.Id)">
+                    <i class="fa fa-paper-plane"></i> Gửi bình luận
+                </button>
+            </div>
+            <div id="commentList" class="comment-tree">
+                @if (!rootComments.Any())
+                {
+                    <p style="text-align:center;color:var(--text-muted);padding:24px 0;font-size:14px;">
+                        Chưa có bình luận nào. Hãy là người đầu tiên!
+                    </p>
+                }
+                @foreach (var comment in rootComments)
+                {
+                    @await Html.PartialAsync("_CommentNode", comment, new ViewDataDictionary(ViewData) {
+                { "AllComments", allComments },
+                { "Depth", 0 }
+            })
+                }
+            </div>
+        </div>
+
+    </main>
+
+    <aside class="sidebar">
+        @if (Model.RelatedArticles.Any())
+        {
+            <div class="sidebar-widget">
+                <div class="widget-header"><i class="fa fa-link"></i> Bài viết liên quan</div>
+                <div class="widget-body">
+                    @foreach (var r in Model.RelatedArticles)
+                    {
+                        <div class="related-item" onclick="location.href='/bai-viet/@r.Slug'">
+                            <div class="related-thumb">
+                                <img src="@(string.IsNullOrWhiteSpace(r.Thumbnail) ? "/images/placeholder.jpg" : r.Thumbnail)" alt="@r.Title" loading="lazy" />
+                            </div>
+                            <div>
+                                <div class="related-title">@r.Title</div>
+                                <div class="related-meta"><i class="fa fa-eye"></i> @SlugHelper.FormatViews(r.Views)</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        <div class="sidebar-widget">
+            <div class="widget-header hot"><i class="fa fa-fire"></i> Xem nhiều nhất</div>
+            <div class="widget-body">
+                @for (int i = 0; i < Model.PopularArticles.Count; i++)
+                {
+                    var p = Model.PopularArticles[i];
+                    <div class="hot-item" onclick="location.href='/bai-viet/@p.Slug'">
+                        <span class="hot-num @(i < 3 ? "top" : "rest")">@(i + 1)</span>
+                        <span class="hot-item-title">@p.Title</span>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="sidebar-widget">
+            <div class="widget-header ai"><i class="fa fa-robot"></i> AI Tools</div>
+            <div class="widget-body">
+                <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="toggleSummary()">
+                    <div style="width:38px;height:38px;background:var(--ai-light);border-radius:0px;display:flex;align-items:center;justify-content:center;color:var(--ai-color);font-size:18px;flex-shrink:0;">
+                        <i class="fa fa-magic-wand-sparkles"></i>
+                    </div>
+                    <div><strong>Tóm tắt bài báo</strong><p style="font-size:12px;color:var(--text-muted);margin-top:2px;">AI tóm tắt nội dung trong 3 giây</p></div>
+                </div>
+                <div style="display:flex;gap:12px;padding:10px 0;cursor:pointer;" onclick="openTitleModal()">
+                    <div style="width:38px;height:38px;background:var(--ai-light);border-radius:0px;display:flex;align-items:center;justify-content:center;color:var(--ai-color);font-size:18px;flex-shrink:0;">
+                        <i class="fa fa-lightbulb"></i>
+                    </div>
+                    <div><strong>Gợi ý tiêu đề</strong><p style="font-size:12px;color:var(--text-muted);margin-top:2px;">AI đề xuất tiêu đề hấp dẫn</p></div>
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<div id="titleModal" class="modal-overlay" onclick="closeTitleModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 style="font-family:'Playfair Display',serif;"><i class="fa fa-lightbulb" style="color:var(--ai-color);"></i> Gợi ý tiêu đề AI</h3>
+            <button class="modal-close-btn" onclick="closeTitleModal()"><i class="fa fa-times"></i></button>
+        </div>
+        <div id="titleSuggestions">
+            <div class="loading-dots"><span></span><span></span><span></span></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var ARTICLE_ID = @article.Id;
+        var summaryLoaded = false;
+
+        function toggleSummary() {
+            var box = document.getElementById('summaryBox');
+            if (box.style.display !== 'none') { closeSummary(); return; }
+            box.style.display = 'block';
+            box.scrollIntoView({ behavior: 'smooth' });
+            if (summaryLoaded) return;
+            document.getElementById('summaryContent').innerHTML = '<p style="text-align:center;padding:20px;">AI dang doc bai bao...</p>';
+            fetch('/api/summarize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articleId: ARTICLE_ID }) })
+                .then(function (r) { return r.json(); }).then(function (d) {
+                    if (d.success) {
+                        document.getElementById('summaryContent').innerHTML = d.summary;
+                        document.getElementById('tokenInfo').textContent = d.cached ? 'Tu cache' : 'Tokens: ' + d.tokens;
+                        summaryLoaded = true;
+                        document.getElementById('summaryBtn').innerHTML = '<i class="fa fa-eye-slash"></i> An tom tat';
+                    } else {
+                        document.getElementById('summaryContent').innerHTML = '<p style="color:#ba1a1a">Loi khi tom tat.</p>';
+                    }
+                }).catch(function () { document.getElementById('summaryContent').innerHTML = '<p style="color:#ba1a1a">Loi ket noi.</p>'; });
+        }
+        function closeSummary() {
+            document.getElementById('summaryBox').style.display = 'none';
+            document.getElementById('summaryBtn').innerHTML = '<i class="fa fa-magic-wand-sparkles"></i> Tom tat bang AI';
+        }
+
+        function openTitleModal() { document.getElementById('titleModal').style.display = 'flex'; loadTitles(); }
+        function closeTitleModal(e) { if (!e || e.target === document.getElementById('titleModal')) document.getElementById('titleModal').style.display = 'none'; }
+        function loadTitles() {
+            document.getElementById('titleSuggestions').innerHTML = '<p style="text-align:center;padding:20px;">AI dang goi y...</p>';
+            fetch('/api/suggest-title', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articleId: ARTICLE_ID }) })
+                .then(function (r) { return r.json(); }).then(function (d) {
+                    if (d.success) {
+                        document.getElementById('titleSuggestions').innerHTML = d.titles.map(function (t) {
+                            return '<div class="title-option"><div class="title-label">' + t.style + '</div><div>' + t.text + '</div></div>';
+                        }).join('');
+                    }
+                }).catch(function () { document.getElementById('titleSuggestions').innerHTML = '<p>Loi ket noi.</p>'; });
+        }
+
+        function shareArticle() {
+            if (navigator.share) navigator.share({ title: document.title, url: location.href });
+            else { navigator.clipboard.writeText(location.href); alert('Da sao chep link!'); }
+        }
+
+        function submitComment(articleId) {
+            var nameEl = document.getElementById('cName');
+            var name = nameEl.value.trim();
+            var text = document.getElementById('cText').value.trim();
+            if (!name || !text) { alert('Vui long dien ten va noi dung!'); return; }
+            var emailEl = document.getElementById('cEmail');
+            var email = emailEl ? emailEl.value : '';
+            fetch('/api/comment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articleId: articleId, name: name, email: email, content: text }) })
+                .then(function (r) { return r.json(); }).then(function (data) {
+                    if (data.success) {
+                        var initial = name[0].toUpperCase();
+                        var html = '<div class="comment-node" style="padding-top:12px;"><div class="comment-row"><div class="comment-avatar">' + initial + '</div><div class="comment-body"><div class="comment-meta"><strong>' + name + '</strong> <span class="comment-time">Vua xong</span></div><p class="comment-text">' + text + '</p></div></div></div>';
+                        document.getElementById('commentList').insertAdjacentHTML('afterbegin', html);
+                        document.getElementById('cText').value = '';
+                        if (nameEl.type !== 'hidden') nameEl.value = '';
+                        if (emailEl && emailEl.type !== 'hidden') emailEl.value = '';
+                        alert(data.message);
+                    }
+                });
+        }
+
+        window.addEventListener('scroll', function () {
+            var h = document.documentElement.scrollHeight - window.innerHeight;
+            document.getElementById('readProgress').style.width = (h > 0 ? (window.scrollY / h) * 100 : 0) + '%';
+        });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeTitleModal(); });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var copyBtn = document.querySelector('.js-share-copy');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', function () {
+                    var url = this.closest('.share-bar').dataset.shareUrl || location.href;
+                    navigator.clipboard.writeText(url).then(function () {
+                        var toast = document.querySelector('.share-toast');
+                        if (toast) { toast.textContent = 'Da sao chep link!'; setTimeout(function () { toast.textContent = ''; }, 2500); }
+                    });
+                });
+            }
+
+            document.addEventListener('click', function (e) {
+                var likeBtn = e.target.closest('.js-like-btn');
+                var dislikeBtn = e.target.closest('.js-dislike-btn');
+                var btn = likeBtn || dislikeBtn;
+                if (!btn) return;
+                var commentId = btn.dataset.commentId;
+                var type = likeBtn ? 'like' : 'dislike';
+                fetch('/article/' + type + '-comment/' + commentId, { method: 'POST' })
+                    .then(function (r) { return r.json(); }).then(function (data) {
+                        if (data.success) {
+                            var node = document.querySelector('.comment-node[data-comment-id="' + commentId + '"]');
+                            if (node) {
+                                var lc = node.querySelector('.like-count');
+                                var dc = node.querySelector('.dislike-count');
+                                if (lc) lc.textContent = data.likeCount;
+                                if (dc) dc.textContent = data.dislikeCount;
+                            }
+                        } else { alert(data.message || 'Ban da binh chon roi!'); }
+                    }).catch(function () { alert('Loi ket noi.'); });
+            });
+
+            document.addEventListener('click', function (e) {
+                var replyBtn = e.target.closest('.js-reply-btn');
+                if (replyBtn) {
+                    var commentId = replyBtn.dataset.commentId;
+                    var node = document.querySelector('.comment-node[data-comment-id="' + commentId + '"]');
+                    var form = node ? node.querySelector(':scope > .comment-row .reply-form') : null;
+                    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+                }
+                var cancelBtn = e.target.closest('.js-reply-cancel');
+                if (cancelBtn) {
+                    var f = cancelBtn.closest('.reply-form');
+                    if (f) f.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('submit', function (e) {
+                var form = e.target.closest('.reply-form');
+                if (!form) return;
+                e.preventDefault();
+                var parentId = parseInt(form.dataset.parentId);
+                var nameInput = form.querySelector('.reply-name');
+                var name = nameInput ? nameInput.value.trim() : '';
+                var emailInput = form.querySelector('.reply-email');
+                var email = emailInput ? emailInput.value.trim() : '';
+                var content = form.querySelector('.reply-text').value.trim();
+                if (!name || !content) { alert('Vui long dien ten va noi dung!'); return; }
+                fetch('/article/reply-comment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ articleId: ARTICLE_ID, parentCommentId: parentId, name: name, email: email, content: content })
+                }).then(function (r) { return r.json(); }).then(function (data) {
+                    if (data.success) { alert(data.message); form.reset(); form.style.display = 'none'; }
+                    else { alert(data.message || 'Loi gui tra loi'); }
+                }).catch(function () { alert('Loi ket noi.'); });
+            });
+        });
+        async function deleteComment(commentId) {
+            if (!confirm('Bạn có chắc muốn xoá bình luận này?')) return;
+            const res = await fetch(`/article/delete-comment/${commentId}`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else alert(data.message || 'Lỗi');
+        }
+    </script>
+}

@@ -1,0 +1,149 @@
+@model WisdomITNews.Models.ArticleFormViewModel
+@{ ViewData["Title"] = "Sửa bài viết"; Layout = "_AdminLayout"; }
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+  <h1 style="font-size:22px;font-weight:700;">✏️ Sửa bài viết</h1>
+  <div style="display:flex;gap:8px;">
+    <a href="/bai-viet/@Model.Article.Slug" target="_blank" style="background:#0a2540;color:#fff;padding:9px 16px;border-radius:0px;font-size:14px;text-decoration:none;"><i class="fa fa-eye"></i> Xem trước</a>
+    <a href="/admin/Articles" style="background:#f0f2f5;color:#3d3d3d;padding:9px 16px;border-radius:0px;font-size:14px;text-decoration:none;"><i class="fa fa-arrow-left"></i> Quay lại</a>
+  </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+  <div style="background:#fee2e2;color:#ba1a1a;border:1px solid #fecaca;border-radius:0px;padding:12px 16px;margin-bottom:16px;"><i class="fa fa-triangle-exclamation"></i> @Model.Error</div>
+}
+@if (!string.IsNullOrEmpty(Model.Success))
+{
+  <div style="background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;border-radius:0px;padding:12px 16px;margin-bottom:16px;"><i class="fa fa-circle-check"></i> @Model.Success</div>
+}
+
+<form method="post" action="/admin/EditArticle/@Model.Article.Id" enctype="multipart/form-data">
+  @Html.AntiForgeryToken()
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Tiêu đề *</label>
+        <input type="text" name="Article.Title" value="@Model.Article.Title" required
+               style="width:100%;padding:10px 14px;border:1px solid #e0e4e8;border-radius:0px;font-size:15px;outline:none;font-family:inherit;"/>
+
+        <label style="font-size:13px;font-weight:600;display:block;margin-top:14px;margin-bottom:6px;">Mô tả ngắn *</label>
+        <textarea name="Article.Summary" rows="3" required
+                  style="width:100%;padding:10px 14px;border:1px solid #e0e4e8;border-radius:0px;font-size:14px;outline:none;font-family:inherit;resize:vertical;">@Model.Article.Summary</textarea>
+
+        <label style="font-size:13px;font-weight:600;display:block;margin-top:14px;margin-bottom:6px;">Nội dung *</label>
+        <textarea name="Article.Content" rows="16" required
+                  style="width:100%;padding:10px 14px;border:1px solid #e0e4e8;border-radius:0px;font-size:14px;outline:none;font-family:'Courier New',monospace;resize:vertical;">@Html.Raw(Model.Article.Content)</textarea>
+      </div>
+
+      <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">📷 Upload ảnh thumbnail mới <span style="font-size:11px;color:#6c757d;font-weight:400;">(jpg/png/webp, ≤5MB)</span></label>
+        <input type="file" name="thumbnailFile" accept=".jpg,.jpeg,.png,.webp"
+               style="width:100%;padding:8px;border:1px solid #e0e4e8;border-radius:0px;font-size:13px;background:#fafbfc;"/>
+
+        <label style="font-size:13px;font-weight:600;display:block;margin-top:14px;margin-bottom:6px;">…hoặc dán URL Thumbnail</label>
+        <input type="text" name="Article.Thumbnail" value="@Model.Article.Thumbnail"
+               style="width:100%;padding:10px 14px;border:1px solid #e0e4e8;border-radius:0px;font-size:14px;outline:none;font-family:inherit;" oninput="previewThumb(this.value)"/>
+        @if (!string.IsNullOrEmpty(Model.Article.Thumbnail))
+        {
+          <img src="@Model.Article.Thumbnail" id="thumbImg" alt="" style="width:100%;max-height:180px;object-fit:cover;border-radius:0px;margin-top:10px;"/>
+        }
+        else
+        {
+          <img id="thumbImg" alt="" style="width:100%;max-height:180px;object-fit:cover;border-radius:0px;margin-top:10px;display:none;"/>
+        }
+
+        <label style="font-size:13px;font-weight:600;display:block;margin-top:14px;margin-bottom:6px;">Tags</label>
+        <input type="text" name="Tags" value="@Model.Tags"
+               style="width:100%;padding:10px 14px;border:1px solid #e0e4e8;border-radius:0px;font-size:14px;outline:none;font-family:inherit;"/>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Trạng thái</label>
+        <select name="Article.Status" style="width:100%;padding:10px 14px;border:1px solid #e0e4e8;border-radius:0px;font-size:14px;outline:none;background:#fff;">
+          <option value="draft" selected="@(Model.Article.Status == "draft")">📝 Bản nháp</option>
+          <option value="published" selected="@(Model.Article.Status == "published")">✅ Xuất bản</option>
+          <option value="archived" selected="@(Model.Article.Status == "archived")">📦 Lưu trữ</option>
+          <option value="PendingReview" selected="@(Model.Article.Status == "PendingReview")">⏳ Chờ kiểm duyệt</option>
+          <option value="PendingApproval" selected="@(Model.Article.Status == "PendingApproval")">🟡 Chờ duyệt</option>
+          <option value="Rejected" selected="@(Model.Article.Status == "Rejected")">❌ Bị từ chối</option>
+        </select>
+
+        <label style="font-size:13px;font-weight:600;display:block;margin-top:14px;margin-bottom:6px;">Danh mục</label>
+        <select name="Article.CategoryId" style="width:100%;padding:10px 14px;border:1px solid #e0e4e8;border-radius:0px;font-size:14px;outline:none;background:#fff;">
+          <option value="">— Chọn danh mục —</option>
+          @foreach (var c in Model.Categories)
+          {
+            <option value="@c.Id" selected="@(Model.Article.CategoryId == c.Id)">@c.Icon @c.Name</option>
+          }
+        </select>
+                <label style="font-size:13px;font-weight:600;display:block;margin-top:14px;margin-bottom:6px;"><i class="fa fa-map-marker-alt" style="color:#ba1a1a;"></i> Vùng tin tức</label>
+                <select name="Article.Region" style="width:100%;padding:10px 14px;border:1px solid #e0e4e8;border-radius:0px;font-size:14px;outline:none;background:#fff;">
+                    <option value="">— Tất cả (không chọn vùng) —</option>
+                    <option value="dong-nai" selected="@(Model.Article.Region == "dong-nai")">📍 Đồng Nai</option>
+                    <option value="ha-noi" selected="@(Model.Article.Region == "ha-noi")">📍 Hà Nội</option>
+                    <option value="ho-chi-minh" selected="@(Model.Article.Region == "ho-chi-minh")">📍 TP. Hồ Chí Minh</option>
+                    <option value="da-nang" selected="@(Model.Article.Region == "da-nang")">📍 Đà Nẵng</option>
+                    <option value="hai-phong" selected="@(Model.Article.Region == "hai-phong")">📍 Hải Phòng</option>
+                    <option value="can-tho" selected="@(Model.Article.Region == "can-tho")">📍 Cần Thơ</option>
+                </select>
+
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+                        <input type="checkbox" name="Article.IsFeatured" value="true" @(Model.Article.IsFeatured ? "checked" : "") style="width:16px;height:16px;" /> ⭐ Bài nổi bật
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+                        <input type="checkbox" name="Article.IsBreaking" value="true" @(Model.Article.IsBreaking ? "checked" : "") style="width:16px;height:16px;" /> 🔴 Breaking news
+                    </label>
+                </div>
+
+                <label style="font-size:13px;font-weight:600;display:block;margin-top:14px;margin-bottom:6px;"><i class="fa fa-clock" style="color:#476083;"></i> Thời gian đăng bài</label>
+                <input type="datetime-local" name="Article.PublishedAt"
+                       value="@(Model.Article.PublishedAt?.ToString("yyyy-MM-ddTHH:mm"))"
+                       style="width:100%;padding:10px 14px;border:1px solid #e0e4e8;border-radius:0px;font-size:14px;outline:none;font-family:inherit;background:#fff;" />
+                <p style="font-size:11px;color:#9ca3af;margin-top:4px;">Để trống = thời điểm duyệt bài</p>
+
+                <button type="submit" style="width:100%;margin-top:16px;padding:12px;background:#ba1a1a;color:#fff;border:none;border-radius:0px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">
+          <i class="fa fa-floppy-disk"></i> Lưu thay đổi
+        </button>
+      </div>
+
+      <div style="background:#f5f6f8;border-radius:0px;padding:16px;font-size:12px;color:#6c757d;">
+        <div style="font-weight:600;margin-bottom:6px;">Thông tin</div>
+        <div>Tạo lúc: @Model.Article.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+        <div>Cập nhật: @Model.Article.UpdatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+        @if (Model.Article.PublishedAt.HasValue)
+        {
+          <div>Xuất bản: @Model.Article.PublishedAt.Value.ToString("dd/MM/yyyy HH:mm")</div>
+        }
+        <div>Lượt xem: <strong>@Model.Article.Views</strong></div>
+      </div>
+    </div>
+  </div>
+</form>
+
+@section Scripts {
+<script>
+function previewThumb(url) {
+  const img = document.getElementById('thumbImg');
+  if (!img) return;
+  if (url && url.trim()) { img.src = url; img.style.display = 'block'; }
+  else { img.style.display = 'none'; }
+}
+const fileInput = document.querySelector('input[name="thumbnailFile"]');
+if (fileInput) {
+  fileInput.addEventListener('change', function () {
+    const file = this.files && this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.getElementById('thumbImg');
+      if (img) { img.src = e.target.result; img.style.display = 'block'; }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+</script>
+}

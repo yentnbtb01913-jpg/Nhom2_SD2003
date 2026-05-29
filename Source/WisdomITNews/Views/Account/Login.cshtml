@@ -1,0 +1,59 @@
+@using WisdomITNews.Models
+@model LoginViewModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Đăng nhập — Wisdom IT News</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+            *{margin:0;padding:0;box-sizing:border-box;}
+            body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#000613,#001f3f);min-height:100vh;display:flex;align-items:center;justify-content:center;}
+            .box{background:#fff;border-radius:0px;padding:40px;width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+            .logo{text-align:center;margin-bottom:28px;}
+            .logo-icon{width:56px;height:56px;background:linear-gradient(135deg,#c1121f,#e63946,#ba1a1a);border-radius:0px;display:inline-flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:10px;color:#fff;}
+            .logo h2{font-size:20px;color:#0a2540;}
+            .logo p{font-size:13px;color:#6c757d;}
+            h1{font-size:22px;font-weight:700;color:#0a2540;margin-bottom:20px;text-align:center;}
+            label{font-size:13px;font-weight:600;color:#3d3d3d;display:block;margin-bottom:5px;}
+            input{width:100%;padding:11px 14px;border:1px solid #e0e4e8;border-radius:0px;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s;margin-bottom:16px;}
+            input:focus{border-color:#001f3f;}
+            .btn{width:100%;padding:12px;background:#001f3f;color:#fff;border:none;border-radius:0px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;}
+            .btn:hover{background:#c1121f;}
+            .error{background:#fef2f2;color:#001f3f;border:1px solid #fecaca;border-radius:0px;padding:10px 14px;font-size:13px;margin-bottom:16px;}
+            .link{text-align:center;margin-top:16px;font-size:13px;color:#6c757d;}
+            .link a{color:#001f3f;font-weight:600;text-decoration:none;}
+            .back{text-align:center;margin-top:12px;}
+            .back a{font-size:13px;color:#6c757d;text-decoration:none;}
+            .back a:hover{color:#0a2540;}
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="logo">
+            <div class="logo-icon">⚡</div>
+            <h2>Wisdom IT News</h2>
+            <p>Đăng nhập tài khoản của bạn</p>
+        </div>
+        @if (!string.IsNullOrEmpty(Model.Error))
+        {
+            <div class="error"><i class="fa fa-triangle-exclamation"></i> @Model.Error</div>
+        }
+        <form method="post" action="/Account/Login" autocomplete="off">
+            @Html.AntiForgeryToken()
+            <label>Tên đăng nhập hoặc email</label>
+            <input type="text" name="UsernameOrEmail" value="@Model.UsernameOrEmail" placeholder="username hoặc email" required />
+            <label>Mật khẩu</label>
+            <input type="password" name="Password" placeholder="••••••••" required />
+            <button type="submit" class="btn"><i class="fa fa-right-to-bracket"></i> Đăng nhập</button>
+        </form>
+        <div class="link">Chưa có tài khoản? <a href="/Account/Register">Đăng ký ngay</a></div>
+        <div class="back"><a href="/"><i class="fa fa-arrow-left"></i> Quay về trang chủ</a></div>
+    </div>
+</body>
+</html>

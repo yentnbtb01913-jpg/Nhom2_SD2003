@@ -1,0 +1,155 @@
+@model WisdomITNews.Models.DashboardViewModel
+@using WisdomITNews.Services
+@{ ViewData["Title"] = "Dashboard"; Layout = "_AdminLayout"; }
+
+<div class="admin-topbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+  <h1 style="font-size:22px;font-weight:700;">📊 Dashboard</h1>
+  <a href="/admin/CreateArticle" style="background:#16a34a;color:#fff;padding:9px 18px;border-radius:0px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Viết bài mới</a>
+</div>
+
+<!-- STAT CARDS -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;">
+  @{
+    var stats = new[] {
+      new { Icon="fa-newspaper", Bg="#dbeafe", Color="#2563eb", Value=Model.TotalArticles.ToString(), Label="Tổng bài viết" },
+      new { Icon="fa-circle-check", Bg="#dcfce7", Color="#16a34a", Value=Model.PublishedArticles.ToString(), Label="Đã xuất bản" },
+      new { Icon="fa-eye", Bg="#fef9c3", Color="#ca8a04", Value=SlugHelper.FormatViews(Model.TotalViews), Label="Tổng lượt xem" },
+      new { Icon="fa-comments", Bg="#f0eeff", Color="#476083", Value=Model.TotalComments.ToString(), Label="Bình luận" }
+    };
+  }
+  @foreach (var s in stats)
+  {
+    <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;gap:14px;align-items:center;">
+      <div style="width:48px;height:48px;border-radius:0px;background:@s.Bg;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="fa @s.Icon" style="color:@s.Color;font-size:20px;"></i>
+      </div>
+      <div>
+        <div style="font-size:24px;font-weight:700;">@s.Value</div>
+        <div style="font-size:13px;color:#6c757d;">@s.Label</div>
+      </div>
+    </div>
+  }
+</div>
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;">
+  <!-- BÀI VIẾT GẦN ĐÂY -->
+  <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 style="font-size:16px;font-weight:700;"><i class="fa fa-newspaper" style="color:#476083;"></i> Bài viết gần đây</h2>
+      <a href="/admin/Articles" style="font-size:13px;color:#ba1a1a;font-weight:600;">Xem tất cả →</a>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:2px solid #f0f2f5;">
+          <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Tiêu đề</th>
+          <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Danh mục</th>
+          <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Trạng thái</th>
+          <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Lượt xem</th>
+          <th style="padding:8px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var a in Model.RecentArticles)
+        {
+          <tr style="border-bottom:1px solid #f0f2f5;">
+            <td style="padding:10px 8px;max-width:240px;"><div style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;font-weight:600;">@a.Title</div></td>
+            <td style="padding:10px 8px;">@(a.Category?.Name ?? "—")</td>
+            <td style="padding:10px 8px;">
+              <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(a.Status=="published"?"#dcfce7":a.Status=="draft"?"#fef9c3":"#f0f2f5");color:@(a.Status=="published"?"#16a34a":a.Status=="draft"?"#ca8a04":"#6c757d");">
+                @(a.Status == "published" ? "✅ Đã đăng" : a.Status == "draft" ? "📝 Nháp" : "📦 Lưu trữ")
+              </span>
+            </td>
+            <td style="padding:10px 8px;color:#6c757d;">@SlugHelper.FormatViews(a.Views)</td>
+            <td style="padding:10px 8px;">
+              <a href="/admin/EditArticle/@a.Id" style="background:#ba1a1a;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;"><i class="fa fa-pen"></i></a>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <!-- TOP BÀI -->
+  <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:16px;"><i class="fa fa-fire" style="color:#ba1a1a;"></i> Top xem nhiều</h2>
+    @for (int i = 0; i < Model.TopArticles.Count; i++)
+    {
+      var a = Model.TopArticles[i];
+      <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f0f2f5;">
+        <span style="width:26px;height:26px;border-radius:0px;background:@(i<3?"#ba1a1a":"#f0f2f5");color:@(i<3?"#fff":"#6c757d");display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">@(i+1)</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">@a.Title</div>
+          <div style="font-size:12px;color:#6c757d;margin-top:3px;"><i class="fa fa-eye"></i> @SlugHelper.FormatViews(a.Views)</div>
+        </div>
+      </div>
+    }
+  </div>
+    <!-- CHAT MANAGEMENT SECTION -->
+    <div style="margin-top:28px;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">
+            @{
+                var chatStats = new[] {
+        new { Icon="fa-comments", Bg="#e0e7ff", Color="#4f46e5", Value=Model.TotalChatGroups.ToString(), Label="Nhóm chat" },
+        new { Icon="fa-message", Bg="#fce7f3", Color="#db2777", Value=Model.TotalChatMessages.ToString(), Label="Tổng tin nhắn" },
+        new { Icon="fa-users", Bg="#d1fae5", Color="#059669", Value=Model.TotalChatUsers.ToString(), Label="Người dùng chat" }
+      };
+            }
+            @foreach (var s in chatStats)
+            {
+                <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;gap:14px;align-items:center;">
+                    <div style="width:48px;height:48px;border-radius:0px;background:@s.Bg;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="fa @s.Icon" style="color:@s.Color;font-size:20px;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:24px;font-weight:700;">@s.Value</div>
+                        <div style="font-size:13px;color:#6c757d;">@s.Label</div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h2 style="font-size:16px;font-weight:700;"><i class="fa fa-comments" style="color:#4f46e5;"></i> Nhóm chat gần đây</h2>
+                <a href="/admin/ChatManagement" style="font-size:13px;color:#ba1a1a;font-weight:600;">Quản lý chat →</a>
+            </div>
+            @{
+                var chatMsgCounts = ViewBag.ChatMessageCounts as Dictionary<int, int> ?? new Dictionary<int, int>();
+            }
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="border-bottom:2px solid #f0f2f5;">
+                        <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Tên nhóm</th>
+                        <th style="text-align:center;padding:8px;color:#6c757d;font-weight:600;">Loại</th>
+                        <th style="text-align:center;padding:8px;color:#6c757d;font-weight:600;">Thành viên</th>
+                        <th style="text-align:center;padding:8px;color:#6c757d;font-weight:600;">Tin nhắn</th>
+                        <th style="text-align:center;padding:8px;color:#6c757d;font-weight:600;">Ngày tạo</th>
+                        <th style="padding:8px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in Model.RecentChatGroups)
+                    {
+                        <tr style="border-bottom:1px solid #f0f2f5;">
+                            <td style="padding:10px 8px;font-weight:600;">@(string.IsNullOrEmpty(g.Name) ? "(Tin nhắn riêng)" : g.Name)</td>
+                            <td style="padding:10px 8px;text-align:center;">
+                                <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(g.IsDirectMessage ? "#fef3c7" : "#dbeafe");color:@(g.IsDirectMessage ? "#92400e" : "#1e40af");">
+                                    @(g.IsDirectMessage ? "DM" : "Nhóm")
+                                </span>
+                            </td>
+                            <td style="padding:10px 8px;text-align:center;">@g.Members.Count</td>
+                            <td style="padding:10px 8px;text-align:center;">@(chatMsgCounts.ContainsKey(g.Id) ? chatMsgCounts[g.Id] : 0)</td>
+                            <td style="padding:10px 8px;text-align:center;color:#6c757d;">@g.CreatedAt.ToString("dd/MM/yyyy")</td>
+                            <td style="padding:10px 8px;text-align:center;">
+                                <a href="/Admin/ChatGroupDetail?id=@g.Id" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;text-decoration:none;"><i class="fa fa-eye"></i></a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (!Model.RecentChatGroups.Any())
+            {
+                <div style="text-align:center;padding:30px;color:#6c757d;">Chưa có nhóm chat nào.</div>
+            }
+        </div>
+    </div>
+</div>

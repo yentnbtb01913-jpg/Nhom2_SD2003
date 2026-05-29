@@ -1,0 +1,584 @@
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using WisdomITNews.Data;
+using WisdomITNews.Models;
+using WisdomITNews.Services;
+
+namespace WisdomITNews.Controllers;
+
+public class JournalistController : Controller
+{
+    private readonly AppDbContext _db;
+    private readonly ILogger<JournalistController> _logger;
+
+    public JournalistController(AppDbContext db, ILogger<JournalistController> logger)
+    {
+        _db = db;
+        _logger = logger;
+    }
+
+    private int? CurrentUserId => HttpContext.Session.GetInt32("JournalistId");
+    private bool IsLoggedIn => CurrentUserId != null;
+
+    // Kiểm tra quyền nhà báo
+    private async Task<User?> GetCurrentJournalist()
+    {
+        if (CurrentUserId == null) return null;
+        var user = await _db.Users.FindAsync(CurrentUserId.Value);
+        if (user == null || user.Role != "Journalist") return null;
+        return user;
+    }
+
+    // ===== REGISTER =====
+    [HttpGet]
+    public IActionResult Register()
+    {
+        if (IsLoggedIn) return RedirectToAction("Dashboard");
+        return View(new JournalistRegisterViewModel());
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Register(JournalistRegisterViewModel vm)
+    {
+        if (string.IsNullOrWhiteSpace(vm.Username) ||
+            string.IsNullOrWhiteSpace(vm.Email) ||
+            string.IsNullOrWhiteSpace(vm.Password) ||
+            string.IsNullOrWhiteSpace(vm.FullName))
+        {
+            vm.Error = "Vui lòng điền đầy đủ thông tin.";
+            return View(vm);
+        }
+
+        if (vm.Password.Length < 6)
+        {
+            vm.Error = "Mật khẩu phải có ít nhất 6 ký tự.";
+            return View(vm);
+        }
+
+        if (vm.Password != vm.ConfirmPassword)
+        {
+            vm.Error = "Mật khẩu xác nhận không khớp.";
+            return View(vm);
+        }
+
+        try
+        {
+            var lowerUsername = vm.Username.Trim().ToLowerInvariant();
+            var lowerEmail = vm.Email.Trim().ToLowerInvariant();
+
+            if (await _db.Users.AnyAsync(u => u.Username == lowerUsername))
+            {
+                vm.Error = "Tên đăng nhập đã tồn tại.";
+                return View(vm);
+            }
+            if (await _db.Users.AnyAsync(u => u.Email == lowerEmail))
+            {
+                vm.Error = "Email đã được sử dụng.";
+                return View(vm);
+            }
+
+            var user = new User
+            {
+                Username = lowerUsername,
+                Email = lowerEmail,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(vm.Password),
+                FullName = vm.FullName.Trim(),
+                Bio = vm.Bio?.Trim(),
+                Role = "Journalist",
+                IsEmailConfirmed = false,
+                CreatedAt = DateTime.Now
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+
+            // Auto login
+            SetJournalistSession(user);
+            return RedirectToAction("Dashboard");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Journalist Register failed");
+            vm.Error = "Lỗi hệ thống. Vui lòng thử lại.";
+            return View(vm);
+        }
+    }
+
+    // ===== LOGIN =====
+    [HttpGet]
+    public IActionResult Login()
+    {
+        if (IsLoggedIn) return RedirectToAction("Dashboard");
+        return View(new JournalistLoginViewModel());
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Login(JournalistLoginViewModel vm)
+    {
+        if (string.IsNullOrWhiteSpace(vm.UsernameOrEmail) || string.IsNullOrWhiteSpace(vm.Password))
+        {
+            vm.Error = "Vui lòng nhập đầy đủ thông tin.";
+            return View(vm);
+        }
+
+        try
+        {
+            var key = vm.UsernameOrEmail.Trim().ToLowerInvariant();
+            var user = await _db.Users.FirstOrDefaultAsync(u =>
+                (u.Username == key || u.Email == key) && u.Role == "Journalist");
+
+            if (user == null || !BCrypt.Net.BCrypt.Verify(vm.Password, user.PasswordHash))
+            {
+                vm.Error = "Sai tên đăng nhập / email hoặc mật khẩu.";
+                return View(vm);
+            }
+
+            SetJournalistSession(user);
+            return RedirectToAction("Dashboard");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Journalist Login failed");
+            vm.Error = "Lỗi hệ thống. Vui lòng thử lại.";
+            return View(vm);
+        }
+    }
+
+    // ===== LOGOUT =====
+    public IActionResult Logout()
+    {
+        HttpContext.Session.Remove("JournalistId");
+        HttpContext.Session.Remove("JournalistName");
+        HttpContext.Session.Remove("JournalistAvatar");
+        return RedirectToAction("Login");
+    }
+
+    // ===== DASHBOARD =====
+    [HttpGet]
+    public async Task<IActionResult> Dashboard()
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return RedirectToAction("Login");
+
+        var articles = await _db.Articles
+            .Include(a => a.Category)
+            .Include(a => a.Comments)
+            .Where(a => a.AuthorUserId == user.Id)
+            .OrderByDescending(a => a.CreatedAt)
+            .ToListAsync();
+
+        var vm = new JournalistDashboardViewModel
+        {
+            User = user,
+            Articles = articles,
+            TotalViews = articles.Sum(a => a.Views),
+            TotalComments = articles.Sum(a => a.Comments.Count),
+            PublishedCount = articles.Count(a => a.Status == "published"),
+            DraftCount = articles.Count(a => a.Status == "draft"),
+            PendingCount = articles.Count(a => a.Status == "PendingReview" || a.Status == "PendingApproval")
+        };
+
+        return View(vm);
+    }
+
+    // ===== PROFILE =====
+    [HttpGet]
+    public async Task<IActionResult> Profile()
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return RedirectToAction("Login");
+
+        var vm = new ProfileViewModel
+        {
+            User = user,
+            Articles = await _db.Articles
+                .Include(a => a.Category)
+                .Where(a => a.AuthorUserId == user.Id)
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(20)
+                .ToListAsync(),
+            CommentCount = await _db.Comments.CountAsync(c => c.UserId == user.Id)
+        };
+
+        return View(vm);
+    }
+
+    // ===== UPDATE PROFILE =====
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateProfile(string fullName, string email, string? bio)
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return Json(new { success = false, message = "Chưa đăng nhập" });
+
+        if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(email))
+            return Json(new { success = false, message = "Vui lòng điền đầy đủ thông tin" });
+
+        try
+        {
+            var lowerEmail = email.Trim().ToLowerInvariant();
+            if (await _db.Users.AnyAsync(u => u.Email == lowerEmail && u.Id != user.Id))
+                return Json(new { success = false, message = "Email đã được sử dụng" });
+
+            user.FullName = fullName.Trim();
+            user.Email = lowerEmail;
+            user.Bio = bio?.Trim();
+            await _db.SaveChangesAsync();
+
+            HttpContext.Session.SetString("JournalistName", user.FullName);
+            return Json(new { success = true, message = "Cập nhật thành công!" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "UpdateProfile failed");
+            return Json(new { success = false, message = "Lỗi hệ thống" });
+        }
+    }
+
+    // ===== CHANGE PASSWORD =====
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(string currentPassword, string newPassword, string confirmPassword)
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return Json(new { success = false, message = "Chưa đăng nhập" });
+
+        if (string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
+            return Json(new { success = false, message = "Vui lòng điền đầy đủ" });
+
+        if (newPassword.Length < 6)
+            return Json(new { success = false, message = "Mật khẩu mới phải ít nhất 6 ký tự" });
+
+        if (newPassword != confirmPassword)
+            return Json(new { success = false, message = "Mật khẩu xác nhận không khớp" });
+
+        if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+            return Json(new { success = false, message = "Mật khẩu hiện tại không đúng" });
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, message = "Đổi mật khẩu thành công!" });
+    }
+
+    // ===== UPLOAD AVATAR =====
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UploadAvatar(IFormFile avatarFile)
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return Json(new { success = false, message = "Chưa đăng nhập" });
+
+        if (avatarFile == null || avatarFile.Length == 0)
+            return Json(new { success = false, message = "Vui lòng chọn ảnh" });
+
+        if (avatarFile.Length > 5 * 1024 * 1024)
+            return Json(new { success = false, message = "Ảnh quá lớn (tối đa 5MB)" });
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
+        if (!allowedTypes.Contains(avatarFile.ContentType.ToLower()))
+            return Json(new { success = false, message = "Chỉ hỗ trợ JPG, PNG, GIF, WEBP" });
+
+        try
+        {
+            var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
+            Directory.CreateDirectory(uploadsDir);
+
+            var ext = Path.GetExtension(avatarFile.FileName).ToLower();
+            if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+            var fileName = $"journalist_{user.Id}_{DateTime.Now:yyyyMMddHHmmss}{ext}";
+            var filePath = Path.Combine(uploadsDir, fileName);
+
+            // Xóa avatar cũ
+            if (!string.IsNullOrEmpty(user.AvatarUrl) && user.AvatarUrl.StartsWith("/uploads/"))
+            {
+                var oldPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", user.AvatarUrl.TrimStart('/'));
+                if (System.IO.File.Exists(oldPath)) System.IO.File.Delete(oldPath);
+            }
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+                await avatarFile.CopyToAsync(stream);
+
+            var avatarUrl = $"/uploads/avatars/{fileName}";
+            user.AvatarUrl = avatarUrl;
+            await _db.SaveChangesAsync();
+
+            HttpContext.Session.SetString("JournalistAvatar", avatarUrl);
+            return Json(new { success = true, message = "Cập nhật ảnh đại diện thành công!", avatarUrl });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "UploadAvatar failed");
+            return Json(new { success = false, message = "Lỗi hệ thống" });
+        }
+    }
+
+    // ===== CREATE ARTICLE =====
+    [HttpGet]
+    public async Task<IActionResult> Create()
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return RedirectToAction("Login");
+
+        var vm = new ArticleFormViewModel
+        {
+            Categories = await _db.Categories.OrderBy(c => c.Name).ToListAsync()
+        };
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(ArticleFormViewModel vm, IFormFile? thumbnailFile)
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return RedirectToAction("Login");
+
+        vm.Categories = await _db.Categories.OrderBy(c => c.Name).ToListAsync();
+
+        if (string.IsNullOrWhiteSpace(vm.Article.Title) ||
+            string.IsNullOrWhiteSpace(vm.Article.Summary) ||
+            string.IsNullOrWhiteSpace(vm.Article.Content))
+        {
+            vm.Error = "Vui lòng điền đầy đủ tiêu đề, tóm tắt và nội dung.";
+            return View(vm);
+        }
+
+        try
+        {
+            // Upload thumbnail
+            if (thumbnailFile != null && thumbnailFile.Length > 0)
+            {
+                var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "articles");
+                Directory.CreateDirectory(uploadsDir);
+                var ext = Path.GetExtension(thumbnailFile.FileName).ToLower();
+                var fileName = $"thumb_{DateTime.Now:yyyyMMddHHmmss}_{Guid.NewGuid():N}{ext}";
+                var filePath = Path.Combine(uploadsDir, fileName);
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                    await thumbnailFile.CopyToAsync(stream);
+                vm.Article.Thumbnail = $"/uploads/articles/{fileName}";
+            }
+
+            // Generate slug
+            var slug = SlugHelper.MakeSlug(vm.Article.Title);
+            if (await _db.Articles.AnyAsync(a => a.Slug == slug))
+                slug += "-" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+            vm.Article.Slug = slug;
+            vm.Article.AuthorUserId = user.Id;
+            vm.Article.Status = vm.Article.Status == "draft" ? "draft" : "PendingReview";
+            vm.Article.CreatedAt = DateTime.Now;
+            vm.Article.UpdatedAt = DateTime.Now;
+
+            _db.Articles.Add(vm.Article);
+            await _db.SaveChangesAsync();
+
+            // Save tags
+            if (!string.IsNullOrWhiteSpace(vm.Tags))
+            {
+                var tagNames = vm.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim().ToLower()).Distinct();
+                foreach (var name in tagNames)
+                {
+                    var tag = await _db.Tags.FirstOrDefaultAsync(t => t.Name == name);
+                    if (tag == null)
+                    {
+                        tag = new Tag { Name = name, Slug = SlugHelper.MakeSlug(name) };
+                        _db.Tags.Add(tag);
+                        await _db.SaveChangesAsync();
+                    }
+                    _db.ArticleTags.Add(new ArticleTag { ArticleId = vm.Article.Id, TagId = tag.Id });
+                }
+                await _db.SaveChangesAsync();
+            }
+
+            TempData["Success"] = "Bài viết đã được tạo thành công!";
+            return RedirectToAction("Dashboard");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Journalist Create article failed");
+            vm.Error = "Lỗi hệ thống. Thử lại sau.";
+            return View(vm);
+        }
+    }
+
+    // ===== EDIT ARTICLE =====
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id)
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return RedirectToAction("Login");
+
+        var article = await _db.Articles
+            .Include(a => a.ArticleTags).ThenInclude(at => at.Tag)
+            .FirstOrDefaultAsync(a => a.Id == id && a.AuthorUserId == user.Id);
+
+        if (article == null) return NotFound();
+
+        var vm = new ArticleFormViewModel
+        {
+            Article = article,
+            Categories = await _db.Categories.OrderBy(c => c.Name).ToListAsync(),
+            Tags = string.Join(", ", article.ArticleTags.Select(at => at.Tag?.Name ?? ""))
+        };
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, ArticleFormViewModel vm, IFormFile? thumbnailFile)
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return RedirectToAction("Login");
+
+        var article = await _db.Articles
+            .Include(a => a.ArticleTags)
+            .FirstOrDefaultAsync(a => a.Id == id && a.AuthorUserId == user.Id);
+
+        if (article == null) return NotFound();
+
+        vm.Categories = await _db.Categories.OrderBy(c => c.Name).ToListAsync();
+
+        if (string.IsNullOrWhiteSpace(vm.Article.Title) ||
+            string.IsNullOrWhiteSpace(vm.Article.Summary) ||
+            string.IsNullOrWhiteSpace(vm.Article.Content))
+        {
+            vm.Error = "Vui lòng điền đầy đủ tiêu đề, tóm tắt và nội dung.";
+            vm.Article = article;
+            return View(vm);
+        }
+
+        try
+        {
+            if (thumbnailFile != null && thumbnailFile.Length > 0)
+            {
+                var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "articles");
+                Directory.CreateDirectory(uploadsDir);
+                var ext = Path.GetExtension(thumbnailFile.FileName).ToLower();
+                var fileName = $"thumb_{DateTime.Now:yyyyMMddHHmmss}_{Guid.NewGuid():N}{ext}";
+                var filePath = Path.Combine(uploadsDir, fileName);
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                    await thumbnailFile.CopyToAsync(stream);
+                article.Thumbnail = $"/uploads/articles/{fileName}";
+            }
+
+            article.Title = vm.Article.Title;
+            article.Summary = vm.Article.Summary;
+            article.Content = vm.Article.Content;
+            article.CategoryId = vm.Article.CategoryId;
+            article.ThumbnailAlt = vm.Article.ThumbnailAlt;
+            article.Region = vm.Article.Region;
+            article.Status = vm.Article.Status == "draft" ? "draft" : "PendingReview";
+            article.UpdatedAt = DateTime.Now;
+
+            var newSlug = SlugHelper.MakeSlug(article.Title);
+            if (newSlug != article.Slug)
+            {
+                if (await _db.Articles.AnyAsync(a => a.Slug == newSlug && a.Id != article.Id))
+                    newSlug += "-" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                article.Slug = newSlug;
+            }
+
+            // Update tags
+            _db.ArticleTags.RemoveRange(article.ArticleTags);
+            if (!string.IsNullOrWhiteSpace(vm.Tags))
+            {
+                var tagNames = vm.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim().ToLower()).Distinct();
+                foreach (var name in tagNames)
+                {
+                    var tag = await _db.Tags.FirstOrDefaultAsync(t => t.Name == name);
+                    if (tag == null)
+                    {
+                        tag = new Tag { Name = name, Slug = SlugHelper.MakeSlug(name) };
+                        _db.Tags.Add(tag);
+                        await _db.SaveChangesAsync();
+                    }
+                    _db.ArticleTags.Add(new ArticleTag { ArticleId = article.Id, TagId = tag.Id });
+                }
+            }
+
+            await _db.SaveChangesAsync();
+            TempData["Success"] = "Cập nhật bài viết thành công!";
+            return RedirectToAction("Dashboard");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Journalist Edit article failed");
+            vm.Error = "Lỗi hệ thống. Thử lại sau.";
+            vm.Article = article;
+            return View(vm);
+        }
+    }
+
+    // ===== DELETE ARTICLE =====
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return Json(new { success = false, message = "Chưa đăng nhập" });
+
+        var article = await _db.Articles
+            .Include(a => a.ArticleTags)
+            .Include(a => a.Comments)
+            .FirstOrDefaultAsync(a => a.Id == id && a.AuthorUserId == user.Id);
+
+        if (article == null)
+            return Json(new { success = false, message = "Không tìm thấy bài viết" });
+
+        try
+        {
+            _db.ArticleTags.RemoveRange(article.ArticleTags);
+            _db.Comments.RemoveRange(article.Comments);
+            _db.Articles.Remove(article);
+            await _db.SaveChangesAsync();
+            return Json(new { success = true, message = "Đã xóa bài viết" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Journalist Delete article failed");
+            return Json(new { success = false, message = "Lỗi hệ thống" });
+        }
+    }
+
+    // ===== UPLOAD IMAGE (cho TinyMCE) =====
+    [HttpPost]
+    public async Task<IActionResult> UploadImage(IFormFile file)
+    {
+        var user = await GetCurrentJournalist();
+        if (user == null) return Json(new { success = false, message = "Unauthorized" });
+
+        if (file == null || file.Length == 0)
+            return Json(new { success = false, message = "No file" });
+
+        if (file.Length > 5 * 1024 * 1024)
+            return Json(new { success = false, message = "File too large" });
+
+        try
+        {
+            var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "content");
+            Directory.CreateDirectory(uploadsDir);
+            var ext = Path.GetExtension(file.FileName).ToLower();
+            var fileName = $"img_{DateTime.Now:yyyyMMddHHmmss}_{Guid.NewGuid():N}{ext}";
+            var filePath = Path.Combine(uploadsDir, fileName);
+            using (var stream = new FileStream(filePath, FileMode.Create))
+                await file.CopyToAsync(stream);
+
+            return Json(new { location = $"/uploads/content/{fileName}" });
+        }
+        catch
+        {
+            return Json(new { success = false, message = "Upload failed" });
+        }
+    }
+
+    // ===== HELPERS =====
+    private void SetJournalistSession(User user)
+    {
+        HttpContext.Session.SetInt32("JournalistId", user.Id);
+        HttpContext.Session.SetString("JournalistName", user.FullName);
+        HttpContext.Session.SetString("JournalistAvatar", user.AvatarUrl ?? "");
+    }
+}
