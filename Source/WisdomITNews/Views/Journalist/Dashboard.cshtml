@@ -123,6 +123,30 @@
     </div>
 </div>
 
+<!-- AI Chatbot Widget -->
+<div class="j-card" style="margin-top:24px;">
+    <h2 class="j-card-title" style="margin-bottom:16px;">
+        <i class="fa fa-robot" style="color:#8b5cf6;"></i> Trợ lý AI - Wisdom Bot
+    </h2>
+    <div id="chatBox" style="height:320px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:12px;background:#fafbfc;">
+        <div class="ai-msg ai-msg-bot" style="margin-bottom:12px;">
+            <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
+                <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
+                Xin chào! Tôi là trợ lý AI của WisdomITNews. Bạn có thể hỏi tôi về công nghệ, lập trình, AI hoặc bất cứ điều gì liên quan đến IT.
+            </div>
+        </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+        <input type="text" id="chatInput" placeholder="Nhập câu hỏi cho AI..."
+               style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;"
+               onkeydown="if(event.key==='Enter')sendChat()">
+        <button onclick="sendChat()" id="chatSendBtn"
+                style="padding:10px 20px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+            <i class="fa fa-paper-plane"></i> Gửi
+        </button>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         async function deleteArticle(id) {
@@ -136,7 +160,59 @@
                 alert(data.message);
                 if (data.success) location.reload();
             } catch { alert('Lỗi kết nối'); }
+
+
+            async function sendChat() {
+                const input = document.getElementById('chatInput');
+                const msg = input.value.trim();
+                if (!msg) return;
+
+                const chatBox = document.getElementById('chatBox');
+                const btn = document.getElementById('chatSendBtn');
+
+                // Hiển thị tin nhắn user
+                chatBox.innerHTML += `
+                        <div style="text-align:right;margin-bottom:12px;">
+                            <div style="background:#001f3f;color:#fff;padding:10px 14px;border-radius:12px;border-top-right-radius:0;display:inline-block;max-width:85%;font-size:14px;">
+                                ${msg}
+                            </div>
+                        </div>`;
+                input.value = '';
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang xử lý...';
+                chatBox.scrollTop = chatBox.scrollHeight;
+
+                // Gọi API
+                try {
+                    const res = await fetch('/article/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: msg })
+                    });
+                    const data = await res.json();
+
+                    chatBox.innerHTML += `
+                            <div style="margin-bottom:12px;">
+                                <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
+                                    <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
+                                    ${data.reply}
+                                </div>
+                            </div>`;
+                } catch {
+                    chatBox.innerHTML += `
+                            <div style="margin-bottom:12px;">
+                                <div style="background:#fee2e2;padding:10px 14px;border-radius:12px;display:inline-block;max-width:85%;font-size:14px;color:#dc2626;">
+                                    ⚠️ Lỗi kết nối, vui lòng thử lại.
+                                </div>
+                            </div>`;
+                }
+
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa fa-paper-plane"></i> Gửi';
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
         }
+        
     </script>
     @Html.AntiForgeryToken()
 }

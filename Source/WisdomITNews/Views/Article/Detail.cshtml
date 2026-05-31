@@ -11,13 +11,10 @@
     var sessionUserId = Context.Session.GetInt32("UserId");
     var sessionUserName = Context.Session.GetString("UserName") ?? "";
 }
-
 @section Head {
     <meta name="description" content="@article.Summary" />
 }
-
 <div id="readProgress" class="read-progress"></div>
-
 <div class="breadcrumb">
     <div class="container">
         <ul class="breadcrumb-list">
@@ -30,10 +27,8 @@
         </ul>
     </div>
 </div>
-
 <div class="page-wrapper">
     <main>
-
         <div class="article-header">
             @if (article.Category != null)
             {
@@ -57,19 +52,19 @@
                     <span><i class="fa fa-comments"></i> @allComments.Count bình luận</span>
                 </div>
             </div>
-        </div>
 
-        <div class="ai-toolbar">
-            <div class="ai-toolbar-label"><span class="dot"></span> AI Tools</div>
-            <button id="summaryBtn" class="ai-btn ai-btn-summarize" onclick="toggleSummary()">
-                <i class="fa fa-magic-wand-sparkles"></i> Tóm tắt bằng AI
-            </button>
-            <button class="ai-btn ai-btn-title" onclick="openTitleModal()">
-                <i class="fa fa-lightbulb"></i> Gợi ý tiêu đề
-            </button>
-            <button class="ai-btn ai-btn-share" onclick="shareArticle()">
-                <i class="fa fa-share-nodes"></i> Chia sẻ
-            </button>
+            <!-- AI Tools Bar -->
+            <div style="display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap;">
+                <span style="font-size:12px;font-weight:700;color:var(--ai-color);text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px;">
+                    <i class="fa fa-robot"></i> AI Tools
+                </span>
+                <button onclick="toggleSummary()" style="background:var(--ai-color);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;">
+                    <i class="fa fa-magic-wand-sparkles"></i> Tóm tắt bằng AI
+                </button>
+                <button onclick="shareArticle()" style="background:var(--bg-gray);color:var(--text-dark);border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;">
+                    <i class="fa fa-share-nodes"></i> Chia sẻ
+                </button>
+            </div>
         </div>
 
         <div id="summaryBox" class="ai-summary-box" style="display:none;">
@@ -93,7 +88,6 @@
                 <img src="@article.Thumbnail" alt="@(article.ThumbnailAlt ?? article.Title)" />
             </div>
         }
-
         <div class="article-body">
             <div class="article-content">
                 @Html.Raw(article.Content)
@@ -108,7 +102,6 @@
                 </div>
             }
         </div>
-
         <div class="share-bar" data-share-url="@Context.Request.Scheme://@Context.Request.Host/bai-viet/@article.Slug">
             <span class="share-bar-label"><i class="fa fa-share-nodes"></i> Chia sẻ:</span>
             <a href="https://www.facebook.com/sharer.php?u=@Uri.EscapeDataString($"{Context.Request.Scheme}://{Context.Request.Host}/bai-viet/{article.Slug}")"
@@ -116,7 +109,6 @@
             <button class="share-btn share-copy js-share-copy"><i class="fa fa-link"></i> Sao chép</button>
             <span class="share-toast"></span>
         </div>
-
         <div class="author-box">
             <div class="author-box-avatar">@authorInitial</div>
             <div class="author-box-info">
@@ -125,7 +117,6 @@
                 <p style="font-size:13px;color:var(--text-muted);margin-top:6px;">@(article.Author?.Role ?? "Editor") tại Wisdom IT News</p>
             </div>
         </div>
-
         <!-- Comments Section -->
         <div class="comments-section">
             <h2 class="comments-title">
@@ -172,9 +163,7 @@
                 }
             </div>
         </div>
-
     </main>
-
     <aside class="sidebar">
         @if (Model.RelatedArticles.Any())
         {
@@ -209,36 +198,25 @@
                 }
             </div>
         </div>
-        <div class="sidebar-widget">
-            <div class="widget-header ai"><i class="fa fa-robot"></i> AI Tools</div>
-            <div class="widget-body">
-                <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="toggleSummary()">
-                    <div style="width:38px;height:38px;background:var(--ai-light);border-radius:0px;display:flex;align-items:center;justify-content:center;color:var(--ai-color);font-size:18px;flex-shrink:0;">
-                        <i class="fa fa-magic-wand-sparkles"></i>
-                    </div>
-                    <div><strong>Tóm tắt bài báo</strong><p style="font-size:12px;color:var(--text-muted);margin-top:2px;">AI tóm tắt nội dung trong 3 giây</p></div>
-                </div>
-                <div style="display:flex;gap:12px;padding:10px 0;cursor:pointer;" onclick="openTitleModal()">
-                    <div style="width:38px;height:38px;background:var(--ai-light);border-radius:0px;display:flex;align-items:center;justify-content:center;color:var(--ai-color);font-size:18px;flex-shrink:0;">
-                        <i class="fa fa-lightbulb"></i>
-                    </div>
-                    <div><strong>Gợi ý tiêu đề</strong><p style="font-size:12px;color:var(--text-muted);margin-top:2px;">AI đề xuất tiêu đề hấp dẫn</p></div>
-                </div>
-            </div>
-        </div>
     </aside>
 </div>
 
-<div id="titleModal" class="modal-overlay" onclick="closeTitleModal(event)">
-    <div class="modal-box" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <h3 style="font-family:'Playfair Display',serif;"><i class="fa fa-lightbulb" style="color:var(--ai-color);"></i> Gợi ý tiêu đề AI</h3>
-            <button class="modal-close-btn" onclick="closeTitleModal()"><i class="fa fa-times"></i></button>
-        </div>
-        <div id="titleSuggestions">
-            <div class="loading-dots"><span></span><span></span><span></span></div>
-        </div>
+<!-- AI Chatbot Popup -->
+<button class="chatbot-toggle" onclick="toggleChatbot()" title="Trợ lý AI">
+    <i class="fa fa-robot" id="chatbotIcon"></i>
+</button>
+<div class="chatbot-panel" id="chatbotPanel">
+    <div class="chatbot-header">
+        <span><i class="fa fa-robot"></i> Wisdom AI Bot</span>
+        <button class="chatbot-close" onclick="toggleChatbot()">&times;</button>
     </div>
+    <div class="chatbot-messages" id="chatbotMessages">
+        <div class="chatbot-msg bot">Xin chào! Tôi là trợ lý AI của WisdomITNews. Hỏi tôi bất cứ điều gì về công nghệ, lập trình hoặc AI nhé!</div>
+    </div>
+    <form class="chatbot-form" onsubmit="sendBotMsg(event)">
+        <input type="text" id="chatbotInput" placeholder="Nhập câu hỏi..." autocomplete="off">
+        <button type="submit" id="chatbotSendBtn"><i class="fa fa-paper-plane"></i></button>
+    </form>
 </div>
 
 @section Scripts {
@@ -252,55 +230,40 @@
             box.style.display = 'block';
             box.scrollIntoView({ behavior: 'smooth' });
             if (summaryLoaded) return;
-            document.getElementById('summaryContent').innerHTML = '<p style="text-align:center;padding:20px;">AI dang doc bai bao...</p>';
+            document.getElementById('summaryContent').innerHTML = '<p style="text-align:center;padding:20px;">AI đang đọc bài báo...</p>';
             fetch('/api/summarize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articleId: ARTICLE_ID }) })
                 .then(function (r) { return r.json(); }).then(function (d) {
                     if (d.success) {
                         document.getElementById('summaryContent').innerHTML = d.summary;
-                        document.getElementById('tokenInfo').textContent = d.cached ? 'Tu cache' : 'Tokens: ' + d.tokens;
+                        document.getElementById('tokenInfo').textContent = d.cached ? 'Từ cache' : 'Tokens: ' + d.tokens;
                         summaryLoaded = true;
-                        document.getElementById('summaryBtn').innerHTML = '<i class="fa fa-eye-slash"></i> An tom tat';
                     } else {
-                        document.getElementById('summaryContent').innerHTML = '<p style="color:#ba1a1a">Loi khi tom tat.</p>';
+                        document.getElementById('summaryContent').innerHTML = '<p style="color:#ba1a1a">Lỗi khi tóm tắt.</p>';
                     }
-                }).catch(function () { document.getElementById('summaryContent').innerHTML = '<p style="color:#ba1a1a">Loi ket noi.</p>'; });
-        }
-        function closeSummary() {
-            document.getElementById('summaryBox').style.display = 'none';
-            document.getElementById('summaryBtn').innerHTML = '<i class="fa fa-magic-wand-sparkles"></i> Tom tat bang AI';
+                }).catch(function () { document.getElementById('summaryContent').innerHTML = '<p style="color:#ba1a1a">Lỗi kết nối.</p>'; });
         }
 
-        function openTitleModal() { document.getElementById('titleModal').style.display = 'flex'; loadTitles(); }
-        function closeTitleModal(e) { if (!e || e.target === document.getElementById('titleModal')) document.getElementById('titleModal').style.display = 'none'; }
-        function loadTitles() {
-            document.getElementById('titleSuggestions').innerHTML = '<p style="text-align:center;padding:20px;">AI dang goi y...</p>';
-            fetch('/api/suggest-title', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articleId: ARTICLE_ID }) })
-                .then(function (r) { return r.json(); }).then(function (d) {
-                    if (d.success) {
-                        document.getElementById('titleSuggestions').innerHTML = d.titles.map(function (t) {
-                            return '<div class="title-option"><div class="title-label">' + t.style + '</div><div>' + t.text + '</div></div>';
-                        }).join('');
-                    }
-                }).catch(function () { document.getElementById('titleSuggestions').innerHTML = '<p>Loi ket noi.</p>'; });
+        function closeSummary() {
+            document.getElementById('summaryBox').style.display = 'none';
         }
 
         function shareArticle() {
             if (navigator.share) navigator.share({ title: document.title, url: location.href });
-            else { navigator.clipboard.writeText(location.href); alert('Da sao chep link!'); }
+            else { navigator.clipboard.writeText(location.href); alert('Đã sao chép link!'); }
         }
 
         function submitComment(articleId) {
             var nameEl = document.getElementById('cName');
             var name = nameEl.value.trim();
             var text = document.getElementById('cText').value.trim();
-            if (!name || !text) { alert('Vui long dien ten va noi dung!'); return; }
+            if (!name || !text) { alert('Vui lòng điền tên và nội dung!'); return; }
             var emailEl = document.getElementById('cEmail');
             var email = emailEl ? emailEl.value : '';
             fetch('/api/comment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articleId: articleId, name: name, email: email, content: text }) })
                 .then(function (r) { return r.json(); }).then(function (data) {
                     if (data.success) {
                         var initial = name[0].toUpperCase();
-                        var html = '<div class="comment-node" style="padding-top:12px;"><div class="comment-row"><div class="comment-avatar">' + initial + '</div><div class="comment-body"><div class="comment-meta"><strong>' + name + '</strong> <span class="comment-time">Vua xong</span></div><p class="comment-text">' + text + '</p></div></div></div>';
+                        var html = '<div class="comment-node" style="padding-top:12px;"><div class="comment-row"><div class="comment-avatar">' + initial + '</div><div class="comment-body"><div class="comment-meta"><strong>' + name + '</strong> <span class="comment-time">Vừa xong</span></div><p class="comment-text">' + text + '</p></div></div></div>';
                         document.getElementById('commentList').insertAdjacentHTML('afterbegin', html);
                         document.getElementById('cText').value = '';
                         if (nameEl.type !== 'hidden') nameEl.value = '';
@@ -314,7 +277,6 @@
             var h = document.documentElement.scrollHeight - window.innerHeight;
             document.getElementById('readProgress').style.width = (h > 0 ? (window.scrollY / h) * 100 : 0) + '%';
         });
-        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeTitleModal(); });
 
         document.addEventListener('DOMContentLoaded', function () {
             var copyBtn = document.querySelector('.js-share-copy');
@@ -323,7 +285,7 @@
                     var url = this.closest('.share-bar').dataset.shareUrl || location.href;
                     navigator.clipboard.writeText(url).then(function () {
                         var toast = document.querySelector('.share-toast');
-                        if (toast) { toast.textContent = 'Da sao chep link!'; setTimeout(function () { toast.textContent = ''; }, 2500); }
+                        if (toast) { toast.textContent = 'Đã sao chép link!'; setTimeout(function () { toast.textContent = ''; }, 2500); }
                     });
                 });
             }
@@ -345,8 +307,8 @@
                                 if (lc) lc.textContent = data.likeCount;
                                 if (dc) dc.textContent = data.dislikeCount;
                             }
-                        } else { alert(data.message || 'Ban da binh chon roi!'); }
-                    }).catch(function () { alert('Loi ket noi.'); });
+                        } else { alert(data.message || 'Bạn đã bình chọn rồi!'); }
+                    }).catch(function () { alert('Lỗi kết nối.'); });
             });
 
             document.addEventListener('click', function (e) {
@@ -374,23 +336,68 @@
                 var emailInput = form.querySelector('.reply-email');
                 var email = emailInput ? emailInput.value.trim() : '';
                 var content = form.querySelector('.reply-text').value.trim();
-                if (!name || !content) { alert('Vui long dien ten va noi dung!'); return; }
+                if (!name || !content) { alert('Vui lòng điền tên và nội dung!'); return; }
                 fetch('/article/reply-comment', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ articleId: ARTICLE_ID, parentCommentId: parentId, name: name, email: email, content: content })
                 }).then(function (r) { return r.json(); }).then(function (data) {
                     if (data.success) { alert(data.message); form.reset(); form.style.display = 'none'; }
-                    else { alert(data.message || 'Loi gui tra loi'); }
-                }).catch(function () { alert('Loi ket noi.'); });
+                    else { alert(data.message || 'Lỗi gửi trả lời'); }
+                }).catch(function () { alert('Lỗi kết nối.'); });
             });
         });
+
         async function deleteComment(commentId) {
             if (!confirm('Bạn có chắc muốn xoá bình luận này?')) return;
             const res = await fetch(`/article/delete-comment/${commentId}`, { method: 'POST' });
             const data = await res.json();
             if (data.success) location.reload();
             else alert(data.message || 'Lỗi');
+        }
+
+        // ===== AI CHATBOT =====
+        function toggleChatbot() {
+            var panel = document.getElementById('chatbotPanel');
+            var icon = document.getElementById('chatbotIcon');
+            panel.classList.toggle('open');
+            icon.className = panel.classList.contains('open') ? 'fa fa-xmark' : 'fa fa-robot';
+        }
+
+        async function sendBotMsg(e) {
+            e.preventDefault();
+            var input = document.getElementById('chatbotInput');
+            var msg = input.value.trim();
+            if (!msg) return;
+
+            var box = document.getElementById('chatbotMessages');
+            var btn = document.getElementById('chatbotSendBtn');
+
+            box.innerHTML += '<div class="chatbot-msg user">' + msg + '</div>';
+            input.value = '';
+            btn.disabled = true;
+            box.innerHTML += '<div class="chatbot-msg typing" id="typingMsg">Đang suy nghĩ...</div>';
+            box.scrollTop = box.scrollHeight;
+
+            try {
+                var res = await fetch('/article/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                var data = await res.json();
+                var typing = document.getElementById('typingMsg');
+                if (typing) typing.remove();
+                box.innerHTML += '<div class="chatbot-msg bot">' + data.reply + '</div>';
+            } catch {
+                var typing = document.getElementById('typingMsg');
+                if (typing) typing.remove();
+                box.innerHTML += '<div class="chatbot-msg bot" style="color:#dc2626;">Lỗi kết nối, thử lại sau.</div>';
+            }
+
+            btn.disabled = false;
+            box.scrollTop = box.scrollHeight;
+            input.focus();
         }
     </script>
 }
