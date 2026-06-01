@@ -160,59 +160,50 @@
                 alert(data.message);
                 if (data.success) location.reload();
             } catch { alert('Lỗi kết nối'); }
+        }
 
-
-            async function sendChat() {
-                const input = document.getElementById('chatInput');
-                const msg = input.value.trim();
-                if (!msg) return;
-
-                const chatBox = document.getElementById('chatBox');
-                const btn = document.getElementById('chatSendBtn');
-
-                // Hiển thị tin nhắn user
-                chatBox.innerHTML += `
+        async function sendChat() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            const chatBox = document.getElementById('chatBox');
+            const btn = document.getElementById('chatSendBtn');
+            chatBox.innerHTML += `
                         <div style="text-align:right;margin-bottom:12px;">
                             <div style="background:#001f3f;color:#fff;padding:10px 14px;border-radius:12px;border-top-right-radius:0;display:inline-block;max-width:85%;font-size:14px;">
                                 ${msg}
                             </div>
                         </div>`;
-                input.value = '';
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang xử lý...';
-                chatBox.scrollTop = chatBox.scrollHeight;
-
-                // Gọi API
-                try {
-                    const res = await fetch('/article/chat', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: msg })
-                    });
-                    const data = await res.json();
-
-                    chatBox.innerHTML += `
+            input.value = '';
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang xử lý...';
+            chatBox.scrollTop = chatBox.scrollHeight;
+            try {
+                const res = await fetch('/article/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+                chatBox.innerHTML += `
                             <div style="margin-bottom:12px;">
                                 <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
                                     <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
                                     ${data.reply}
                                 </div>
                             </div>`;
-                } catch {
-                    chatBox.innerHTML += `
+            } catch {
+                chatBox.innerHTML += `
                             <div style="margin-bottom:12px;">
                                 <div style="background:#fee2e2;padding:10px 14px;border-radius:12px;display:inline-block;max-width:85%;font-size:14px;color:#dc2626;">
                                     ⚠️ Lỗi kết nối, vui lòng thử lại.
                                 </div>
                             </div>`;
-                }
-
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa fa-paper-plane"></i> Gửi';
-                chatBox.scrollTop = chatBox.scrollHeight;
             }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-paper-plane"></i> Gửi';
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
-        
     </script>
     @Html.AntiForgeryToken()
 }
