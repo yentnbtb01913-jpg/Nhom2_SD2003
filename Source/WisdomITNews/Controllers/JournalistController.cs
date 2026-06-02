@@ -9,12 +9,42 @@ namespace WisdomITNews.Controllers;
 public class JournalistController : Controller
 {
     private readonly AppDbContext _db;
+    private readonly AIService _ai;
     private readonly ILogger<JournalistController> _logger;
 
-    public JournalistController(AppDbContext db, ILogger<JournalistController> logger)
+    public JournalistController(AppDbContext db, AIService ai, ILogger<JournalistController> logger)
     {
         _db = db;
+        _ai = ai;
         _logger = logger;
+    }
+
+    // ===== AI Moderation (mirror AdminController) =====
+    private async Task ApplyAIModerationAsync(Article article)
+    {
+        try
+        {
+            var combined = $"{article.Title}\n\n{article.Summary}\n\n{article.Content}";
+            var result = await _ai.ModerateContentAsync(combined);
+
+            _db.AILogs.Add(new AILog
+            {
+                ArticleId  = article.Id == 0 ? null : article.Id,
+                Action     = "moderate",
+                ResultText = $"score={result.Score}, issues={string.Join("; ", result.Issues)}",
+                IsSuccess  = true
+            });
+
+            if (result.Score > 70)
+                article.Status = "Rejected";
+            else if (result.Score >= 40)
+                article.Status = "PendingReview";
+            // score < 40: giữ nguyên trạng thái do journalist chọn (draft / PendingReview)
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Journalist ApplyAIModerationAsync failed (articleId={Id})", article.Id);
+        }
     }
 
     private int? CurrentUserId => HttpContext.Session.GetInt32("JournalistId");
@@ -373,6 +403,10 @@ public class JournalistController : Controller
             _db.Articles.Add(vm.Article);
             await _db.SaveChangesAsync();
 
+            // AI moderation sau khi đã có Id
+            await ApplyAIModerationAsync(vm.Article);
+            await _db.SaveChangesAsync();
+
             // Save tags
             if (!string.IsNullOrWhiteSpace(vm.Tags))
             {
@@ -471,6 +505,9 @@ public class JournalistController : Controller
             article.Region = vm.Article.Region;
             article.Status = vm.Article.Status == "draft" ? "draft" : "PendingReview";
             article.UpdatedAt = DateTime.Now;
+
+            // AI moderation cập nhật Status nếu nội dung vi phạm
+            await ApplyAIModerationAsync(article);
 
             var newSlug = SlugHelper.MakeSlug(article.Title);
             if (newSlug != article.Slug)

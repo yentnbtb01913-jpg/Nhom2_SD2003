@@ -261,6 +261,11 @@
             var email = emailEl ? emailEl.value : '';
             fetch('/api/comment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articleId: articleId, name: name, email: email, content: text }) })
                 .then(function (r) { return r.json(); }).then(function (data) {
+                    // AI đã từ chối — không render, báo lỗi
+                    if (data.status === 'rejected') {
+                        alert(data.message || 'Bình luận của bạn vi phạm quy định cộng đồng.');
+                        return;
+                    }
                     if (data.success) {
                         var initial = name[0].toUpperCase();
                         var html = '<div class="comment-node" style="padding-top:12px;"><div class="comment-row"><div class="comment-avatar">' + initial + '</div><div class="comment-body"><div class="comment-meta"><strong>' + name + '</strong> <span class="comment-time">Vừa xong</span></div><p class="comment-text">' + text + '</p></div></div></div>';

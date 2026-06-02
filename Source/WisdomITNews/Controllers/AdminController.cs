@@ -169,9 +169,9 @@ public class AdminController : Controller
             UpdatedAt = DateTime.Now
         };
 
-        await ApplyAIModerationAsync(article);
-
         _db.Articles.Add(article);
+        await _db.SaveChangesAsync();
+        await ApplyAIModerationAsync(article);
         await _db.SaveChangesAsync();
         await SaveTagsAsync(article.Id, vm.Tags);
         return RedirectToAction("Articles");

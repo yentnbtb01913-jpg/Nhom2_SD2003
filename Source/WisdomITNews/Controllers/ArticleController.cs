@@ -214,12 +214,37 @@ public class ArticleController : Controller
                 Status = "pending",
                 UserId = userId
             };
+
+            // AI moderation cho reply — không chặn nếu AI lỗi
+            try
+            {
+                var mod = await _ai.ModerateContentAsync(reply.Content);
+                if (mod.Score > 70) reply.Status = "rejected";
+
+                _db.AILogs.Add(new AILog
+                {
+                    ArticleId  = parent.ArticleId,
+                    Action     = "moderate_comment",
+                    ResultText = $"score={mod.Score}, issues={string.Join("; ", mod.Issues)}",
+                    IsSuccess  = true
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AI moderation failed (reply)");
+            }
+
             _db.Comments.Add(reply);
             await _db.SaveChangesAsync();
+
+            if (reply.Status == "rejected")
+                return Ok(new { success = false, status = "rejected",
+                                message = "Trả lời của bạn vi phạm quy định cộng đồng và đã bị từ chối." });
 
             return Ok(new
             {
                 success = true,
+                status = reply.Status,
                 message = "Trả lời đã được gửi, chờ duyệt!",
                 commentId = reply.Id
             });
@@ -300,7 +325,7 @@ public class ArticleController : Controller
             int? userId = null;
             try { userId = HttpContext.Session.GetInt32("UserId"); } catch { /* ignore */ }
 
-            _db.Comments.Add(new Comment
+            var comment = new Comment
             {
                 ArticleId = req.ArticleId,
                 AuthorName = req.Name.Trim(),
@@ -310,9 +335,33 @@ public class ArticleController : Controller
                 ParentId = req.ParentCommentId,
                 UserId = userId,
                 Status = "pending"
-            });
+            };
+
+            // AI moderation cho comment — không chặn nếu AI lỗi
+            try
+            {
+                var mod = await _ai.ModerateContentAsync(comment.Content);
+                if (mod.Score > 70) comment.Status = "rejected";
+
+                _db.AILogs.Add(new AILog
+                {
+                    ArticleId  = req.ArticleId,
+                    Action     = "moderate_comment",
+                    ResultText = $"score={mod.Score}, issues={string.Join("; ", mod.Issues)}",
+                    IsSuccess  = true
+                });
+            }
+            catch { /* AI lỗi thì vẫn cho lưu comment ở trạng thái pending */ }
+
+            _db.Comments.Add(comment);
             await _db.SaveChangesAsync();
-            return Ok(new { success = true, message = "Bình luận đã được gửi, chờ duyệt!" });
+
+            if (comment.Status == "rejected")
+                return Ok(new { success = false, status = "rejected",
+                                message = "Bình luận của bạn vi phạm quy định cộng đồng và đã bị từ chối." });
+
+            return Ok(new { success = true, status = comment.Status,
+                            message = "Bình luận đã được gửi, chờ duyệt!" });
         }
 
         [HttpPost("newsletter")]
