@@ -1,0 +1,124 @@
+@using WisdomITNews.Models
+@model List<NewsletterSubscriber>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Newsletter";
+    var smtpOk = (bool)(ViewBag.SmtpConfigured ?? false);
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h1 style="font-size:22px;font-weight:700;">📧 Newsletter</h1>
+    <span style="font-size:13px;color:#6c757d;">Tổng subscribers: <strong>@Model.Count</strong></span>
+</div>
+
+@if (TempData["NewsletterSuccess"] != null)
+{
+    <div style="background:#dcfce7;color:#166534;padding:12px 16px;margin-bottom:16px;border-left:4px solid #16a34a;font-size:14px;">
+        @TempData["NewsletterSuccess"]
+    </div>
+}
+@if (TempData["NewsletterError"] != null)
+{
+    <div style="background:#fee2e2;color:#991b1b;padding:12px 16px;margin-bottom:16px;border-left:4px solid #dc2626;font-size:14px;">
+        @TempData["NewsletterError"]
+    </div>
+}
+
+@if (!smtpOk)
+{
+    <div style="background:#fff7ed;color:#9a3412;padding:12px 16px;margin-bottom:20px;border-left:4px solid #f97316;font-size:13px;">
+        ⚠️ SMTP chưa được cấu hình. Mở <code>appsettings.json</code> → section <code>Smtp</code> và điền Host/Port/Username/Password trước khi gửi.
+        Với Gmail: bật 2-Step Verification rồi tạo App Password 16 ký tự.
+    </div>
+}
+
+<!-- Soạn newsletter -->
+<div style="background:#fff;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+    <h2 style="font-size:16px;font-weight:600;margin-bottom:14px;">Soạn & gửi newsletter cho tất cả subscriber active</h2>
+    <form method="post" action="/admin/SendNewsletter">
+        @Html.AntiForgeryToken()
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Tiêu đề email</label>
+        <input type="text" name="subject" required
+               placeholder="Vd: Bản tin tuần này — Tin nóng công nghệ"
+               style="width:100%;padding:9px 12px;border:1px solid #d1d5db;font-size:14px;margin-bottom:12px;" />
+
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Nội dung HTML</label>
+        <textarea name="htmlBody" rows="10" required
+                  placeholder="&lt;h2&gt;Tin nổi bật tuần này&lt;/h2&gt;&lt;p&gt;...&lt;/p&gt;"
+                  style="width:100%;padding:10px 12px;border:1px solid #d1d5db;font-size:13px;font-family:Consolas,Monaco,monospace;"></textarea>
+
+        <button type="submit" onclick="return confirm('Gửi email tới @Model.Count(m => m.Status == "active") subscriber active?');"
+                style="margin-top:12px;padding:10px 22px;background:#e63946;color:#fff;border:none;font-size:14px;font-weight:600;cursor:pointer;">
+            🚀 Gửi cho tất cả subscriber
+        </button>
+    </form>
+</div>
+
+<!-- Test SMTP -->
+<div style="background:#fff;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+    <h2 style="font-size:16px;font-weight:600;margin-bottom:14px;">Test cấu hình SMTP</h2>
+    <form method="post" action="/admin/SendTestEmail" style="display:flex;gap:10px;align-items:center;">
+        @Html.AntiForgeryToken()
+        <input type="email" name="testEmail" required placeholder="email-test@example.com"
+               style="flex:1;padding:9px 12px;border:1px solid #d1d5db;font-size:14px;" />
+        <button type="submit"
+                style="padding:9px 18px;background:#0a2540;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
+            Gửi email test
+        </button>
+    </form>
+</div>
+
+<!-- Danh sách subscribers -->
+<div style="background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+    <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-weight:600;">Danh sách subscriber (mới nhất 500)</div>
+    @if (!Model.Any())
+    {
+        <div style="padding:30px;text-align:center;color:#6c757d;">Chưa có ai đăng ký.</div>
+    }
+    else
+    {
+        <table style="width:100%;border-collapse:collapse;">
+            <thead style="background:#f8fafc;">
+                <tr>
+                    <th style="padding:10px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Email</th>
+                    <th style="padding:10px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Trạng thái</th>
+                    <th style="padding:10px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Ngày đăng ký</th>
+                    <th style="padding:10px;text-align:right;font-size:13px;border-bottom:1px solid #e0e4e8;">Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Model)
+                {
+                    <tr id="sub-@s.Id" style="border-bottom:1px solid #f0f2f5;">
+                        <td style="padding:10px;font-size:13px;">@s.Email</td>
+                        <td style="padding:10px;font-size:13px;">
+                            <span style="padding:2px 8px;background:@(s.Status == "active" ? "#dcfce7" : "#fee2e2");color:@(s.Status == "active" ? "#166534" : "#991b1b");font-weight:600;">
+                                @s.Status
+                            </span>
+                        </td>
+                        <td style="padding:10px;font-size:12px;color:#6c757d;">@s.SubscribedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td style="padding:10px;text-align:right;">
+                            <button onclick="deleteSubscriber(@s.Id)"
+                                    style="padding:5px 12px;background:#fee2e2;color:#991b1b;border:none;font-size:12px;cursor:pointer;">Xoá</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        async function deleteSubscriber(id) {
+            if (!confirm('Xoá subscriber này?')) return;
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            const fd = new FormData();
+            fd.append('__RequestVerificationToken', token);
+            const r = await fetch('/admin/DeleteSubscriber/' + id, { method: 'POST', body: fd });
+            const data = await r.json();
+            if (data.success) document.getElementById('sub-' + id).remove();
+            else alert('Xoá thất bại');
+        }
+    </script>
+}
