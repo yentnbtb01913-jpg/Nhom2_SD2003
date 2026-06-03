@@ -13,15 +13,19 @@ public class AdminController : Controller
     private readonly AIService _ai;
     private readonly ILogger<AdminController> _logger;
 
+    private readonly EmailService _email;
+
     public AdminController(
         AppDbContext db,
         ImageUploadService imageUpload,
         AIService ai,
+        EmailService email,
         ILogger<AdminController> logger)
     {
         _db = db;
         _imageUpload = imageUpload;
         _ai = ai;
+        _email = email;
         _logger = logger;
     }
 
@@ -369,6 +373,86 @@ public class AdminController : Controller
         var fb = await _db.FeedbackReports.FindAsync(id);
         if (fb == null) return Json(new { success = false });
         fb.IsResolved = true;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // ===== NEWSLETTER =====
+    [HttpGet]
+    public async Task<IActionResult> Newsletter()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var subs = await _db.NewsletterSubscribers
+            .OrderByDescending(n => n.SubscribedAt)
+            .Take(500)
+            .ToListAsync();
+        ViewBag.SmtpConfigured = _email.IsConfigured;
+        return View(subs);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendNewsletter(string subject, string htmlBody)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(htmlBody))
+        {
+            TempData["NewsletterError"] = "Vui lòng nhập tiêu đề và nội dung email.";
+            return RedirectToAction("Newsletter");
+        }
+
+        if (!_email.IsConfigured)
+        {
+            TempData["NewsletterError"] = "SMTP chưa được cấu hình. Hãy điền section \"Smtp\" trong appsettings.json trước.";
+            return RedirectToAction("Newsletter");
+        }
+
+        var emails = await _db.NewsletterSubscribers
+            .Where(n => n.Status == "active")
+            .Select(n => n.Email)
+            .ToListAsync();
+
+        if (emails.Count == 0)
+        {
+            TempData["NewsletterError"] = "Không có subscriber nào để gửi.";
+            return RedirectToAction("Newsletter");
+        }
+
+        var (ok, fail) = await _email.SendBulkAsync(emails, subject.Trim(), htmlBody);
+        TempData["NewsletterSuccess"] =
+            $"Đã gửi xong: {ok} thành công, {fail} thất bại (tổng {emails.Count} subscribers).";
+        return RedirectToAction("Newsletter");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendTestEmail(string testEmail)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (string.IsNullOrWhiteSpace(testEmail) || !testEmail.Contains('@'))
+        {
+            TempData["NewsletterError"] = "Email test không hợp lệ.";
+            return RedirectToAction("Newsletter");
+        }
+
+        var (ok, err) = await _email.SendAsync(
+            testEmail.Trim(),
+            "[Wisdom IT News] Email test",
+            "<p>Đây là email test từ Wisdom IT News.</p><p>Nếu bạn nhận được email này, cấu hình SMTP đã hoạt động.</p>");
+
+        if (ok) TempData["NewsletterSuccess"] = $"Đã gửi email test tới {testEmail}.";
+        else TempData["NewsletterError"] = $"Gửi thất bại: {err}";
+        return RedirectToAction("Newsletter");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteSubscriber(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var s = await _db.NewsletterSubscribers.FindAsync(id);
+        if (s == null) return Json(new { success = false });
+        _db.NewsletterSubscribers.Remove(s);
         await _db.SaveChangesAsync();
         return Json(new { success = true });
     }

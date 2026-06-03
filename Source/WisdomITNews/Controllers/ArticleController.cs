@@ -295,11 +295,13 @@ public class ArticleController : Controller
     {
         private readonly AppDbContext _db;
         private readonly AIService _ai;
+        private readonly EmailService _email;
 
-        public ApiController(AppDbContext db, AIService ai)
+        public ApiController(AppDbContext db, AIService ai, EmailService email)
         {
             _db = db;
             _ai = ai;
+            _email = email;
         }
 
         [HttpPost("summarize")]
@@ -367,15 +369,27 @@ public class ArticleController : Controller
         [HttpPost("newsletter")]
         public async Task<IActionResult> Newsletter([FromBody] NewsletterRequest req)
         {
-            if (string.IsNullOrWhiteSpace(req.Email))
+            if (string.IsNullOrWhiteSpace(req.Email) || !req.Email.Contains('@'))
                 return BadRequest(new { success = false, message = "Email không hợp lệ" });
 
-            var exists = await _db.NewsletterSubscribers.AnyAsync(n => n.Email == req.Email);
+            var email = req.Email.Trim();
+            var exists = await _db.NewsletterSubscribers.AnyAsync(n => n.Email == email);
             if (exists) return Ok(new { success = false, message = "Email đã đăng ký rồi!" });
 
-            _db.NewsletterSubscribers.Add(new NewsletterSubscriber { Email = req.Email });
+            _db.NewsletterSubscribers.Add(new NewsletterSubscriber { Email = email });
             await _db.SaveChangesAsync();
-            return Ok(new { success = true, message = "Đăng ký thành công!" });
+
+            // Gửi email chào mừng (không block: nếu SMTP lỗi vẫn coi như đăng ký thành công)
+            string message = "Đăng ký thành công!";
+            try
+            {
+                var (ok, err) = await _email.SendWelcomeAsync(email);
+                if (ok) message = "Đăng ký thành công! Vui lòng kiểm tra email chào mừng.";
+                else message = "Đăng ký thành công! (Email chào mừng tạm thời không gửi được)";
+            }
+            catch { /* nuốt lỗi để không ảnh hưởng UX */ }
+
+            return Ok(new { success = true, message });
         }
     }
 
