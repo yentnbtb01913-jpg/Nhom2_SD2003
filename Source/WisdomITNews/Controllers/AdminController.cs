@@ -354,6 +354,46 @@ public class AdminController : Controller
         return View(logs);
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAILog(long id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false, message = "Chưa đăng nhập" });
+        var log = await _db.AILogs.FindAsync(id);
+        if (log == null) return Json(new { success = false, message = "Không tìm thấy log" });
+        _db.AILogs.Remove(log);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAILogs(DateTime? from, DateTime? to, bool all = false)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var query = _db.AILogs.AsQueryable();
+        if (!all)
+        {
+            if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value);
+            if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.AddDays(1));
+            if (!from.HasValue && !to.HasValue)
+            {
+                TempData["AILogError"] = "Vui lòng chọn khoảng thời gian, hoặc bấm \"Xóa tất cả\".";
+                return RedirectToAction("AILogs");
+            }
+        }
+        var count = await query.CountAsync();
+        if (count == 0)
+        {
+            TempData["AILogError"] = "Không có log nào để xóa.";
+            return RedirectToAction("AILogs", new { from, to });
+        }
+        _db.AILogs.RemoveRange(query);
+        await _db.SaveChangesAsync();
+        TempData["AILogSuccess"] = $"Đã xóa {count} log AI.";
+        return RedirectToAction("AILogs");
+    }
+
     // ===== FEEDBACK =====
     public async Task<IActionResult> Feedbacks(string filter = "open")
     {

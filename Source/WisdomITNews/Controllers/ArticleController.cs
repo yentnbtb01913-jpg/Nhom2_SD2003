@@ -391,6 +391,36 @@ public class ArticleController : Controller
 
             return Ok(new { success = true, message });
         }
+
+        [HttpPost("newsletter/subscribe-me")]
+        public async Task<IActionResult> SubscribeMe()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return Unauthorized(new { success = false, message = "Vui lòng đăng nhập trước." });
+
+            var user = await _db.Users.FindAsync(userId.Value);
+            if (user == null || string.IsNullOrWhiteSpace(user.Email))
+                return BadRequest(new { success = false, message = "Tài khoản chưa có email hợp lệ." });
+
+            var email = user.Email.Trim();
+            var exists = await _db.NewsletterSubscribers.AnyAsync(n => n.Email == email);
+            if (exists)
+                return Ok(new { success = false, message = $"Email {email} đã đăng ký nhận tin rồi!" });
+
+            _db.NewsletterSubscribers.Add(new NewsletterSubscriber { Email = email });
+            await _db.SaveChangesAsync();
+
+            string msg = $"Đã đăng ký nhận tin với email {email}!";
+            try
+            {
+                var (ok, _) = await _email.SendWelcomeAsync(email);
+                if (ok) msg = $"Đăng ký thành công! Email chào mừng đã gửi tới {email}.";
+            }
+            catch { /* không phá UX nếu SMTP lỗi */ }
+
+            return Ok(new { success = true, message = msg });
+        }
     }
 
     public class SummarizeRequest
