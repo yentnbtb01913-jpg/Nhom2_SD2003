@@ -376,20 +376,36 @@ public class ArticleController : Controller
             var exists = await _db.NewsletterSubscribers.AnyAsync(n => n.Email == email);
             if (exists) return Ok(new { success = false, message = "Email đã đăng ký rồi!" });
 
-            _db.NewsletterSubscribers.Add(new NewsletterSubscriber { Email = email });
+            // [TRANSACTIONAL] Lưu subscriber trước; nếu SMTP lỗi thì rollback để dữ liệu nhất quán
+            var subscriber = new NewsletterSubscriber { Email = email };
+            _db.NewsletterSubscribers.Add(subscriber);
             await _db.SaveChangesAsync();
 
-            // Gửi email chào mừng (không block: nếu SMTP lỗi vẫn coi như đăng ký thành công)
-            string message = "Đăng ký thành công!";
+            bool emailOk = false;
+            string? emailErr = null;
             try
             {
                 var (ok, err) = await _email.SendWelcomeAsync(email);
-                if (ok) message = "Đăng ký thành công! Vui lòng kiểm tra email chào mừng.";
-                else message = "Đăng ký thành công! (Email chào mừng tạm thời không gửi được)";
+                emailOk = ok;
+                emailErr = err;
             }
-            catch { /* nuốt lỗi để không ảnh hưởng UX */ }
+            catch (Exception ex) { emailErr = ex.Message; }
 
-            return Ok(new { success = true, message });
+            if (!emailOk)
+            {
+                // Rollback: xóa subscriber vừa thêm để user có thể thử lại
+                _db.NewsletterSubscribers.Remove(subscriber);
+                await _db.SaveChangesAsync();
+                return Ok(new {
+                    success = false,
+                    message = "Không gửi được email xác nhận. Vui lòng thử lại sau."
+                });
+            }
+
+            return Ok(new {
+                success = true,
+                message = "Đăng ký thành công! Vui lòng kiểm tra email chào mừng."
+            });
         }
 
         [HttpPost("newsletter/subscribe-me")]
@@ -408,18 +424,33 @@ public class ArticleController : Controller
             if (exists)
                 return Ok(new { success = false, message = $"Email {email} đã đăng ký nhận tin rồi!" });
 
-            _db.NewsletterSubscribers.Add(new NewsletterSubscriber { Email = email });
+            // [TRANSACTIONAL] Lưu subscriber trước; nếu SMTP lỗi thì rollback
+            var subscriber = new NewsletterSubscriber { Email = email };
+            _db.NewsletterSubscribers.Add(subscriber);
             await _db.SaveChangesAsync();
 
-            string msg = $"Đã đăng ký nhận tin với email {email}!";
+            bool emailOk = false;
             try
             {
                 var (ok, _) = await _email.SendWelcomeAsync(email);
-                if (ok) msg = $"Đăng ký thành công! Email chào mừng đã gửi tới {email}.";
+                emailOk = ok;
             }
-            catch { /* không phá UX nếu SMTP lỗi */ }
+            catch { /* coi như fail, sẽ rollback */ }
 
-            return Ok(new { success = true, message = msg });
+            if (!emailOk)
+            {
+                _db.NewsletterSubscribers.Remove(subscriber);
+                await _db.SaveChangesAsync();
+                return Ok(new {
+                    success = false,
+                    message = $"Không gửi được email xác nhận tới {email}. Vui lòng thử lại sau."
+                });
+            }
+
+            return Ok(new {
+                success = true,
+                message = $"Đăng ký thành công! Email chào mừng đã gửi tới {email}."
+            });
         }
     }
 
