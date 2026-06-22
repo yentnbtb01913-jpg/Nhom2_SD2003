@@ -9,6 +9,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<AIService>();
+builder.Services.AddScoped<EmailService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<WeatherService>();
 builder.Services.AddScoped<ImageUploadService>();

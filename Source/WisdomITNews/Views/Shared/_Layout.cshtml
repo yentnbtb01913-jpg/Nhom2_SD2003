@@ -321,13 +321,16 @@
                     <span class="topbar-user-pill">
                         <i class="fa fa-user-circle"></i> @userName
                     </span>
+                    <a href="javascript:void(0)" onclick="subscribeNewsletterMe()" title="Đăng ký nhận bản tin qua email">
+                        <i class="fa fa-envelope"></i> Đăng ký nhận tin
+                    </a>
                 }
                 else
                 {
                     <a href="/Account/Login"><i class="fa fa-right-to-bracket"></i> Đăng nhập</a>
                     <a href="/Account/Register"><i class="fa fa-user-plus"></i> Đăng ký</a>
+                    <a href="/admin/Dashboard"><i class="fa fa-lock"></i> Admin</a>
                 }
-                <a href="/admin/Dashboard"><i class="fa fa-lock"></i> Admin</a>
                 <a href="/rss/list"><i class="fa fa-rss"></i> RSS</a>
             </div>
         </div>
@@ -396,7 +399,7 @@
                 }
                 @if (journalistId.HasValue)
                 {
-                    <a href="/Journalist/Dashboard" class="btn-admin" style="background:#476083;"><i class="fa fa-pen-nib"></i> Journalist Panel</a>
+                    <a href="/Journalist/Dashboard" class="btn-admin"><i class="fa fa-pen-nib"></i> Journalist Panel</a>
                 }
                 else
                 {
@@ -1259,6 +1262,21 @@ document.addEventListener('click', function(e) {
   if (!e.target.closest('.fa-face-smile') && !e.target.closest('#emojiPicker'))
     document.getElementById('emojiPicker') && (document.getElementById('emojiPicker').style.display = 'none');
 });
+
+// ============ ĐĂNG KÝ NHẬN TIN (NEWSLETTER) ============
+async function subscribeNewsletterMe() {
+    if (!confirm('Đăng ký nhận bản tin Wisdom IT News qua email của bạn?')) return;
+    try {
+        const r = await fetch('/api/newsletter/subscribe-me', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await r.json();
+        alert(data.message || (data.success ? 'Đăng ký thành công!' : 'Đăng ký thất bại'));
+    } catch (e) {
+        alert('Lỗi kết nối, thử lại sau.');
+    }
+}
 </script>
 }
 

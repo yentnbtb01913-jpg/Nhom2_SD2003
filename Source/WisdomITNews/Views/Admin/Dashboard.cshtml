@@ -83,73 +83,77 @@
       </div>
     }
   </div>
-    <!-- CHAT MANAGEMENT SECTION -->
-    <div style="margin-top:28px;">
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">
-            @{
-                var chatStats = new[] {
-        new { Icon="fa-comments", Bg="#e0e7ff", Color="#4f46e5", Value=Model.TotalChatGroups.ToString(), Label="Nhóm chat" },
-        new { Icon="fa-message", Bg="#fce7f3", Color="#db2777", Value=Model.TotalChatMessages.ToString(), Label="Tổng tin nhắn" },
-        new { Icon="fa-users", Bg="#d1fae5", Color="#059669", Value=Model.TotalChatUsers.ToString(), Label="Người dùng chat" }
-      };
-            }
-            @foreach (var s in chatStats)
-            {
-                <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;gap:14px;align-items:center;">
-                    <div style="width:48px;height:48px;border-radius:0px;background:@s.Bg;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                        <i class="fa @s.Icon" style="color:@s.Color;font-size:20px;"></i>
-                    </div>
-                    <div>
-                        <div style="font-size:24px;font-weight:700;">@s.Value</div>
-                        <div style="font-size:13px;color:#6c757d;">@s.Label</div>
-                    </div>
+    
+    <!-- AI Chatbot Widget -->
+    <div style="margin-top:24px;background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+        <h2 style="font-size:16px;font-weight:700;margin-bottom:16px;">
+            <i class="fa fa-robot" style="color:#8b5cf6;"></i> Trợ lý AI - Wisdom Bot
+        </h2>
+        <div id="adminChatBox" style="height:280px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:12px;background:#fafbfc;">
+            <div style="margin-bottom:12px;">
+                <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
+                    <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
+                    Xin chào Admin! Tôi có thể hỗ trợ bạn về quản lý hệ thống, phân tích dữ liệu, hoặc trả lời câu hỏi về công nghệ.
                 </div>
-            }
-        </div>
-
-        <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h2 style="font-size:16px;font-weight:700;"><i class="fa fa-comments" style="color:#4f46e5;"></i> Nhóm chat gần đây</h2>
-                <a href="/admin/ChatManagement" style="font-size:13px;color:#ba1a1a;font-weight:600;">Quản lý chat →</a>
             </div>
-            @{
-                var chatMsgCounts = ViewBag.ChatMessageCounts as Dictionary<int, int> ?? new Dictionary<int, int>();
-            }
-            <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                <thead>
-                    <tr style="border-bottom:2px solid #f0f2f5;">
-                        <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Tên nhóm</th>
-                        <th style="text-align:center;padding:8px;color:#6c757d;font-weight:600;">Loại</th>
-                        <th style="text-align:center;padding:8px;color:#6c757d;font-weight:600;">Thành viên</th>
-                        <th style="text-align:center;padding:8px;color:#6c757d;font-weight:600;">Tin nhắn</th>
-                        <th style="text-align:center;padding:8px;color:#6c757d;font-weight:600;">Ngày tạo</th>
-                        <th style="padding:8px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var g in Model.RecentChatGroups)
-                    {
-                        <tr style="border-bottom:1px solid #f0f2f5;">
-                            <td style="padding:10px 8px;font-weight:600;">@(string.IsNullOrEmpty(g.Name) ? "(Tin nhắn riêng)" : g.Name)</td>
-                            <td style="padding:10px 8px;text-align:center;">
-                                <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(g.IsDirectMessage ? "#fef3c7" : "#dbeafe");color:@(g.IsDirectMessage ? "#92400e" : "#1e40af");">
-                                    @(g.IsDirectMessage ? "DM" : "Nhóm")
-                                </span>
-                            </td>
-                            <td style="padding:10px 8px;text-align:center;">@g.Members.Count</td>
-                            <td style="padding:10px 8px;text-align:center;">@(chatMsgCounts.ContainsKey(g.Id) ? chatMsgCounts[g.Id] : 0)</td>
-                            <td style="padding:10px 8px;text-align:center;color:#6c757d;">@g.CreatedAt.ToString("dd/MM/yyyy")</td>
-                            <td style="padding:10px 8px;text-align:center;">
-                                <a href="/Admin/ChatGroupDetail?id=@g.Id" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;text-decoration:none;"><i class="fa fa-eye"></i></a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-            @if (!Model.RecentChatGroups.Any())
-            {
-                <div style="text-align:center;padding:30px;color:#6c757d;">Chưa có nhóm chat nào.</div>
-            }
+        </div>
+        <div style="display:flex;gap:8px;">
+            <input type="text" id="adminChatInput" placeholder="Nhập câu hỏi cho AI..."
+                   style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;"
+                   onkeydown="if(event.key==='Enter')sendAdminChat()">
+            <button onclick="sendAdminChat()" id="adminChatBtn"
+                    style="padding:10px 20px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                <i class="fa fa-paper-plane"></i> Gửi
+            </button>
         </div>
     </div>
+    <script>
+            async function sendAdminChat() {
+                const input = document.getElementById('adminChatInput');
+                const msg = input.value.trim();
+                if (!msg) return;
+
+                const chatBox = document.getElementById('adminChatBox');
+                const btn = document.getElementById('adminChatBtn');
+
+                chatBox.innerHTML += `
+                    <div style="text-align:right;margin-bottom:12px;">
+                        <div style="background:#001f3f;color:#fff;padding:10px 14px;border-radius:12px;border-top-right-radius:0;display:inline-block;max-width:85%;font-size:14px;">
+                            ${msg}
+                        </div>
+                    </div>`;
+                input.value = '';
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang xử lý...';
+                chatBox.scrollTop = chatBox.scrollHeight;
+
+                try {
+                    const res = await fetch('/article/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: msg })
+                    });
+                    const data = await res.json();
+
+                    chatBox.innerHTML += `
+                        <div style="margin-bottom:12px;">
+                            <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
+                                <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
+                                ${data.reply}
+                            </div>
+                        </div>`;
+                } catch {
+                    chatBox.innerHTML += `
+                        <div style="margin-bottom:12px;">
+                            <div style="background:#fee2e2;padding:10px 14px;border-radius:12px;display:inline-block;max-width:85%;font-size:14px;color:#dc2626;">
+                                ⚠️ Lỗi kết nối, vui lòng thử lại.
+                            </div>
+                        </div>`;
+                }
+
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa fa-paper-plane"></i> Gửi';
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+    </script>
 </div>

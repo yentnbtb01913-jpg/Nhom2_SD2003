@@ -13,15 +13,19 @@ public class AdminController : Controller
     private readonly AIService _ai;
     private readonly ILogger<AdminController> _logger;
 
+    private readonly EmailService _email;
+
     public AdminController(
         AppDbContext db,
         ImageUploadService imageUpload,
         AIService ai,
+        EmailService email,
         ILogger<AdminController> logger)
     {
         _db = db;
         _imageUpload = imageUpload;
         _ai = ai;
+        _email = email;
         _logger = logger;
     }
 
@@ -169,9 +173,9 @@ public class AdminController : Controller
             UpdatedAt = DateTime.Now
         };
 
-        await ApplyAIModerationAsync(article);
-
         _db.Articles.Add(article);
+        await _db.SaveChangesAsync();
+        await ApplyAIModerationAsync(article);
         await _db.SaveChangesAsync();
         await SaveTagsAsync(article.Id, vm.Tags);
         return RedirectToAction("Articles");
@@ -350,6 +354,46 @@ public class AdminController : Controller
         return View(logs);
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAILog(long id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false, message = "Chưa đăng nhập" });
+        var log = await _db.AILogs.FindAsync(id);
+        if (log == null) return Json(new { success = false, message = "Không tìm thấy log" });
+        _db.AILogs.Remove(log);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAILogs(DateTime? from, DateTime? to, bool all = false)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var query = _db.AILogs.AsQueryable();
+        if (!all)
+        {
+            if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value);
+            if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.AddDays(1));
+            if (!from.HasValue && !to.HasValue)
+            {
+                TempData["AILogError"] = "Vui lòng chọn khoảng thời gian, hoặc bấm \"Xóa tất cả\".";
+                return RedirectToAction("AILogs");
+            }
+        }
+        var count = await query.CountAsync();
+        if (count == 0)
+        {
+            TempData["AILogError"] = "Không có log nào để xóa.";
+            return RedirectToAction("AILogs", new { from, to });
+        }
+        _db.AILogs.RemoveRange(query);
+        await _db.SaveChangesAsync();
+        TempData["AILogSuccess"] = $"Đã xóa {count} log AI.";
+        return RedirectToAction("AILogs");
+    }
+
     // ===== FEEDBACK =====
     public async Task<IActionResult> Feedbacks(string filter = "open")
     {
@@ -369,6 +413,86 @@ public class AdminController : Controller
         var fb = await _db.FeedbackReports.FindAsync(id);
         if (fb == null) return Json(new { success = false });
         fb.IsResolved = true;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // ===== NEWSLETTER =====
+    [HttpGet]
+    public async Task<IActionResult> Newsletter()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var subs = await _db.NewsletterSubscribers
+            .OrderByDescending(n => n.SubscribedAt)
+            .Take(500)
+            .ToListAsync();
+        ViewBag.SmtpConfigured = _email.IsConfigured;
+        return View(subs);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendNewsletter(string subject, string htmlBody)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(htmlBody))
+        {
+            TempData["NewsletterError"] = "Vui lòng nhập tiêu đề và nội dung email.";
+            return RedirectToAction("Newsletter");
+        }
+
+        if (!_email.IsConfigured)
+        {
+            TempData["NewsletterError"] = "SMTP chưa được cấu hình. Hãy điền section \"Smtp\" trong appsettings.json trước.";
+            return RedirectToAction("Newsletter");
+        }
+
+        var emails = await _db.NewsletterSubscribers
+            .Where(n => n.Status == "active")
+            .Select(n => n.Email)
+            .ToListAsync();
+
+        if (emails.Count == 0)
+        {
+            TempData["NewsletterError"] = "Không có subscriber nào để gửi.";
+            return RedirectToAction("Newsletter");
+        }
+
+        var (ok, fail) = await _email.SendBulkAsync(emails, subject.Trim(), htmlBody);
+        TempData["NewsletterSuccess"] =
+            $"Đã gửi xong: {ok} thành công, {fail} thất bại (tổng {emails.Count} subscribers).";
+        return RedirectToAction("Newsletter");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendTestEmail(string testEmail)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (string.IsNullOrWhiteSpace(testEmail) || !testEmail.Contains('@'))
+        {
+            TempData["NewsletterError"] = "Email test không hợp lệ.";
+            return RedirectToAction("Newsletter");
+        }
+
+        var (ok, err) = await _email.SendAsync(
+            testEmail.Trim(),
+            "[Wisdom IT News] Email test",
+            "<p>Đây là email test từ Wisdom IT News.</p><p>Nếu bạn nhận được email này, cấu hình SMTP đã hoạt động.</p>");
+
+        if (ok) TempData["NewsletterSuccess"] = $"Đã gửi email test tới {testEmail}.";
+        else TempData["NewsletterError"] = $"Gửi thất bại: {err}";
+        return RedirectToAction("Newsletter");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteSubscriber(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var s = await _db.NewsletterSubscribers.FindAsync(id);
+        if (s == null) return Json(new { success = false });
+        _db.NewsletterSubscribers.Remove(s);
         await _db.SaveChangesAsync();
         return Json(new { success = true });
     }
@@ -559,86 +683,6 @@ public class AdminController : Controller
         return RedirectToAction("UserDetail", new { id = user.Id });
     }
 
-    // ===== CHAT MANAGEMENT =====
-    public async Task<IActionResult> ChatManagement()
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-
-        var groups = await _db.ChatGroups
-            .Include(g => g.Members)
-            .OrderByDescending(g => g.CreatedAt)
-            .Take(50)
-            .ToListAsync();
-
-        var groupIds = groups.Select(g => g.Id).ToList();
-        var messageCounts = await _db.ChatMessages
-            .Where(m => groupIds.Contains(m.GroupId))
-            .GroupBy(m => m.GroupId)
-            .Select(g => new { GroupId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(g => g.GroupId, g => g.Count);
-
-        ViewBag.MessageCounts = messageCounts;
-        return View(groups);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> DeleteChatGroup(int id)
-    {
-        if (!IsLoggedIn) return Json(new { success = false });
-
-        var group = await _db.ChatGroups.FindAsync(id);
-        if (group == null) return Json(new { success = false, message = "Không tìm thấy nhóm" });
-
-        var messages = await _db.ChatMessages.Where(m => m.GroupId == id).ToListAsync();
-        _db.ChatMessages.RemoveRange(messages);
-        var members = await _db.ChatMembers.Where(m => m.GroupId == id).ToListAsync();
-        _db.ChatMembers.RemoveRange(members);
-        _db.ChatGroups.Remove(group);
-        await _db.SaveChangesAsync();
-
-        return Json(new { success = true });
-    }
-
-    // Xem chi tiết nhóm chat (tin nhắn + thành viên)
-    public async Task<IActionResult> ChatGroupDetail(int id)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-
-        var group = await _db.ChatGroups
-            .Include(g => g.Members)
-            .FirstOrDefaultAsync(g => g.Id == id);
-        if (group == null) return RedirectToAction("ChatManagement");
-
-        var messages = await _db.ChatMessages
-            .Where(m => m.GroupId == id)
-            .OrderByDescending(m => m.SentAt)
-            .Take(200)
-            .ToListAsync();
-
-        // Lấy tên thành viên
-        var memberInfos = new List<dynamic>();
-        foreach (var m in group.Members)
-        {
-            string name;
-            string? avatar = null;
-            if (m.MemberType == "admin")
-            {
-                var admin = await _db.Admins.FindAsync(m.MemberId);
-                name = admin?.FullName ?? "Admin";
-            }
-            else
-            {
-                var u = await _db.Users.FindAsync(m.MemberId);
-                name = u?.FullName ?? "User";
-                avatar = u?.AvatarUrl;
-            }
-            memberInfos.Add(new { m.Id, m.MemberType, m.MemberId, Name = name, Avatar = avatar, m.Role, m.JoinedAt });
-        }
-
-        ViewBag.Members = memberInfos;
-        ViewBag.Messages = messages.OrderBy(m => m.SentAt).ToList();
-        return View(group);
-    }
 
     // Admin xóa tin nhắn bất kỳ
     [HttpPost]

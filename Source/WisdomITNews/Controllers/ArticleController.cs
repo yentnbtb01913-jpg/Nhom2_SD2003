@@ -214,12 +214,37 @@ public class ArticleController : Controller
                 Status = "pending",
                 UserId = userId
             };
+
+            // AI moderation cho reply — không chặn nếu AI lỗi
+            try
+            {
+                var mod = await _ai.ModerateContentAsync(reply.Content);
+                if (mod.Score > 70) reply.Status = "rejected";
+
+                _db.AILogs.Add(new AILog
+                {
+                    ArticleId  = parent.ArticleId,
+                    Action     = "moderate_comment",
+                    ResultText = $"score={mod.Score}, issues={string.Join("; ", mod.Issues)}",
+                    IsSuccess  = true
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AI moderation failed (reply)");
+            }
+
             _db.Comments.Add(reply);
             await _db.SaveChangesAsync();
+
+            if (reply.Status == "rejected")
+                return Ok(new { success = false, status = "rejected",
+                                message = "Trả lời của bạn vi phạm quy định cộng đồng và đã bị từ chối." });
 
             return Ok(new
             {
                 success = true,
+                status = reply.Status,
                 message = "Trả lời đã được gửi, chờ duyệt!",
                 commentId = reply.Id
             });
@@ -270,11 +295,13 @@ public class ArticleController : Controller
     {
         private readonly AppDbContext _db;
         private readonly AIService _ai;
+        private readonly EmailService _email;
 
-        public ApiController(AppDbContext db, AIService ai)
+        public ApiController(AppDbContext db, AIService ai, EmailService email)
         {
             _db = db;
             _ai = ai;
+            _email = email;
         }
 
         [HttpPost("summarize")]
@@ -300,7 +327,7 @@ public class ArticleController : Controller
             int? userId = null;
             try { userId = HttpContext.Session.GetInt32("UserId"); } catch { /* ignore */ }
 
-            _db.Comments.Add(new Comment
+            var comment = new Comment
             {
                 ArticleId = req.ArticleId,
                 AuthorName = req.Name.Trim(),
@@ -310,23 +337,120 @@ public class ArticleController : Controller
                 ParentId = req.ParentCommentId,
                 UserId = userId,
                 Status = "pending"
-            });
+            };
+
+            // AI moderation cho comment — không chặn nếu AI lỗi
+            try
+            {
+                var mod = await _ai.ModerateContentAsync(comment.Content);
+                if (mod.Score > 70) comment.Status = "rejected";
+
+                _db.AILogs.Add(new AILog
+                {
+                    ArticleId  = req.ArticleId,
+                    Action     = "moderate_comment",
+                    ResultText = $"score={mod.Score}, issues={string.Join("; ", mod.Issues)}",
+                    IsSuccess  = true
+                });
+            }
+            catch { /* AI lỗi thì vẫn cho lưu comment ở trạng thái pending */ }
+
+            _db.Comments.Add(comment);
             await _db.SaveChangesAsync();
-            return Ok(new { success = true, message = "Bình luận đã được gửi, chờ duyệt!" });
+
+            if (comment.Status == "rejected")
+                return Ok(new { success = false, status = "rejected",
+                                message = "Bình luận của bạn vi phạm quy định cộng đồng và đã bị từ chối." });
+
+            return Ok(new { success = true, status = comment.Status,
+                            message = "Bình luận đã được gửi, chờ duyệt!" });
         }
 
         [HttpPost("newsletter")]
         public async Task<IActionResult> Newsletter([FromBody] NewsletterRequest req)
         {
-            if (string.IsNullOrWhiteSpace(req.Email))
+            if (string.IsNullOrWhiteSpace(req.Email) || !req.Email.Contains('@'))
                 return BadRequest(new { success = false, message = "Email không hợp lệ" });
 
-            var exists = await _db.NewsletterSubscribers.AnyAsync(n => n.Email == req.Email);
+            var email = req.Email.Trim();
+            var exists = await _db.NewsletterSubscribers.AnyAsync(n => n.Email == email);
             if (exists) return Ok(new { success = false, message = "Email đã đăng ký rồi!" });
 
-            _db.NewsletterSubscribers.Add(new NewsletterSubscriber { Email = req.Email });
+            // [TRANSACTIONAL] Lưu subscriber trước; nếu SMTP lỗi thì rollback để dữ liệu nhất quán
+            var subscriber = new NewsletterSubscriber { Email = email };
+            _db.NewsletterSubscribers.Add(subscriber);
             await _db.SaveChangesAsync();
-            return Ok(new { success = true, message = "Đăng ký thành công!" });
+
+            bool emailOk = false;
+            string? emailErr = null;
+            try
+            {
+                var (ok, err) = await _email.SendWelcomeAsync(email);
+                emailOk = ok;
+                emailErr = err;
+            }
+            catch (Exception ex) { emailErr = ex.Message; }
+
+            if (!emailOk)
+            {
+                // Rollback: xóa subscriber vừa thêm để user có thể thử lại
+                _db.NewsletterSubscribers.Remove(subscriber);
+                await _db.SaveChangesAsync();
+                return Ok(new {
+                    success = false,
+                    message = "Không gửi được email xác nhận. Vui lòng thử lại sau."
+                });
+            }
+
+            return Ok(new {
+                success = true,
+                message = "Đăng ký thành công! Vui lòng kiểm tra email chào mừng."
+            });
+        }
+
+        [HttpPost("newsletter/subscribe-me")]
+        public async Task<IActionResult> SubscribeMe()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return Unauthorized(new { success = false, message = "Vui lòng đăng nhập trước." });
+
+            var user = await _db.Users.FindAsync(userId.Value);
+            if (user == null || string.IsNullOrWhiteSpace(user.Email))
+                return BadRequest(new { success = false, message = "Tài khoản chưa có email hợp lệ." });
+
+            var email = user.Email.Trim();
+            var exists = await _db.NewsletterSubscribers.AnyAsync(n => n.Email == email);
+            if (exists)
+                return Ok(new { success = false, message = $"Email {email} đã đăng ký nhận tin rồi!" });
+
+            // [TRANSACTIONAL] Lưu subscriber trước; nếu SMTP lỗi thì rollback
+            var subscriber = new NewsletterSubscriber { Email = email };
+            _db.NewsletterSubscribers.Add(subscriber);
+            await _db.SaveChangesAsync();
+
+            bool emailOk = false;
+            try
+            {
+                var (ok, _) = await _email.SendWelcomeAsync(email);
+                emailOk = ok;
+            }
+            catch { /* coi như fail, sẽ rollback */ }
+
+            if (!emailOk)
+            {
+                _db.NewsletterSubscribers.Remove(subscriber);
+                await _db.SaveChangesAsync();
+                return Ok(new {
+                    success = false,
+                    message = $"Không gửi được email xác nhận tới {email}. Vui lòng thử lại sau."
+                });
+            }
+
+            return Ok(new {
+                success = true,
+                message = $"Đăng ký thành công! Email chào mừng đã gửi tới {email}."
+            });
         }
     }
 
