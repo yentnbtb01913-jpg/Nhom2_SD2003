@@ -1,0 +1,37 @@
+@using WisdomITNews.Models
+@model List<Category>
+@{
+    var activeNav = ViewData["ActiveNav"]?.ToString() ?? "";
+}
+<ul class="nav-list">
+    <li><a href="/" class="@(activeNav == "" ? "active" : "")"><i class="fa fa-house"></i> Trang chủ</a></li>
+    @foreach (var c in Model)
+    {
+        var hasChildren = c.Children != null && c.Children.Any();
+        var liClass = hasChildren ? "has-mega" : "";
+        var aClass  = activeNav == c.Slug ? "active" : "";
+        <li class="@liClass">
+            <a href="/danh-muc/@c.Slug" class="@aClass">@c.Icon @c.Name @(hasChildren ? Html.Raw("<i class=\"fa fa-caret-down mega-caret\"></i>") : null)</a>
+            @if (hasChildren)
+            {
+                <ul class="mega-dropdown">
+                    @foreach (var child in c.Children)
+                    {
+                        <li>
+                            <a href="/danh-muc/@child.Slug">
+                                <span class="mega-icon">@child.Icon</span>
+                                <span class="mega-text">
+                                    <strong>@child.Name</strong>
+                                    @if (!string.IsNullOrWhiteSpace(child.Description))
+                                    {
+                                        <span class="mega-desc">@child.Description</span>
+                                    }
+                                </span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            }
+        </li>
+    }
+</ul>

@@ -1,0 +1,184 @@
+@model List<WisdomITNews.Models.Article>
+@using WisdomITNews.Services
+@{
+    ViewData["Title"] = "Quản lý bài viết"; Layout = "_AdminLayout";
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h1 style="font-size:22px;font-weight:700;">📰 Bài viết</h1>
+    <a href="/admin/CreateArticle" style="background:#16a34a;color:#fff;padding:9px 18px;border-radius:0px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Viết bài mới</a>
+</div>
+
+<!-- FILTER -->
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+    @foreach (var s in new[] {
+    ("", "Tất cả"),
+    ("published", "✅ Đã đăng"),
+    ("PendingReview", "⏳ Chờ duyệt"),
+    ("draft", "📝 Nháp"),
+    ("Rejected", "❌ Bị từ chối"),
+    ("archived", "📦 Lưu trữ")
+  })
+    {
+        <a href="/admin/Articles?status=@s.Item1"
+           style="padding:7px 16px;border-radius:20px;font-size:13px;font-weight:600;text-decoration:none;background:@(ViewBag.Status == s.Item1 ? "#0a2540" : "#f0f2f5");color:@(ViewBag.Status == s.Item1 ? "#fff" : "#3d3d3d");">
+            @s.Item2
+        </a>
+    }
+</div>
+
+@{
+    var regionMap = new Dictionary<string, string>
+    {
+        ["dong-nai"] = "Đồng Nai",
+        ["ha-noi"] = "Hà Nội",
+        ["ho-chi-minh"] = "TP. HCM",
+        ["da-nang"] = "Đà Nẵng",
+        ["hai-phong"] = "Hải Phòng",
+        ["can-tho"] = "Cần Thơ"
+    };
+}
+
+<div style="background:#fff;border-radius:0px;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="background:#f5f6f8;border-bottom:2px solid #e0e4e8;">
+                <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Tiêu đề</th>
+                <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Danh mục</th>
+                <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Tác giả</th>
+                <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Vùng</th>
+                <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Trạng thái</th>
+                <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Lượt xem</th>
+                <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Ngày tạo</th>
+                <th style="padding:12px 16px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in Model)
+            {
+                var authorName = a.AuthorUser?.FullName ?? a.Author?.FullName ?? "—";
+                var isJournalist = a.AuthorUserId.HasValue && a.AuthorUser != null;
+
+                string statusText, statusBg, statusColor;
+                switch (a.Status)
+                {
+                    case "published":
+                        statusText = "✅ Đã đăng"; statusBg = "#dcfce7"; statusColor = "#16a34a"; break;
+                    case "draft":
+                        statusText = "📝 Nháp"; statusBg = "#fef9c3"; statusColor = "#ca8a04"; break;
+                    case "PendingReview":
+                        statusText = "⏳ Chờ duyệt"; statusBg = "#dbeafe"; statusColor = "#2563eb"; break;
+                    case "PendingApproval":
+                        statusText = "🟡 Chờ phê duyệt"; statusBg = "#fef3c7"; statusColor = "#d97706"; break;
+                    case "Rejected":
+                        statusText = "❌ Bị từ chối"; statusBg = "#fee2e2"; statusColor = "#dc2626"; break;
+                    default:
+                        statusText = "📦 Lưu trữ"; statusBg = "#f0f2f5"; statusColor = "#6c757d"; break;
+                }
+
+                var regionDisplay = !string.IsNullOrEmpty(a.Region) && regionMap.ContainsKey(a.Region) ? regionMap[a.Region] : "—";
+
+                <tr style="border-bottom:1px solid #f0f2f5;" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background=''">
+                    <td style="padding:12px 16px;max-width:280px;">
+                        <div style="font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">@a.Title</div>
+                        @if (a.IsFeatured)
+                        {
+                            <span style="font-size:10px;background:#fef9c3;color:#ca8a04;padding:1px 6px;border-radius:3px;margin-right:4px;">⭐ Nổi bật</span>
+                        }
+                        @if (a.IsBreaking)
+                        {
+                            <span style="font-size:10px;background:#fee2e2;color:#ba1a1a;padding:1px 6px;border-radius:3px;">🔴 Breaking</span>
+                        }
+                    </td>
+                    <td style="padding:12px 16px;color:#6c757d;">@(a.Category?.Name ?? "—")</td>
+                    <td style="padding:12px 16px;">
+                        <span style="font-weight:600;color:#0a2540;">@("@")@authorName</span>
+                        @if (isJournalist)
+                        {
+                            <span style="font-size:10px;background:#eff6ff;color:#2563eb;padding:1px 6px;border-radius:3px;margin-left:4px;">Nhà báo</span>
+                        }
+                        else
+                        {
+                            <span style="font-size:10px;background:#f0eeff;color:#476083;padding:1px 6px;border-radius:3px;margin-left:4px;">Admin</span>
+                        }
+                    </td>
+                    <td style="padding:12px 16px;color:#6c757d;font-size:12px;">@regionDisplay</td>
+                    <td style="padding:12px 16px;">
+                        <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@statusBg;color:@statusColor;">
+                            @statusText
+                        </span>
+                    </td>
+                    <td style="padding:12px 16px;color:#6c757d;"><i class="fa fa-eye" style="font-size:11px;"></i> @SlugHelper.FormatViews(a.Views)</td>
+                    <td style="padding:12px 16px;color:#6c757d;">@a.CreatedAt.ToString("dd/MM/yyyy")</td>
+                    <td style="padding:12px 16px;white-space:nowrap;">
+                        @if (a.Status == "PendingReview" || a.Status == "PendingApproval")
+                        {
+                            <button onclick="approveArticle(@a.Id, this)" title="Duyệt đăng bài" style="background:#dcfce7;color:#16a34a;border:none;padding:5px 10px;border-radius:5px;font-size:12px;cursor:pointer;margin-right:4px;font-weight:700;"><i class="fa fa-check"></i></button>
+                            <button onclick="rejectArticle(@a.Id, this)" title="Từ chối" style="background:#fee2e2;color:#dc2626;border:none;padding:5px 10px;border-radius:5px;font-size:12px;cursor:pointer;margin-right:4px;"><i class="fa fa-xmark"></i></button>
+                        }
+                        <a href="/bai-viet/@a.Slug" target="_blank" style="background:#f0f2f5;color:#3d3d3d;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;margin-right:4px;"><i class="fa fa-eye"></i></a>
+                        <a href="/admin/EditArticle/@a.Id" style="background:#ba1a1a;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;margin-right:4px;"><i class="fa fa-pen"></i></a>
+                        <button onclick="deleteArticle(@a.Id, this)" style="background:#fee2e2;color:#ba1a1a;border:none;padding:5px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Any())
+    {
+        <div style="text-align:center;padding:40px;color:#6c757d;">Không có bài viết nào.</div>
+    }
+</div>
+
+<!-- PAGINATION -->
+@if ((int)ViewBag.TotalPages > 1)
+{
+    <div style="display:flex;justify-content:center;gap:8px;margin-top:20px;">
+        @for (int i = 1; i <= (int)ViewBag.TotalPages; i++)
+        {
+            <a href="/admin/Articles?status=@ViewBag.Status&page=@i"
+               style="width:36px;height:36px;border-radius:0px;display:flex;align-items:center;justify-content:center;font-size:14px;text-decoration:none;background:@((int)ViewBag.Page == i ? "#ba1a1a" : "#fff");color:@((int)ViewBag.Page == i ? "#fff" : "#3d3d3d");box-shadow:0 1px 4px rgba(0,0,0,.1);">@i</a>
+        }
+    </div>
+}
+
+@section Scripts {
+    <script>
+        async function deleteArticle(id, btn) {
+            if (!confirm('Xóa bài viết này?')) return;
+            const res = await fetch('/admin/DeleteArticle/' + id, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) btn.closest('tr').remove();
+            else alert('Lỗi khi xóa!');
+        }
+
+        async function approveArticle(id, btn) {
+            if (!confirm('Duyệt và xuất bản bài viết này?')) return;
+            const res = await fetch('/admin/ApproveArticle/' + id, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert('Đã duyệt bài viết thành công!');
+                location.reload();
+            } else {
+                alert(data.message || 'Lỗi khi duyệt!');
+            }
+        }
+
+        async function rejectArticle(id, btn) {
+            var reason = prompt('Lý do từ chối (không bắt buộc):');
+            if (reason === null) return;
+            const res = await fetch('/admin/RejectArticle/' + id, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: reason })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Đã từ chối bài viết.');
+                location.reload();
+            } else {
+                alert(data.message || 'Lỗi!');
+            }
+        }
+    </script>
+}

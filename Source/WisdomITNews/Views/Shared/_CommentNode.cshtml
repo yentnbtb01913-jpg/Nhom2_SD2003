@@ -1,0 +1,117 @@
+@using WisdomITNews.Models
+@using WisdomITNews.Services
+@model Comment
+@{
+    var children   = ViewData["AllComments"] as List<Comment> ?? new List<Comment>();
+    var depth      = (int?)ViewData["Depth"] ?? 0;
+    var replies    = children
+        .Where(c => c.ParentCommentId == Model.Id)
+        .OrderBy(c => c.CreatedAt)
+        .ToList();
+
+    var linkedUser   = Model.User;
+    var displayName  = linkedUser?.FullName ?? Model.AuthorName;
+    var avatarLetter = string.IsNullOrWhiteSpace(displayName) ? "?" : displayName.Substring(0, 1).ToUpper();
+    var profileUrl   = linkedUser != null ? $"/u/{linkedUser.Username}" : null;
+    var avatarImg    = linkedUser?.AvatarUrl;
+
+    // Check if commenter is Admin (AuthorName == "Admin" or linked user role is admin/editor)
+    var isAdmin = (linkedUser != null && (linkedUser.Role == "Admin" || linkedUser.Role == "Editor"))
+                  || Model.AuthorName.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+
+    // Session info for auto-fill reply
+    var currentUserId   = Context.Session.GetInt32("UserId");
+    var currentUserName = Context.Session.GetString("UserName") ?? "";
+}
+<div class="comment-node" data-comment-id="@Model.Id" style="margin-left:@(depth * 24)px;">
+    <div class="comment-row">
+        <!-- Avatar: Admin = lightning bolt, user with avatar = img, else = letter -->
+        <div class="comment-avatar @(isAdmin ? "comment-avatar-admin" : "")">
+            @if (isAdmin)
+            {
+                <span class="admin-bolt">&#9889;</span>
+            }
+            else if (!string.IsNullOrEmpty(avatarImg))
+            {
+                <img src="@avatarImg" alt="@displayName" loading="lazy" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>
+            }
+            else
+            {
+                @avatarLetter
+            }
+        </div>
+        <div class="comment-body">
+            <div class="comment-meta">
+                @if (isAdmin)
+                {
+                    <strong class="comment-admin-name">
+                        <span class="admin-badge-inline">&#9889; Admin</span>
+                    </strong>
+                }
+                else if (profileUrl != null)
+                {
+                    <a href="@profileUrl" class="comment-user-link"><strong>@displayName</strong></a>
+                }
+                else
+                {
+                    <strong>@displayName</strong>
+                }
+                <span class="comment-time">@SlugHelper.FormatDate(Model.CreatedAt)</span>
+            </div>
+            <p class="comment-text">@Model.Content</p>
+            <div class="comment-actions">
+                <button type="button" class="js-like-btn" data-comment-id="@Model.Id">
+                    <i class="fa fa-thumbs-up"></i> <span class="like-count">@Model.LikeCount</span>
+                </button>
+                <button type="button" class="js-dislike-btn" data-comment-id="@Model.Id">
+                    <i class="fa fa-thumbs-down"></i> <span class="dislike-count">@Model.DislikeCount</span>
+                </button>
+                <button type="button" class="js-reply-btn" data-comment-id="@Model.Id">
+                    <i class="fa fa-reply"></i> Trả lời
+                </button>
+                @if (currentUserId.HasValue && Model.UserId == currentUserId.Value)
+                {
+                    <button type="button" class="js-delete-btn" data-comment-id="@Model.Id"
+                            style="color:#ba1a1a;" onclick="deleteComment(@Model.Id)">
+                        <i class="fa fa-trash"></i> Xoá
+                    </button>
+                }
+            </div>
+            <!-- Reply form -->
+            <form class="reply-form" data-parent-id="@Model.Id" style="display:none;">
+                @if (currentUserId.HasValue)
+                {
+                    <div class="reply-logged-info">
+                        <i class="fa fa-user-check"></i> Trả lời với tên: <strong>@currentUserName</strong>
+                    </div>
+                    <input type="hidden" class="reply-name" value="@currentUserName" />
+                    <input type="hidden" class="reply-email" value="" />
+                }
+                else
+                {
+                    <input type="text"  class="reply-name"  placeholder="Họ và tên *"      maxlength="80"  required/>
+                    <input type="email" class="reply-email" placeholder="Email (tuỳ chọn)" maxlength="120"/>
+                }
+                <textarea class="reply-text" placeholder="Nội dung trả lời..." rows="2" maxlength="800" required></textarea>
+                <div class="reply-form-actions">
+                    <button type="submit"><i class="fa fa-paper-plane"></i> Gửi</button>
+                    <button type="button" class="js-reply-cancel">Huỷ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (replies.Any())
+    {
+        <div class="comment-children">
+            @foreach (var child in replies)
+            {
+                await Html.RenderPartialAsync("_CommentNode", child, new ViewDataDictionary(ViewData)
+                {
+                    ["AllComments"] = children,
+                    ["Depth"] = depth + 1
+                });
+            }
+        </div>
+    }
+</div>

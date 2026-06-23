@@ -1,0 +1,112 @@
+﻿@model List<WisdomITNews.Models.Category>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "RSS Feeds";
+}
+
+<div class="page-wrapper" style="grid-template-columns:1fr;">
+    <main>
+        <section style="background:var(--bg-white);border-radius:var(--radius);padding:32px;box-shadow:var(--shadow-sm);margin-top:20px;max-width:800px;margin-left:auto;margin-right:auto;">
+
+            <div style="text-align:center;margin-bottom:28px;">
+                <i class="fa fa-rss" style="font-size:48px;color:#001f3f;margin-bottom:12px;display:block;"></i>
+                <h1 style="font-family:'Playfair Display',serif;font-size:28px;margin-bottom:8px;">RSS Feeds</h1>
+                <p style="color:var(--text-muted);font-size:14px;">Đăng ký RSS để nhận tin mới nhất từ Wisdom IT News qua ứng dụng đọc tin (Feedly, Inoreader...)</p>
+            </div>
+
+            <!-- Hướng dẫn -->
+            <div style="background:var(--bg-gray);border-radius:var(--radius);padding:16px 20px;margin-bottom:24px;">
+                <strong style="display:block;margin-bottom:8px;"><i class="fa fa-circle-question"></i> Cách sử dụng RSS</strong>
+                <p style="font-size:13px;color:var(--text-muted);line-height:1.7;">
+                    Copy đường link RSS bên dưới, mở ứng dụng đọc RSS như
+                    <a href="https://feedly.com" target="_blank" style="color:var(--accent);">Feedly</a>,
+                    <a href="https://www.inoreader.com" target="_blank" style="color:var(--accent);">Inoreader</a>,
+                    hoặc bất kỳ RSS reader nào → dán link vào để đăng ký theo dõi.
+                </p>
+            </div>
+
+            <!-- Feed chính -->
+            <div style="margin-bottom:24px;">
+                <h2 style="font-size:18px;margin-bottom:14px;font-family:'Playfair Display',serif;">
+                    <i class="fa fa-globe" style="color:var(--accent);"></i> Feed chính
+                </h2>
+                <div style="display:flex;align-items:center;gap:10px;background:var(--bg-gray);border-radius:0px;padding:12px 16px;">
+                    <i class="fa fa-rss" style="color:#001f3f;font-size:18px;"></i>
+                    <code id="mainFeed" style="flex:1;font-size:13px;word-break:break-all;">/rss</code>
+                    <button onclick="copyFeed('mainFeed')" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:0px;cursor:pointer;font-size:12px;white-space:nowrap;">
+                        <i class="fa fa-copy"></i> Copy
+                    </button>
+                    <a href="/rss" target="_blank" style="color:var(--accent);font-size:13px;white-space:nowrap;">
+                        <i class="fa fa-external-link"></i> Xem
+                    </a>
+                </div>
+            </div>
+
+            <!-- Feed theo danh mục -->
+            <div style="margin-bottom:24px;">
+                <h2 style="font-size:18px;margin-bottom:14px;font-family:'Playfair Display',serif;">
+                    <i class="fa fa-folder" style="color:var(--accent);"></i> Theo danh mục
+                </h2>
+                @foreach (var cat in Model)
+                {
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">
+                        <span style="width:28px;text-align:center;">@cat.Icon</span>
+                        <span style="flex:1;font-weight:600;font-size:14px;">@cat.Name</span>
+                        <code id="cat-@cat.Slug" style="font-size:12px;color:var(--text-muted);">/rss?category=@cat.Slug</code>
+                        <button onclick="copyFeed('cat-@cat.Slug')" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:11px;">
+                            <i class="fa fa-copy"></i>
+                        </button>
+                        <a href="/rss?category=@cat.Slug" target="_blank" style="color:var(--accent);font-size:12px;">
+                            <i class="fa fa-external-link"></i>
+                        </a>
+                    </div>
+                }
+            </div>
+
+            <!-- Feed theo vùng -->
+            <div>
+                <h2 style="font-size:18px;margin-bottom:14px;font-family:'Playfair Display',serif;">
+                    <i class="fa fa-map-marker-alt" style="color:var(--accent);"></i> Theo khu vực
+                </h2>
+                @{
+                    var regions = new[] {
+                ("dong-nai", "Đồng Nai"), ("ha-noi", "Hà Nội"), ("ho-chi-minh", "TP. Hồ Chí Minh"),
+                ("da-nang", "Đà Nẵng"), ("hai-phong", "Hải Phòng"), ("can-tho", "Cần Thơ")
+            };
+                }
+                @foreach (var (slug, name) in regions)
+                {
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">
+                        <i class="fa fa-location-dot" style="color:var(--accent);width:28px;text-align:center;"></i>
+                        <span style="flex:1;font-weight:600;font-size:14px;">@name</span>
+                        <code id="region-@slug" style="font-size:12px;color:var(--text-muted);">/rss?region=@slug</code>
+                        <button onclick="copyFeed('region-@slug')" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:11px;">
+                            <i class="fa fa-copy"></i>
+                        </button>
+                        <a href="/rss?region=@slug" target="_blank" style="color:var(--accent);font-size:12px;">
+                            <i class="fa fa-external-link"></i>
+                        </a>
+                    </div>
+                }
+            </div>
+
+        </section>
+    </main>
+</div>
+
+@section Scripts {
+    <script>
+        function copyFeed(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const url = window.location.origin + el.textContent.trim();
+            navigator.clipboard.writeText(url).then(() => {
+                const btn = el.parentElement.querySelector('button');
+                const old = btn.innerHTML;
+                btn.innerHTML = '<i class="fa fa-check"></i> Copied!';
+                btn.style.background = '#16a34a';
+                setTimeout(() => { btn.innerHTML = old; btn.style.background = ''; }, 2000);
+            });
+        }
+    </script>
+}

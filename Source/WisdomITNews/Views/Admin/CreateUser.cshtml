@@ -1,0 +1,39 @@
+﻿@{
+    Layout = "_AdminLayout"; ViewData["Title"] = "Tao User Moi";
+}
+
+<div style="max-width:500px;margin:30px auto;">
+    <h2 style="font-size:22px;font-weight:700;">Tao User Moi</h2>
+    @if (ViewBag.Error != null)
+    {
+        <div style="color:red;margin-bottom:10px;font-weight:600;">@ViewBag.Error</div>
+    }
+    <form method="post" asp-action="CreateUser" asp-controller="Admin" style="margin-top:16px;">
+        @Html.AntiForgeryToken()
+        <div style="margin-bottom:12px;">
+            <label style="font-weight:600;font-size:13px;">Username</label><br />
+            <input type="text" name="username" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0px;" />
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="font-weight:600;font-size:13px;">Email</label><br />
+            <input type="email" name="email" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0px;" />
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="font-weight:600;font-size:13px;">Mat khau</label><br />
+            <input type="password" name="password" required minlength="6" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0px;" />
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="font-weight:600;font-size:13px;">Ho va ten</label><br />
+            <input type="text" name="fullName" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0px;" />
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="font-weight:600;font-size:13px;">Role</label><br />
+            <select name="role" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0px;">
+                <option value="Reader">Reader</option>
+                <option value="Journalist">Journalist</option>
+                <option value="Admin">Admin</option>
+            </select>
+        </div>
+        <button type="submit" style="padding:10px 24px;background:#476083;color:#fff;border:none;border-radius:0px;font-weight:600;cursor:pointer;">Tao User</button>
+    </form>
+</div>
