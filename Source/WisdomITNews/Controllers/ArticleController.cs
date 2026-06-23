@@ -113,6 +113,10 @@ public class ArticleController : Controller
             .OrderByDescending(a => a.Views)
             .Take(5).ToListAsync();
 
+        var hubUserId = HttpContext.Session.GetInt32("UserId");
+        ViewBag.CanSave = hubUserId != null;
+        ViewBag.IsSaved = hubUserId != null && await _db.SavedArticles.AnyAsync(s => s.UserId == hubUserId.Value && s.ArticleId == article.Id);
+
         return View(new ArticleViewModel
         {
             Article = article,
@@ -308,6 +312,12 @@ public class ArticleController : Controller
         public async Task<IActionResult> Summarize([FromBody] SummarizeRequest req)
         {
             var result = await _ai.SummarizeAsync(req.ArticleId);
+            // Cache tóm tắt vào bài để hiện hộp TL;DR ở các lần xem sau
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Summary))
+            {
+                var _art = await _db.Articles.FindAsync(req.ArticleId);
+                if (_art != null) { _art.AiSummary = result.Summary; await _db.SaveChangesAsync(); }
+            }
             return Ok(result);
         }
 

@@ -12,7 +12,41 @@
     var sessionUserName = Context.Session.GetString("UserName") ?? "";
 }
 @section Head {
+    @{
+        var _canon = $"{Context.Request.Scheme}://{Context.Request.Host}/bai-viet/{article.Slug}";
+        var _img = string.IsNullOrWhiteSpace(article.Thumbnail) ? null
+            : (article.Thumbnail.StartsWith("http") ? article.Thumbnail : $"{Context.Request.Scheme}://{Context.Request.Host}{article.Thumbnail}");
+        var _author = article.AuthorUser?.FullName ?? article.Author?.FullName ?? "Wisdom IT News";
+        var _ld = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["@context"] = "https://schema.org",
+            ["@type"] = "NewsArticle",
+            ["headline"] = article.Title,
+            ["description"] = article.Summary,
+            ["image"] = _img,
+            ["datePublished"] = article.PublishedAt?.ToString("yyyy-MM-ddTHH:mm:sszzz"),
+            ["dateModified"] = article.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:sszzz"),
+            ["mainEntityOfPage"] = _canon,
+            ["author"] = new Dictionary<string, object> { ["@type"] = "Person", ["name"] = _author },
+            ["publisher"] = new Dictionary<string, object> { ["@type"] = "Organization", ["name"] = "Wisdom IT News" }
+        }, new System.Text.Json.JsonSerializerOptions
+        {
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        });
+    }
     <meta name="description" content="@article.Summary" />
+    <link rel="canonical" href="@_canon" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="@article.Title" />
+    <meta property="og:description" content="@article.Summary" />
+    <meta property="og:url" content="@_canon" />
+    <meta property="og:site_name" content="Wisdom IT News" />
+    @if (!string.IsNullOrEmpty(_img)) { <meta property="og:image" content="@_img" /> }
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@article.Title" />
+    <meta name="twitter:description" content="@article.Summary" />
+    @if (!string.IsNullOrEmpty(_img)) { <meta name="twitter:image" content="@_img" /> }
+    <script type="application/ld+json">@Html.Raw(_ld)</script>
 }
 <div id="readProgress" class="read-progress"></div>
 <div class="breadcrumb">
@@ -64,9 +98,23 @@
                 <button onclick="shareArticle()" style="background:var(--bg-gray);color:var(--text-dark);border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;">
                     <i class="fa fa-share-nodes"></i> Chia sẻ
                 </button>
+                @if (ViewBag.CanSave == true)
+                {
+                    var _saved = ViewBag.IsSaved == true;
+                    <button id="btnSave" onclick="toggleSave(@article.Id, this)" style="background:@(_saved ? "#0e7d85" : "var(--bg-gray)");color:@(_saved ? "#fff" : "var(--text-dark)");border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                        <i class="fa fa-bookmark"></i> <span>@(_saved ? "Đã lưu" : "Lưu")</span>
+                    </button>
+                }
             </div>
         </div>
 
+        @if (!string.IsNullOrWhiteSpace(article.AiSummary))
+        {
+            <div class="tldr-box" style="background:#e6f4f5;border-left:4px solid #0e7d85;border-radius:10px;padding:16px 18px;margin:18px 0;">
+                <div style="font-weight:700;color:#0e7d85;font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;"><i class="fa fa-bolt"></i> Tóm tắt nhanh</div>
+                <div style="font-size:14.5px;line-height:1.7;color:#1f2937;white-space:pre-line;">@article.AiSummary</div>
+            </div>
+        }
         <div id="summaryBox" class="ai-summary-box" style="display:none;">
             <div class="ai-summary-header">
                 <i class="fa fa-robot"></i>
@@ -245,6 +293,15 @@
 
         function closeSummary() {
             document.getElementById('summaryBox').style.display = 'none';
+        }
+
+        async function toggleSave(id, btn){
+            const r = await fetch('/Account/ToggleSave/'+id,{method:'POST'});
+            const d = await r.json();
+            if(!d.success){ alert(d.message||'Bạn cần đăng nhập'); return; }
+            const span = btn.querySelector('span');
+            if(d.saved){ btn.style.background='#0e7d85'; btn.style.color='#fff'; span.textContent='Đã lưu'; }
+            else { btn.style.background='var(--bg-gray)'; btn.style.color='var(--text-dark)'; span.textContent='Lưu'; }
         }
 
         function shareArticle() {

@@ -1,159 +1,245 @@
 @model WisdomITNews.Models.DashboardViewModel
 @using WisdomITNews.Services
-@{ ViewData["Title"] = "Dashboard"; Layout = "_AdminLayout"; }
+@{
+    ViewData["Title"] = "Dashboard";
+    Layout = "_AdminLayout";
 
-<div class="admin-topbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-  <h1 style="font-size:22px;font-weight:700;">📊 Dashboard</h1>
-  <a href="/admin/CreateArticle" style="background:#16a34a;color:#fff;padding:9px 18px;border-radius:0px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Viết bài mới</a>
-</div>
+    // Dữ liệu cho biểu đồ (lấy từ model sẵn có)
+    var topForChart = Model.TopArticles.Take(6).ToList();
+    var chartLabels = System.Text.Json.JsonSerializer.Serialize(
+        topForChart.Select(a => a.Title.Length > 22 ? a.Title.Substring(0, 22) + "…" : a.Title));
+    var chartViews = System.Text.Json.JsonSerializer.Serialize(topForChart.Select(a => a.Views));
+    var publishedCount = Model.PublishedArticles;
+    var otherCount = Math.Max(0, Model.TotalArticles - Model.PublishedArticles);
+}
 
-<!-- STAT CARDS -->
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;">
-  @{
-    var stats = new[] {
-      new { Icon="fa-newspaper", Bg="#dbeafe", Color="#2563eb", Value=Model.TotalArticles.ToString(), Label="Tổng bài viết" },
-      new { Icon="fa-circle-check", Bg="#dcfce7", Color="#16a34a", Value=Model.PublishedArticles.ToString(), Label="Đã xuất bản" },
-      new { Icon="fa-eye", Bg="#fef9c3", Color="#ca8a04", Value=SlugHelper.FormatViews(Model.TotalViews), Label="Tổng lượt xem" },
-      new { Icon="fa-comments", Bg="#f0eeff", Color="#476083", Value=Model.TotalComments.ToString(), Label="Bình luận" }
-    };
-  }
-  @foreach (var s in stats)
-  {
-    <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;gap:14px;align-items:center;">
-      <div style="width:48px;height:48px;border-radius:0px;background:@s.Bg;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <i class="fa @s.Icon" style="color:@s.Color;font-size:20px;"></i>
-      </div>
-      <div>
-        <div style="font-size:24px;font-weight:700;">@s.Value</div>
-        <div style="font-size:13px;color:#6c757d;">@s.Label</div>
-      </div>
-    </div>
-  }
-</div>
+<style>
+    .adm-hero{background:linear-gradient(120deg,#0e7d85,#159aa3);border-radius:6px;padding:22px 24px 66px;color:#fff;}
+    .adm-hero-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+    .adm-hero-row h1{font-size:22px;font-weight:800;margin:0;}
+    .adm-hero-row p{opacity:.85;font-size:13px;margin:4px 0 0;}
+    .adm-btn{background:#fff;color:#0e7d85;padding:9px 16px;border-radius:6px;font-weight:700;font-size:13px;text-decoration:none;display:inline-flex;gap:6px;align-items:center;}
+    .adm-btn:hover{background:#e6f4f5;}
+    .adm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin:-46px 2px 24px;}
+    .adm-stat{background:#fff;border-radius:6px;padding:18px;box-shadow:0 8px 20px rgba(0,0,0,.10);}
+    .adm-stat-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+    .adm-stat-sub{font-size:11px;font-weight:700;letter-spacing:.04em;color:#94a3b8;text-transform:uppercase;}
+    .adm-stat-val{font-size:26px;font-weight:800;color:#1f2937;margin-top:2px;}
+    .adm-stat-ico{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0;}
+    .adm-stat-note{font-size:12px;color:#94a3b8;margin-top:12px;}
+    .adm-stat-note b{color:#0e7d85;}
+    .adm-row{display:grid;grid-template-columns:2fr 1fr;gap:22px;margin-bottom:22px;}
+    .adm-card{background:#fff;border-radius:6px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);}
+    .adm-card h2{font-size:15px;font-weight:700;margin-bottom:14px;color:#1f2937;}
+    .adm-chart-wrap{position:relative;height:300px;}
+    @@media(max-width:1100px){.adm-stats{grid-template-columns:1fr 1fr;}.adm-row{grid-template-columns:1fr;}}
+</style>
 
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;">
-  <!-- BÀI VIẾT GẦN ĐÂY -->
-  <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <h2 style="font-size:16px;font-weight:700;"><i class="fa fa-newspaper" style="color:#476083;"></i> Bài viết gần đây</h2>
-      <a href="/admin/Articles" style="font-size:13px;color:#ba1a1a;font-weight:600;">Xem tất cả →</a>
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <thead>
-        <tr style="border-bottom:2px solid #f0f2f5;">
-          <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Tiêu đề</th>
-          <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Danh mục</th>
-          <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Trạng thái</th>
-          <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Lượt xem</th>
-          <th style="padding:8px;"></th>
-        </tr>
-      </thead>
-      <tbody>
-        @foreach (var a in Model.RecentArticles)
-        {
-          <tr style="border-bottom:1px solid #f0f2f5;">
-            <td style="padding:10px 8px;max-width:240px;"><div style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;font-weight:600;">@a.Title</div></td>
-            <td style="padding:10px 8px;">@(a.Category?.Name ?? "—")</td>
-            <td style="padding:10px 8px;">
-              <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(a.Status=="published"?"#dcfce7":a.Status=="draft"?"#fef9c3":"#f0f2f5");color:@(a.Status=="published"?"#16a34a":a.Status=="draft"?"#ca8a04":"#6c757d");">
-                @(a.Status == "published" ? "✅ Đã đăng" : a.Status == "draft" ? "📝 Nháp" : "📦 Lưu trữ")
-              </span>
-            </td>
-            <td style="padding:10px 8px;color:#6c757d;">@SlugHelper.FormatViews(a.Views)</td>
-            <td style="padding:10px 8px;">
-              <a href="/admin/EditArticle/@a.Id" style="background:#ba1a1a;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;"><i class="fa fa-pen"></i></a>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-  <!-- TOP BÀI -->
-  <div style="background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
-    <h2 style="font-size:16px;font-weight:700;margin-bottom:16px;"><i class="fa fa-fire" style="color:#ba1a1a;"></i> Top xem nhiều</h2>
-    @for (int i = 0; i < Model.TopArticles.Count; i++)
-    {
-      var a = Model.TopArticles[i];
-      <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f0f2f5;">
-        <span style="width:26px;height:26px;border-radius:0px;background:@(i<3?"#ba1a1a":"#f0f2f5");color:@(i<3?"#fff":"#6c757d");display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">@(i+1)</span>
+<!-- HERO -->
+<div class="adm-hero">
+    <div class="adm-hero-row">
         <div>
-          <div style="font-size:13px;font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">@a.Title</div>
-          <div style="font-size:12px;color:#6c757d;margin-top:3px;"><i class="fa fa-eye"></i> @SlugHelper.FormatViews(a.Views)</div>
+            <h1>📊 Bảng điều khiển</h1>
+            <p>Tổng quan hệ thống Wisdom IT News</p>
         </div>
-      </div>
-    }
-  </div>
-    
-    <!-- AI Chatbot Widget -->
-    <div style="margin-top:24px;background:#fff;border-radius:0px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
-        <h2 style="font-size:16px;font-weight:700;margin-bottom:16px;">
-            <i class="fa fa-robot" style="color:#8b5cf6;"></i> Trợ lý AI - Wisdom Bot
-        </h2>
-        <div id="adminChatBox" style="height:280px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:12px;background:#fafbfc;">
-            <div style="margin-bottom:12px;">
-                <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
-                    <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
-                    Xin chào Admin! Tôi có thể hỗ trợ bạn về quản lý hệ thống, phân tích dữ liệu, hoặc trả lời câu hỏi về công nghệ.
+        <a href="/admin/CreateArticle" class="adm-btn"><i class="fa fa-plus"></i> Viết bài mới</a>
+    </div>
+</div>
+
+<!-- STAT CARDS (Notus) -->
+<div class="adm-stats">
+    <div class="adm-stat">
+        <div class="adm-stat-top">
+            <div>
+                <div class="adm-stat-sub">Tổng bài viết</div>
+                <div class="adm-stat-val">@Model.TotalArticles</div>
+            </div>
+            <div class="adm-stat-ico" style="background:#2563eb;"><i class="fa fa-newspaper"></i></div>
+        </div>
+        <div class="adm-stat-note">Đã xuất bản: <b>@Model.PublishedArticles</b></div>
+    </div>
+    <div class="adm-stat">
+        <div class="adm-stat-top">
+            <div>
+                <div class="adm-stat-sub">Tổng lượt xem</div>
+                <div class="adm-stat-val">@SlugHelper.FormatViews(Model.TotalViews)</div>
+            </div>
+            <div class="adm-stat-ico" style="background:#f59e0b;"><i class="fa fa-eye"></i></div>
+        </div>
+        <div class="adm-stat-note">Trên toàn bộ bài viết</div>
+    </div>
+    <div class="adm-stat">
+        <div class="adm-stat-top">
+            <div>
+                <div class="adm-stat-sub">Bình luận</div>
+                <div class="adm-stat-val">@Model.TotalComments</div>
+            </div>
+            <div class="adm-stat-ico" style="background:#ec4899;"><i class="fa fa-comments"></i></div>
+        </div>
+        <div class="adm-stat-note">Chờ duyệt: <b>@Model.PendingComments</b></div>
+    </div>
+    <div class="adm-stat">
+        <div class="adm-stat-top">
+            <div>
+                <div class="adm-stat-sub">Người đăng ký</div>
+                <div class="adm-stat-val">@Model.Subscribers</div>
+            </div>
+            <div class="adm-stat-ico" style="background:#10b981;"><i class="fa fa-envelope"></i></div>
+        </div>
+        <div class="adm-stat-note">Nhận bản tin email</div>
+    </div>
+</div>
+
+<!-- CHARTS -->
+<div class="adm-row">
+    <div class="adm-card">
+        <h2><i class="fa fa-chart-column" style="color:#159aa3;"></i> Top bài viết theo lượt xem</h2>
+        <div class="adm-chart-wrap"><canvas id="chartTop"></canvas></div>
+    </div>
+    <div class="adm-card">
+        <h2><i class="fa fa-chart-pie" style="color:#159aa3;"></i> Tỉ lệ xuất bản</h2>
+        <div class="adm-chart-wrap"><canvas id="chartStatus"></canvas></div>
+    </div>
+</div>
+
+<!-- TABLES -->
+<div class="adm-row">
+    <div class="adm-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h2 style="margin:0;"><i class="fa fa-newspaper" style="color:#476083;"></i> Bài viết gần đây</h2>
+            <a href="/admin/Articles" style="font-size:13px;color:#0e7d85;font-weight:600;text-decoration:none;">Xem tất cả →</a>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+                <tr style="border-bottom:2px solid #f0f2f5;">
+                    <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Tiêu đề</th>
+                    <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Danh mục</th>
+                    <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Trạng thái</th>
+                    <th style="text-align:left;padding:8px;color:#6c757d;font-weight:600;">Lượt xem</th>
+                    <th style="padding:8px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in Model.RecentArticles)
+                {
+                    <tr style="border-bottom:1px solid #f0f2f5;">
+                        <td style="padding:10px 8px;max-width:240px;"><div style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;font-weight:600;">@a.Title</div></td>
+                        <td style="padding:10px 8px;">@(a.Category?.Name ?? "—")</td>
+                        <td style="padding:10px 8px;">
+                            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(a.Status=="published"?"#dcfce7":a.Status=="draft"?"#fef9c3":"#f0f2f5");color:@(a.Status=="published"?"#16a34a":a.Status=="draft"?"#ca8a04":"#6c757d");">
+                                @(a.Status == "published" ? "✅ Đã đăng" : a.Status == "draft" ? "📝 Nháp" : "📦 Lưu trữ")
+                            </span>
+                        </td>
+                        <td style="padding:10px 8px;color:#6c757d;">@SlugHelper.FormatViews(a.Views)</td>
+                        <td style="padding:10px 8px;">
+                            <a href="/admin/EditArticle/@a.Id" style="background:#159aa3;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="adm-card">
+        <h2><i class="fa fa-fire" style="color:#e8542a;"></i> Top xem nhiều</h2>
+        @for (int i = 0; i < Model.TopArticles.Count; i++)
+        {
+            var a = Model.TopArticles[i];
+            <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f0f2f5;">
+                <span style="width:26px;height:26px;border-radius:6px;background:@(i<3?"#159aa3":"#f0f2f5");color:@(i<3?"#fff":"#6c757d");display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">@(i+1)</span>
+                <div>
+                    <div style="font-size:13px;font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">@a.Title</div>
+                    <div style="font-size:12px;color:#6c757d;margin-top:3px;"><i class="fa fa-eye"></i> @SlugHelper.FormatViews(a.Views)</div>
                 </div>
             </div>
-        </div>
-        <div style="display:flex;gap:8px;">
-            <input type="text" id="adminChatInput" placeholder="Nhập câu hỏi cho AI..."
-                   style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;"
-                   onkeydown="if(event.key==='Enter')sendAdminChat()">
-            <button onclick="sendAdminChat()" id="adminChatBtn"
-                    style="padding:10px 20px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                <i class="fa fa-paper-plane"></i> Gửi
-            </button>
+        }
+    </div>
+</div>
+
+<!-- AI Chatbot Widget (giữ nguyên) -->
+<div class="adm-card">
+    <h2 style="margin-bottom:16px;"><i class="fa fa-robot" style="color:#8b5cf6;"></i> Trợ lý AI - Wisdom Bot</h2>
+    <div id="adminChatBox" style="height:280px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:12px;background:#fafbfc;">
+        <div style="margin-bottom:12px;">
+            <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
+                <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
+                Xin chào Admin! Tôi có thể hỗ trợ bạn về quản lý hệ thống, phân tích dữ liệu, hoặc trả lời câu hỏi về công nghệ.
+            </div>
         </div>
     </div>
+    <div style="display:flex;gap:8px;">
+        <input type="text" id="adminChatInput" placeholder="Nhập câu hỏi cho AI..."
+               style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;"
+               onkeydown="if(event.key==='Enter')sendAdminChat()">
+        <button onclick="sendAdminChat()" id="adminChatBtn"
+                style="padding:10px 20px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+            <i class="fa fa-paper-plane"></i> Gửi
+        </button>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <script>
-            async function sendAdminChat() {
-                const input = document.getElementById('adminChatInput');
-                const msg = input.value.trim();
-                if (!msg) return;
+        // ----- Biểu đồ -----
+        (function () {
+            var barLabels = @Html.Raw(chartLabels);
+            var barData = @Html.Raw(chartViews);
+            if (window.Chart && document.getElementById('chartTop')) {
+                new Chart(document.getElementById('chartTop'), {
+                    type: 'bar',
+                    data: { labels: barLabels, datasets: [{ label: 'Lượt xem', data: barData, backgroundColor: '#159aa3', borderRadius: 4 }] },
+                    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+                });
+                new Chart(document.getElementById('chartStatus'), {
+                    type: 'doughnut',
+                    data: { labels: ['Đã xuất bản', 'Chưa xuất bản'], datasets: [{ data: [@publishedCount, @otherCount], backgroundColor: ['#159aa3', '#e5e7eb'] }] },
+                    options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, cutout: '62%' }
+                });
+            }
+        })();
 
-                const chatBox = document.getElementById('adminChatBox');
-                const btn = document.getElementById('adminChatBtn');
-
+        // ----- AI Chatbot (giữ nguyên) -----
+        async function sendAdminChat() {
+            const input = document.getElementById('adminChatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            const chatBox = document.getElementById('adminChatBox');
+            const btn = document.getElementById('adminChatBtn');
+            chatBox.innerHTML += `
+                <div style="text-align:right;margin-bottom:12px;">
+                    <div style="background:#0e7d85;color:#fff;padding:10px 14px;border-radius:12px;border-top-right-radius:0;display:inline-block;max-width:85%;font-size:14px;">
+                        ${msg}
+                    </div>
+                </div>`;
+            input.value = '';
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang xử lý...';
+            chatBox.scrollTop = chatBox.scrollHeight;
+            try {
+                const res = await fetch('/article/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
                 chatBox.innerHTML += `
-                    <div style="text-align:right;margin-bottom:12px;">
-                        <div style="background:#001f3f;color:#fff;padding:10px 14px;border-radius:12px;border-top-right-radius:0;display:inline-block;max-width:85%;font-size:14px;">
-                            ${msg}
+                    <div style="margin-bottom:12px;">
+                        <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
+                            <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
+                            ${data.reply}
                         </div>
                     </div>`;
-                input.value = '';
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang xử lý...';
-                chatBox.scrollTop = chatBox.scrollHeight;
-
-                try {
-                    const res = await fetch('/article/chat', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: msg })
-                    });
-                    const data = await res.json();
-
-                    chatBox.innerHTML += `
-                        <div style="margin-bottom:12px;">
-                            <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
-                                <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
-                                ${data.reply}
-                            </div>
-                        </div>`;
-                } catch {
-                    chatBox.innerHTML += `
-                        <div style="margin-bottom:12px;">
-                            <div style="background:#fee2e2;padding:10px 14px;border-radius:12px;display:inline-block;max-width:85%;font-size:14px;color:#dc2626;">
-                                ⚠️ Lỗi kết nối, vui lòng thử lại.
-                            </div>
-                        </div>`;
-                }
-
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa fa-paper-plane"></i> Gửi';
-                chatBox.scrollTop = chatBox.scrollHeight;
+            } catch {
+                chatBox.innerHTML += `
+                    <div style="margin-bottom:12px;">
+                        <div style="background:#fee2e2;padding:10px 14px;border-radius:12px;display:inline-block;max-width:85%;font-size:14px;color:#dc2626;">
+                            ⚠️ Lỗi kết nối, vui lòng thử lại.
+                        </div>
+                    </div>`;
             }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-paper-plane"></i> Gửi';
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
     </script>
-</div>
+}

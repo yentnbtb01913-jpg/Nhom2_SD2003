@@ -34,3 +34,35 @@ public static class VideoSampleData
         new() { Id = 9, Title = "Khởi nghiệp công nghệ: bài học từ các startup Việt",  YouTubeId = "CevxZvSJLk8", Source = "Tiền Phong", Views = 5200,  PublishedAt = DateTime.Now.AddHours(-11) },
     };
 }
+
+// ===== Entity Video (lưu DB) — đăng từ link YouTube =====
+public class Video
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = "";
+    public string YouTubeId { get; set; } = "";
+    public string? Source { get; set; }
+    public string? Description { get; set; }
+    public string Status { get; set; } = "published";
+    public int Views { get; set; }
+    public int? CreatedByAdminId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime PublishedAt { get; set; } = DateTime.Now;
+
+    public string Thumbnail => $"https://img.youtube.com/vi/{YouTubeId}/hqdefault.jpg";
+    public string EmbedUrl  => $"https://www.youtube.com/embed/{YouTubeId}";
+}
+
+// Tách YouTube video-id từ link (watch?v=, youtu.be/, embed/, shorts/) hoặc nhận thẳng id 11 ký tự
+public static class YouTubeHelper
+{
+    public static string? ExtractId(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+        input = input.Trim();
+        if (System.Text.RegularExpressions.Regex.IsMatch(input, "^[A-Za-z0-9_-]{11}$")) return input;
+        var m = System.Text.RegularExpressions.Regex.Match(input,
+            @"(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|shorts/|v/)|[?&]v=)([A-Za-z0-9_-]{11})");
+        return m.Success ? m.Groups[1].Value : null;
+    }
+}

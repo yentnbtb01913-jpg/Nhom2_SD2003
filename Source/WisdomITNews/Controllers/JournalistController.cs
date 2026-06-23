@@ -116,15 +116,16 @@ public class JournalistController : Controller
                 FullName = vm.FullName.Trim(),
                 Bio = vm.Bio?.Trim(),
                 Role = "Journalist",
+                IsActive = false, // chờ admin/quản lý duyệt
                 IsEmailConfirmed = false,
                 CreatedAt = DateTime.Now
             };
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
 
-            // Auto login
-            SetJournalistSession(user);
-            return RedirectToAction("Dashboard");
+            // KHÔNG auto login — chờ duyệt
+            TempData["PendingMsg"] = "Đăng ký nhà báo thành công! Tài khoản đang chờ quản trị viên/quản lý duyệt.";
+            return RedirectToAction("Login");
         }
         catch (Exception ex)
         {
@@ -161,6 +162,12 @@ public class JournalistController : Controller
             if (user == null || !BCrypt.Net.BCrypt.Verify(vm.Password, user.PasswordHash))
             {
                 vm.Error = "Sai tên đăng nhập / email hoặc mật khẩu.";
+                return View(vm);
+            }
+
+            if (!user.IsActive)
+            {
+                vm.Error = "Tài khoản nhà báo đang chờ duyệt hoặc đã bị khoá.";
                 return View(vm);
             }
 

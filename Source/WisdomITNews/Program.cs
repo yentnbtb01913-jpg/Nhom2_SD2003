@@ -81,6 +81,7 @@ app.MapControllerRoute(name: "category",  pattern: "danh-muc/{slug?}",   default
 app.MapControllerRoute(name: "search",    pattern: "tim-kiem",            defaults: new { controller = "Home",     action = "Search" });
 app.MapControllerRoute(name: "journalist", pattern: "journalist/{action=Dashboard}/{id?}", defaults: new { controller = "Journalist" });
 app.MapControllerRoute(name: "admin",     pattern: "admin/{action=Dashboard}/{id?}", defaults: new { controller = "Admin" });
+app.MapControllerRoute(name: "staff",     pattern: "nhan-vien/{action=Login}/{id?}", defaults: new { controller = "NhanVien" });
 app.MapControllerRoute(name: "account",   pattern: "Account/{action=Login}", defaults: new { controller = "Account" });
 app.MapControllerRoute(name: "default",   pattern: "{controller=Home}/{action=Index}/{id?}");
 

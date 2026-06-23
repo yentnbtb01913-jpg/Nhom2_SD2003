@@ -164,6 +164,38 @@ public class RssController : Controller
         return View(categories);
     }
 
+    // ===== SITEMAP =====
+    [Route("/sitemap.xml")]
+    public async Task<IActionResult> Sitemap()
+    {
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var arts = await _db.Articles
+            .Where(a => a.Status == "published")
+            .OrderByDescending(a => a.UpdatedAt)
+            .Select(a => new { a.Slug, a.UpdatedAt })
+            .Take(2000).ToListAsync();
+        var cats = await _db.Categories.Where(c => c.IsVisible).Select(c => c.Slug).ToListAsync();
+
+        var sb = new StringBuilder();
+        sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        sb.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
+        sb.AppendLine($"<url><loc>{baseUrl}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>");
+        foreach (var c in cats)
+            sb.AppendLine($"<url><loc>{baseUrl}/danh-muc/{c}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>");
+        foreach (var a in arts)
+            sb.AppendLine($"<url><loc>{baseUrl}/bai-viet/{a.Slug}</loc><lastmod>{a.UpdatedAt:yyyy-MM-dd}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>");
+        sb.AppendLine("</urlset>");
+        return Content(sb.ToString(), "application/xml; charset=utf-8");
+    }
+
+    [Route("/robots.txt")]
+    public IActionResult Robots()
+    {
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var txt = $"User-agent: *\nAllow: /\nSitemap: {baseUrl}/sitemap.xml\n";
+        return Content(txt, "text/plain; charset=utf-8");
+    }
+
     private static string CleanHtml(string? html)
     {
         if (string.IsNullOrEmpty(html)) return "";

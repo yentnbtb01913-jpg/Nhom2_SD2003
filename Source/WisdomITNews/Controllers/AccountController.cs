@@ -248,6 +248,61 @@ public class AccountController : Controller
         }
     }
 
+    // ===== ĐĂNG NHẬP NHÂN VIÊN BẰNG GOOGLE (khu Wisdom Nhân viên) =====
+    // Bước 1: chuyển sang Google; callback RIÊNG để map vào bảng Admin (không tạo tài khoản mới).
+    [HttpGet]
+    public IActionResult StaffExternalLogin(string provider = "Google")
+    {
+        if (string.IsNullOrWhiteSpace(provider)) provider = "Google";
+        var redirectUrl = Url.Action(nameof(StaffExternalLoginCallback), "Account");
+        var props = new AuthenticationProperties { RedirectUri = redirectUrl };
+        return Challenge(props, provider);
+    }
+
+    // Bước 2: Google gọi lại — khớp email với nhân viên ĐÃ được cấp (bảng Admin), set session admin.
+    [HttpGet]
+    public async Task<IActionResult> StaffExternalLoginCallback(string? remoteError = null)
+    {
+        if (!string.IsNullOrEmpty(remoteError))
+        {
+            TempData["StaffLoginError"] = "Đăng nhập Google thất bại. Vui lòng thử lại.";
+            return RedirectToAction("Login", "NhanVien");
+        }
+
+        var auth = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = auth?.Principal;
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        if (principal == null)
+        {
+            TempData["StaffLoginError"] = "Không lấy được thông tin từ Google.";
+            return RedirectToAction("Login", "NhanVien");
+        }
+
+        var email = principal.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            TempData["StaffLoginError"] = "Tài khoản Google không có email.";
+            return RedirectToAction("Login", "NhanVien");
+        }
+
+        email = email.Trim().ToLowerInvariant();
+        // CHỈ khớp nhân viên đã có trong bảng Admin và đang hoạt động — KHÔNG tự tạo tài khoản.
+        var admin = await _db.Admins.FirstOrDefaultAsync(a => a.Email != null && a.Email.ToLower() == email && a.IsActive);
+        if (admin == null)
+        {
+            TempData["StaffLoginError"] = "Email này chưa được cấp quyền nhân viên. Liên hệ quản trị viên.";
+            return RedirectToAction("Login", "NhanVien");
+        }
+
+        admin.LastLogin = DateTime.Now;
+        await _db.SaveChangesAsync();
+        HttpContext.Session.SetString("AdminId", admin.Id.ToString());
+        HttpContext.Session.SetString("AdminName", admin.FullName);
+        HttpContext.Session.SetString("AdminRole", admin.Role);
+        return RedirectToAction("Dashboard", "NhanVien");
+    }
+
     // ===== PROFILE — public =====
     [HttpGet]
     [Route("/u/{username}")]
@@ -544,6 +599,114 @@ public class AccountController : Controller
         ViewBag.ProfileUser = user;
         ViewBag.ListType = "Đang theo dõi";
         return View("FollowList", following);
+    }
+
+    // ===================== KHU CÁ NHÂN (HUB) =====================
+    // 1 action, 5 tab: foryou / topics / following / history / saved
+    [HttpGet]
+    public async Task<IActionResult> Hub(string tab = "foryou")
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return RedirectToAction("Login");
+        var user = await _db.Users.FindAsync(userId.Value);
+        if (user == null) return RedirectToAction("Login");
+
+        ViewBag.User = user;
+        ViewBag.Tab = tab;
+        ViewBag.SavedCount  = await _db.SavedArticles.CountAsync(x => x.UserId == user.Id);
+        ViewBag.FollowCount = await _db.UserFollows.CountAsync(f => f.FollowerId == user.Id);
+        ViewBag.TopicCount  = await _db.UserCategoryFollows.CountAsync(f => f.UserId == user.Id);
+
+        if (tab == "saved")
+        {
+            var ids = await _db.SavedArticles.Where(x => x.UserId == user.Id)
+                .OrderByDescending(x => x.SavedAt).Select(x => x.ArticleId).ToListAsync();
+            var arts = await _db.Articles.Include(a => a.Category).Where(a => ids.Contains(a.Id)).ToListAsync();
+            ViewBag.Articles = ids.Select(id => arts.FirstOrDefault(a => a.Id == id)).Where(a => a != null).Cast<Article>().ToList();
+        }
+        else if (tab == "history")
+        {
+            var sid = HttpContext.Session.Id;
+            var ids = await _db.ViewHistories.Where(v => v.SessionId == sid)
+                .OrderByDescending(v => v.ViewedAt).Select(v => v.ArticleId).ToListAsync();
+            ids = ids.Distinct().Take(30).ToList();
+            var arts = await _db.Articles.Include(a => a.Category).Where(a => ids.Contains(a.Id)).ToListAsync();
+            ViewBag.Articles = ids.Select(id => arts.FirstOrDefault(a => a.Id == id)).Where(a => a != null).Cast<Article>().ToList();
+        }
+        else if (tab == "following")
+        {
+            ViewBag.FollowingUsers = await _db.UserFollows.Where(f => f.FollowerId == user.Id)
+                .Join(_db.Users, f => f.FollowingId, u => u.Id, (f, u) => u)
+                .OrderBy(u => u.FullName).ToListAsync();
+        }
+        else if (tab == "topics")
+        {
+            var followedCatIds = await _db.UserCategoryFollows.Where(f => f.UserId == user.Id).Select(f => f.CategoryId).ToListAsync();
+            ViewBag.FollowedCatIds = followedCatIds;
+            ViewBag.AllCategories = await _db.Categories.OrderBy(c => c.SortOrder).ToListAsync();
+            ViewBag.Articles = followedCatIds.Any()
+                ? await _db.Articles.Include(a => a.Category)
+                    .Where(a => a.Status == "published" && a.CategoryId != null && followedCatIds.Contains(a.CategoryId.Value))
+                    .OrderByDescending(a => a.PublishedAt).Take(20).ToListAsync()
+                : new List<Article>();
+        }
+        else // foryou — gợi ý theo lịch sử đọc + theo dõi
+        {
+            var sid = HttpContext.Session.Id;
+            var readCatIds = await _db.ViewHistories.Where(v => v.SessionId == sid)
+                .Join(_db.Articles, v => v.ArticleId, a => a.Id, (v, a) => a.CategoryId)
+                .Where(c => c != null).Select(c => c!.Value).Distinct().ToListAsync();
+            var followCatIds = await _db.UserCategoryFollows.Where(f => f.UserId == user.Id).Select(f => f.CategoryId).ToListAsync();
+            var catIds = readCatIds.Concat(followCatIds).Distinct().ToList();
+            var followAuthorIds = await _db.UserFollows.Where(f => f.FollowerId == user.Id).Select(f => f.FollowingId).ToListAsync();
+
+            var recs = new List<Article>();
+            if (catIds.Any() || followAuthorIds.Any())
+            {
+                recs = await _db.Articles.Include(a => a.Category)
+                    .Where(a => a.Status == "published" &&
+                          ((a.CategoryId != null && catIds.Contains(a.CategoryId.Value)) ||
+                           (a.AuthorUserId != null && followAuthorIds.Contains(a.AuthorUserId.Value))))
+                    .OrderByDescending(a => a.PublishedAt).Take(20).ToListAsync();
+            }
+            if (recs.Count < 6)
+            {
+                var extra = await _db.Articles.Include(a => a.Category)
+                    .Where(a => a.Status == "published")
+                    .OrderByDescending(a => a.PublishedAt).Take(12).ToListAsync();
+                foreach (var a in extra) if (recs.All(x => x.Id != a.Id)) recs.Add(a);
+            }
+            ViewBag.Articles = recs.Take(20).ToList();
+        }
+        return View();
+    }
+
+    // Lưu / bỏ lưu bài (AJAX)
+    [HttpPost]
+    public async Task<IActionResult> ToggleSave(int id)
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return Json(new { success = false, message = "Bạn cần đăng nhập." });
+        var existing = await _db.SavedArticles.FirstOrDefaultAsync(x => x.UserId == userId.Value && x.ArticleId == id);
+        bool saved;
+        if (existing != null) { _db.SavedArticles.Remove(existing); saved = false; }
+        else { _db.SavedArticles.Add(new SavedArticle { UserId = userId.Value, ArticleId = id }); saved = true; }
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, saved });
+    }
+
+    // Theo dõi / bỏ theo dõi chuyên mục (AJAX)
+    [HttpPost]
+    public async Task<IActionResult> ToggleFollowCategory(int id)
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return Json(new { success = false, message = "Bạn cần đăng nhập." });
+        var existing = await _db.UserCategoryFollows.FirstOrDefaultAsync(f => f.UserId == userId.Value && f.CategoryId == id);
+        bool following;
+        if (existing != null) { _db.UserCategoryFollows.Remove(existing); following = false; }
+        else { _db.UserCategoryFollows.Add(new UserCategoryFollow { UserId = userId.Value, CategoryId = id }); following = true; }
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, following });
     }
 
     

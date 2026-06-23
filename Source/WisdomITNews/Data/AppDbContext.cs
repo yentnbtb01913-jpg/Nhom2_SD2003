@@ -26,6 +26,9 @@ public class AppDbContext : DbContext
     public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<Friendship> Friendships { get; set; }
     public DbSet<UserFollow> UserFollows { get; set; }
+    public DbSet<SavedArticle> SavedArticles { get; set; }
+    public DbSet<UserCategoryFollow> UserCategoryFollows { get; set; }
+    public DbSet<Video> Videos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -126,5 +129,9 @@ public class AppDbContext : DbContext
         mb.Entity<ChatMessage>().HasIndex(m => m.GroupId);
         mb.Entity<ChatMessage>().HasIndex(m => m.SentAt);
         mb.Entity<ChatMember>().HasIndex(m => new { m.GroupId, m.MemberType, m.MemberId }).IsUnique();
+
+        // Khu cá nhân
+        mb.Entity<SavedArticle>().HasIndex(x => new { x.UserId, x.ArticleId }).IsUnique();
+        mb.Entity<UserCategoryFollow>().HasIndex(x => new { x.UserId, x.CategoryId }).IsUnique();
     }
 }
