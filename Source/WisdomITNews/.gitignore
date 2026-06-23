@@ -1,0 +1,15 @@
+# ===== .NET / Visual Studio — KHÔNG commit các thứ này =====
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+
+# Bí mật: KHÔNG commit secret. Dùng User Secrets thay vì để trong appsettings.
+secrets.json
+appsettings.*.Local.json
+
+# Uploads sinh ra lúc chạy (tuỳ chọn — bỏ comment nếu muốn bỏ qua)
+# wwwroot/uploads/
