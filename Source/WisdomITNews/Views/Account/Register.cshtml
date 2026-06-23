@@ -156,6 +156,14 @@
                     .back a:hover {
                         color: #0a2540;
                     }
+            /* Nút đăng nhập/đăng ký bằng mạng xã hội (UI — OAuth nối backend sau) */
+            .social{margin-top:14px;display:flex;flex-direction:column;gap:8px;}
+            .social-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px 12px;border-radius:0px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid #e0e4e8;font-family:inherit;}
+            .social-google{background:#fff;color:#3c4043;border-color:#dadce0;}
+            .social-google:hover{background:#f7f8f8;}
+            .social-google i{color:#ea4335;}
+            .social-facebook{background:#1877f2;color:#fff;border-color:#1877f2;}
+            .social-facebook:hover{background:#166fe0;}
     </style>
 </head>
 <body>
@@ -182,6 +190,10 @@
             <button type="submit" class="btn"><i class="fa fa-user-plus"></i> Đăng ký</button>
         </form>
         <div class="link">Đã có tài khoản? <a href="/Account/Login">Đăng nhập</a></div>
+        <div class="social">
+            <a href="/Account/ExternalLogin?provider=Google" class="social-btn social-google"><i class="fa-brands fa-google"></i> Đăng ký bằng tài khoản Google</a>
+            <a href="/Account/ExternalLogin?provider=Facebook" class="social-btn social-facebook"><i class="fa-brands fa-facebook-f"></i> Đăng ký bằng tài khoản Facebook</a>
+        </div>
         <div class="back"><a href="/"><i class="fa fa-arrow-left"></i> Quay về trang chủ</a></div>
     </div>
 </body>

@@ -21,6 +21,38 @@ builder.Services.AddSession(opt =>
     opt.Cookie.IsEssential = true;
 });
 
+// ===== Đăng nhập ngoài: Google / Facebook (khoá đọc từ config / User Secrets) =====
+var authBuilder = builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme;
+}).AddCookie();
+
+var googleId = builder.Configuration["Authentication:Google:ClientId"];
+var googleSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+if (!string.IsNullOrWhiteSpace(googleId) && !string.IsNullOrWhiteSpace(googleSecret))
+{
+    authBuilder.AddGoogle(options =>
+    {
+        options.ClientId = googleId;
+        options.ClientSecret = googleSecret;
+        options.SignInScheme = Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme;
+    });
+}
+
+var fbId = builder.Configuration["Authentication:Facebook:AppId"];
+var fbSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
+if (!string.IsNullOrWhiteSpace(fbId) && !string.IsNullOrWhiteSpace(fbSecret))
+{
+    authBuilder.AddFacebook(options =>
+    {
+        options.AppId = fbId;
+        options.AppSecret = fbSecret;
+        options.SignInScheme = Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme;
+        options.Scope.Clear();
+        options.Scope.Add("public_profile"); // chỉ xin public_profile -> không cần quyền email
+    });
+}
+
 var app = builder.Build();
 
 // Auto migrate
@@ -40,6 +72,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseSession();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHub<WisdomITNews.Hubs.ChatHub>("/chatHub");

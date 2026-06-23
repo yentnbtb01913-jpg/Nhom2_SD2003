@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WisdomITNews.Data;
 using WisdomITNews.Models;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using System.Security.Claims;
 
 namespace WisdomITNews.Controllers;
 
@@ -150,6 +153,99 @@ public class AccountController : Controller
         HttpContext.Session.Remove("UserName");
         HttpContext.Session.Remove("UserAvatar");
         return RedirectToAction("Index", "Home");
+    }
+
+    // ===== ĐĂNG NHẬP NGOÀI: GOOGLE / FACEBOOK =====
+    // Bước 1: chuyển hướng người dùng sang nhà cung cấp
+    [HttpGet]
+    public IActionResult ExternalLogin(string provider, string? returnUrl = null)
+    {
+        if (string.IsNullOrWhiteSpace(provider))
+            return RedirectToAction("Login");
+
+        var redirectUrl = Url.Action(nameof(ExternalLoginCallback), "Account", new { returnUrl });
+        var props = new AuthenticationProperties { RedirectUri = redirectUrl };
+        return Challenge(props, provider); // provider = "Google" hoặc "Facebook"
+    }
+
+    // Bước 2: nhà cung cấp gọi lại — tìm/tạo user theo email rồi set session
+    [HttpGet]
+    public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null, string? remoteError = null)
+    {
+        if (!string.IsNullOrEmpty(remoteError))
+        {
+            _logger.LogWarning("External login error: {Err}", remoteError);
+            return RedirectToAction("Login");
+        }
+
+        var auth = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = auth?.Principal;
+        if (principal == null) return RedirectToAction("Login");
+
+        var email = principal.FindFirstValue(ClaimTypes.Email);
+        var fullName = principal.FindFirstValue(ClaimTypes.Name);
+        var avatar = principal.FindFirstValue("picture");
+        var providerKey = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        // Dọn cookie tạm của external (web dùng Session riêng)
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        // Provider có thể không trả email (vd Facebook chỉ xin public_profile).
+        // Khi đó tạo email tổng hợp từ id để vẫn khớp/tạo tài khoản duy nhất.
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            if (string.IsNullOrWhiteSpace(providerKey))
+                return RedirectToAction("Login");
+            email = $"social_{providerKey}@noemail.local";
+        }
+
+        try
+        {
+            email = email.Trim().ToLowerInvariant();
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+            if (user != null && !user.IsActive)
+                return RedirectToAction("Login");
+
+            if (user == null)
+            {
+                var local = email.Split('@')[0];
+                var baseUsername = System.Text.RegularExpressions.Regex.Replace(local, "[^a-z0-9_.]", "");
+                if (string.IsNullOrWhiteSpace(baseUsername)) baseUsername = "user";
+                var username = baseUsername;
+                int i = 1;
+                while (await _db.Users.AnyAsync(u => u.Username == username))
+                    username = baseUsername + (i++);
+
+                user = new User
+                {
+                    Username = username,
+                    Email = email,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
+                    FullName = string.IsNullOrWhiteSpace(fullName) ? username : fullName.Trim(),
+                    AvatarUrl = string.IsNullOrWhiteSpace(avatar) ? null : avatar,
+                    Role = "Reader",
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.Now
+                };
+                _db.Users.Add(user);
+                await _db.SaveChangesAsync();
+            }
+
+            HttpContext.Session.SetInt32("UserId", user.Id);
+            HttpContext.Session.SetString("UserName", user.FullName);
+            HttpContext.Session.SetString("UserAvatar", user.AvatarUrl ?? "");
+
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return Redirect(returnUrl);
+            return RedirectToAction("Index", "Home");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ExternalLoginCallback failed");
+            return RedirectToAction("Login");
+        }
     }
 
     // ===== PROFILE — public =====
