@@ -1,0 +1,209 @@
+﻿@using WisdomITNews.Models
+@using WisdomITNews.Services
+@model JournalistDashboardViewModel
+@{
+    Layout = "~/Views/Shared/_JournalistLayout.cshtml"; ViewData["Title"] = "Dashboard";
+}
+
+<div class="j-topbar">
+    <h1><i class="fa fa-chart-line" style="color:#001f3f;"></i> Dashboard</h1>
+    <div class="j-topbar-actions">
+        <a href="/Journalist/Create" class="j-btn-primary"><i class="fa fa-plus"></i> Viết bài mới</a>
+    </div>
+</div>
+
+<div class="j-content">
+    @if (TempData["Success"] != null)
+    {
+        <div class="j-alert j-alert-success"><i class="fa fa-circle-check"></i> @TempData["Success"]</div>
+    }
+
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px;">
+        @{
+            var stats = new[] {
+                new { Icon="fa-check-circle", Bg="#dcfce7", Color="#16a34a", Value=Model.PublishedCount.ToString(), Label="Đã xuất bản" },
+                new { Icon="fa-clock", Bg="#fef3c7", Color="#d97706", Value=Model.PendingCount.ToString(), Label="Chờ duyệt" },
+                new { Icon="fa-file-pen", Bg="#f3f4f6", Color="#6b7280", Value=Model.DraftCount.ToString(), Label="Bản nháp" },
+                new { Icon="fa-eye", Bg="#dbeafe", Color="#2563eb", Value=SlugHelper.FormatViews(Model.TotalViews), Label="Lượt xem" },
+                new { Icon="fa-comments", Bg="#f0eeff", Color="#476083", Value=Model.TotalComments.ToString(), Label="Bình luận" }
+            };
+        }
+        @foreach (var s in stats)
+        {
+            <div class="j-card" style="text-align:center;padding:20px 16px;">
+                <div style="width:44px;height:44px;border-radius:0px;background:@s.Bg;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                    <i class="fa @s.Icon" style="color:@s.Color;font-size:18px;"></i>
+                </div>
+                <div style="font-size:28px;font-weight:700;color:#0a2540;font-family:'Playfair Display',serif;">@s.Value</div>
+                <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;">@s.Label</div>
+            </div>
+        }
+    </div>
+
+    <!-- Articles Table -->
+    <div class="j-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2 class="j-card-title" style="margin-bottom:0;"><i class="fa fa-newspaper"></i> Bài viết của tôi</h2>
+            <span style="font-size:13px;color:#6b7280;">Tổng: @Model.Articles.Count bài</span>
+        </div>
+
+        @if (!Model.Articles.Any())
+        {
+            <div style="text-align:center;padding:48px 20px;color:#9ca3af;">
+                <i class="fa fa-feather-pointed" style="font-size:40px;color:#d1d5db;margin-bottom:12px;display:block;"></i>
+                <p style="font-size:15px;margin-bottom:16px;">Bạn chưa có bài viết nào</p>
+                <a href="/Journalist/Create" class="j-btn-primary" style="display:inline-flex;"><i class="fa fa-plus"></i> Viết bài đầu tiên</a>
+            </div>
+        }
+        else
+        {
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead>
+                        <tr style="border-bottom:2px solid #f0f0f0;">
+                            <th style="text-align:left;padding:12px 14px;color:#6b7280;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Tiêu đề</th>
+                            <th style="text-align:left;padding:12px 14px;color:#6b7280;font-weight:600;font-size:11px;text-transform:uppercase;">Danh mục</th>
+                            <th style="text-align:left;padding:12px 14px;color:#6b7280;font-weight:600;font-size:11px;text-transform:uppercase;">Trạng thái</th>
+                            <th style="text-align:left;padding:12px 14px;color:#6b7280;font-weight:600;font-size:11px;text-transform:uppercase;">Lượt xem</th>
+                            <th style="text-align:left;padding:12px 14px;color:#6b7280;font-weight:600;font-size:11px;text-transform:uppercase;">Ngày tạo</th>
+                            <th style="width:100px;text-align:center;padding:12px 14px;color:#6b7280;font-weight:600;font-size:11px;text-transform:uppercase;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in Model.Articles)
+                        {
+                            var statusStyle = a.Status switch
+                            {
+                                "published" => "background:#dcfce7;color:#16a34a;",
+                                "draft" => "background:#f3f4f6;color:#6b7280;",
+                                "PendingReview" or "PendingApproval" => "background:#fef3c7;color:#d97706;",
+                                "Rejected" => "background:#fee2e2;color:#dc2626;",
+                                _ => "background:#f3f4f6;color:#6b7280;"
+                            };
+                            var statusText = a.Status switch
+                            {
+                                "published" => "Đã đăng",
+                                "draft" => "Nháp",
+                                "PendingReview" or "PendingApproval" => "Chờ duyệt",
+                                "Rejected" => "Từ chối",
+                                _ => a.Status
+                            };
+                            <tr style="border-bottom:1px solid #f5f5f5;transition:background .15s;" onmouseover="this.style.background='#fafbfc'" onmouseout="this.style.background='transparent'">
+                                <td style="padding:14px;max-width:300px;">
+                                    <div style="font-weight:600;color:#0a2540;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                        @if (a.Status == "published")
+                                        {
+                                            <a href="/bai-viet/@a.Slug" target="_blank" style="color:#0a2540;text-decoration:none;">@a.Title</a>
+                                        }
+                                        else
+                                        {
+                                            @a.Title
+                                        }
+                                    </div>
+                                </td>
+                                <td style="padding:14px;color:#6b7280;">@(a.Category?.Name ?? "—")</td>
+                                <td style="padding:14px;">
+                                    <span style="@statusStyle padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;">@statusText</span>
+                                </td>
+                                <td style="padding:14px;color:#6b7280;">@SlugHelper.FormatViews(a.Views)</td>
+                                <td style="padding:14px;color:#6b7280;font-size:12px;">@a.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                <td style="padding:14px;text-align:center;">
+                                    <div style="display:flex;gap:6px;justify-content:center;">
+                                        <a href="/Journalist/Edit/@a.Id" style="width:32px;height:32px;border-radius:0px;background:#eef2ff;color:#476083;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px;" title="Sửa"><i class="fa fa-pen"></i></a>
+                                        <button onclick="deleteArticle(@a.Id)" style="width:32px;height:32px;border-radius:0px;background:#fee2e2;color:#dc2626;border:none;cursor:pointer;font-size:13px;" title="Xóa"><i class="fa fa-trash"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- AI Chatbot Widget -->
+<div class="j-card" style="margin-top:24px;">
+    <h2 class="j-card-title" style="margin-bottom:16px;">
+        <i class="fa fa-robot" style="color:#8b5cf6;"></i> Trợ lý AI - Wisdom Bot
+    </h2>
+    <div id="chatBox" style="height:320px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:12px;background:#fafbfc;">
+        <div class="ai-msg ai-msg-bot" style="margin-bottom:12px;">
+            <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
+                <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
+                Xin chào! Tôi là trợ lý AI của WisdomITNews. Bạn có thể hỏi tôi về công nghệ, lập trình, AI hoặc bất cứ điều gì liên quan đến IT.
+            </div>
+        </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+        <input type="text" id="chatInput" placeholder="Nhập câu hỏi cho AI..."
+               style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;"
+               onkeydown="if(event.key==='Enter')sendChat()">
+        <button onclick="sendChat()" id="chatSendBtn"
+                style="padding:10px 20px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+            <i class="fa fa-paper-plane"></i> Gửi
+        </button>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        async function deleteArticle(id) {
+            if (!confirm('Bạn có chắc muốn xóa bài viết này?')) return;
+            try {
+                const formData = new FormData();
+                const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                if (tokenEl) formData.append('__RequestVerificationToken', tokenEl.value);
+                const res = await fetch('/Journalist/Delete/' + id, { method: 'POST', body: formData });
+                const data = await res.json();
+                alert(data.message);
+                if (data.success) location.reload();
+            } catch { alert('Lỗi kết nối'); }
+        }
+
+        async function sendChat() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            const chatBox = document.getElementById('chatBox');
+            const btn = document.getElementById('chatSendBtn');
+            chatBox.innerHTML += `
+                        <div style="text-align:right;margin-bottom:12px;">
+                            <div style="background:#001f3f;color:#fff;padding:10px 14px;border-radius:12px;border-top-right-radius:0;display:inline-block;max-width:85%;font-size:14px;">
+                                ${msg}
+                            </div>
+                        </div>`;
+            input.value = '';
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang xử lý...';
+            chatBox.scrollTop = chatBox.scrollHeight;
+            try {
+                const res = await fetch('/article/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+                chatBox.innerHTML += `
+                            <div style="margin-bottom:12px;">
+                                <div style="background:#f0eeff;padding:10px 14px;border-radius:12px;border-top-left-radius:0;display:inline-block;max-width:85%;font-size:14px;color:#333;">
+                                    <strong style="color:#8b5cf6;">🤖 Wisdom Bot:</strong><br>
+                                    ${data.reply}
+                                </div>
+                            </div>`;
+            } catch {
+                chatBox.innerHTML += `
+                            <div style="margin-bottom:12px;">
+                                <div style="background:#fee2e2;padding:10px 14px;border-radius:12px;display:inline-block;max-width:85%;font-size:14px;color:#dc2626;">
+                                    ⚠️ Lỗi kết nối, vui lòng thử lại.
+                                </div>
+                            </div>`;
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-paper-plane"></i> Gửi';
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+    @Html.AntiForgeryToken()
+}

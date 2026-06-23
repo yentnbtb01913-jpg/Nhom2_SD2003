@@ -1,0 +1,341 @@
+﻿@using WisdomITNews.Models
+@using WisdomITNews.Services
+@model ProfileViewModel
+@{
+    Layout = "~/Views/Shared/_JournalistLayout.cshtml"; ViewData["Title"] = "Hồ sơ cá nhân";
+}
+
+<div class="j-topbar">
+    <h1><i class="fa fa-user-circle" style="color:#001f3f;"></i> Hồ sơ cá nhân</h1>
+</div>
+
+@section Head {
+    <style>
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            padding: 28px;
+        }
+
+        .profile-avatar-wrap {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg,#001f3f,#ef4444);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 42px;
+            font-weight: 700;
+            overflow: hidden;
+        }
+
+            .profile-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+        .profile-avatar-overlay {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: rgba(0,0,0,.5);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            opacity: 0;
+            transition: opacity .25s;
+            cursor: pointer;
+        }
+
+        .profile-avatar-wrap:hover .profile-avatar-overlay {
+            opacity: 1;
+        }
+
+        .profile-info h2 {
+            font-family: 'Playfair Display',serif;
+            font-size: 24px;
+            color: #0a2540;
+            margin: 0 0 4px;
+        }
+
+        .profile-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .profile-username {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .profile-role {
+            background: rgba(245,158,11,.1);
+            color: #d97706;
+            padding: 2px 10px;
+            border-radius: 0px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .profile-stats {
+            display: flex;
+            gap: 20px;
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+            .profile-stats i {
+                margin-right: 4px;
+            }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 16px;
+        }
+
+            .form-group label {
+                font-size: 13px;
+                font-weight: 600;
+                color: #374151;
+            }
+
+            .form-group input, .form-group textarea {
+                border: 1px solid #d1d5db;
+                border-radius: 0px;
+                padding: 10px 14px;
+                font-size: 14px;
+                font-family: inherit;
+                outline: none;
+                width: 100%;
+                transition: border-color .2s;
+                box-sizing: border-box;
+            }
+
+                .form-group input:focus, .form-group textarea:focus {
+                    border-color: #001f3f;
+                    box-shadow: 0 0 0 3px rgba(245,158,11,.1);
+                }
+
+                .form-group input:disabled {
+                    background: #f3f4f6;
+                    color: #9ca3af;
+                    cursor: not-allowed;
+                }
+
+            .form-group textarea {
+                resize: vertical;
+                min-height: 80px;
+            }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+    </style>
+}
+
+<div class="j-content">
+    <!-- Header -->
+    <div class="j-card profile-header">
+        <div class="profile-avatar-wrap" onclick="document.getElementById('avatarInput').click()">
+            <div class="profile-avatar">
+                @if (!string.IsNullOrEmpty(Model.User.AvatarUrl))
+                {
+                    <img id="avatarImg" src="@Model.User.AvatarUrl" alt="@Model.User.FullName" />
+                }
+                else
+                {
+                    <span id="avatarLetter">@(string.IsNullOrWhiteSpace(Model.User.FullName) ? "?" : Model.User.FullName.Substring(0, 1).ToUpper())</span>
+                }
+            </div>
+            <div class="profile-avatar-overlay"><i class="fa fa-camera"></i></div>
+            <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" />
+        </div>
+        <div class="profile-info">
+            <h2>@Model.User.FullName</h2>
+            <div class="profile-meta">
+                <span class="profile-username">@@@Model.User.Username</span>
+                <span class="profile-role">Journalist</span>
+            </div>
+            <div class="profile-stats">
+                <span><i class="fa fa-newspaper"></i> @Model.Articles.Count bài viết</span>
+                <span><i class="fa fa-comments"></i> @Model.CommentCount bình luận</span>
+                <span><i class="fa fa-calendar"></i> Tham gia @Model.User.CreatedAt.ToString("MM/yyyy")</span>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;">
+        <!-- Edit Info -->
+        <div class="j-card">
+            <h3 class="j-card-title"><i class="fa fa-pen-to-square"></i> Thông tin cá nhân</h3>
+            <form id="editProfileForm">
+                @Html.AntiForgeryToken()
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Họ và tên</label>
+                        <input type="text" id="editFullName" value="@Model.User.FullName" maxlength="80" />
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="editEmail" value="@Model.User.Email" maxlength="120" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tên đăng nhập</label>
+                    <input type="text" value="@Model.User.Username" disabled />
+                </div>
+                <div class="form-group">
+                    <label>Giới thiệu</label>
+                    <textarea id="editBio" maxlength="500">@Model.User.Bio</textarea>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button type="submit" style="padding:10px 24px;background:#001f3f;color:#fff;border:none;border-radius:0px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
+                        <i class="fa fa-save"></i> Lưu thay đổi
+                    </button>
+                    <span id="profileMsg" style="font-size:13px;"></span>
+                </div>
+            </form>
+        </div>
+
+        <!-- Change Password -->
+        <div class="j-card">
+            <h3 class="j-card-title"><i class="fa fa-lock"></i> Đổi mật khẩu</h3>
+            <form id="changePassForm">
+                <div class="form-group">
+                    <label>Mật khẩu hiện tại</label>
+                    <input type="password" id="currentPass" required />
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu mới</label>
+                    <input type="password" id="newPass" minlength="6" required />
+                </div>
+                <div class="form-group">
+                    <label>Xác nhận mật khẩu mới</label>
+                    <input type="password" id="confirmPass" minlength="6" required />
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button type="submit" style="padding:10px 24px;background:#374151;color:#fff;border:none;border-radius:0px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
+                        <i class="fa fa-key"></i> Đổi mật khẩu
+                    </button>
+                    <span id="passMsg" style="font-size:13px;"></span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Recent Articles -->
+    <div class="j-card" style="margin-top:20px;">
+        <h3 class="j-card-title"><i class="fa fa-newspaper"></i> Bài viết gần đây</h3>
+        @if (!Model.Articles.Any())
+        {
+            <p style="text-align:center;color:#9ca3af;padding:20px;">Chưa có bài viết nào.</p>
+        }
+        else
+        {
+            @foreach (var a in Model.Articles.Take(10))
+            {
+                <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
+                    @if (!string.IsNullOrEmpty(a.Thumbnail))
+                    {
+                        <img src="@a.Thumbnail" style="width:56px;height:40px;border-radius:0px;object-fit:cover;flex-shrink:0;" />
+                    }
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@a.Title</div>
+                        <div style="font-size:12px;color:#9ca3af;">@(a.Category?.Name ?? "—") · @a.CreatedAt.ToString("dd/MM/yyyy") · @SlugHelper.FormatViews(a.Views) lượt xem</div>
+                    </div>
+                    <a href="/Journalist/Edit/@a.Id" style="color:#001f3f;font-size:13px;text-decoration:none;font-weight:600;">Sửa</a>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Avatar upload
+        document.getElementById('avatarInput').addEventListener('change', async function () {
+            const file = this.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) { alert('Ảnh quá lớn (tối đa 5MB)'); return; }
+            const formData = new FormData();
+            formData.append('avatarFile', file);
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            formData.append('__RequestVerificationToken', token);
+            try {
+                const res = await fetch('/Journalist/UploadAvatar', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success) {
+                    const avatar = document.querySelector('.profile-avatar');
+                    const letter = document.getElementById('avatarLetter');
+                    if (letter) letter.remove();
+                    let img = document.getElementById('avatarImg');
+                    if (img) { img.src = data.avatarUrl; }
+                    else { avatar.innerHTML = '<img id="avatarImg" src="' + data.avatarUrl + '" />'; }
+                    alert(data.message);
+                } else { alert(data.message); }
+            } catch { alert('Lỗi kết nối'); }
+        });
+
+        // Edit profile
+        document.getElementById('editProfileForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            const formData = new FormData();
+            formData.append('fullName', document.getElementById('editFullName').value.trim());
+            formData.append('email', document.getElementById('editEmail').value.trim());
+            formData.append('bio', document.getElementById('editBio').value.trim());
+            formData.append('__RequestVerificationToken', token);
+            const msg = document.getElementById('profileMsg');
+            try {
+                const res = await fetch('/Journalist/UpdateProfile', { method: 'POST', body: formData });
+                const data = await res.json();
+                msg.innerHTML = data.success
+                    ? '<span style="color:#16a34a;">' + data.message + '</span>'
+                    : '<span style="color:#dc2626;">' + data.message + '</span>';
+                setTimeout(() => msg.textContent = '', 3000);
+            } catch { msg.innerHTML = '<span style="color:#dc2626;">Lỗi kết nối</span>'; }
+        });
+
+        // Change password
+        document.getElementById('changePassForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            const formData = new FormData();
+            formData.append('currentPassword', document.getElementById('currentPass').value);
+            formData.append('newPassword', document.getElementById('newPass').value);
+            formData.append('confirmPassword', document.getElementById('confirmPass').value);
+            formData.append('__RequestVerificationToken', token);
+            const msg = document.getElementById('passMsg');
+            try {
+                const res = await fetch('/Journalist/ChangePassword', { method: 'POST', body: formData });
+                const data = await res.json();
+                msg.innerHTML = data.success
+                    ? '<span style="color:#16a34a;">' + data.message + '</span>'
+                    : '<span style="color:#dc2626;">' + data.message + '</span>';
+                if (data.success) { this.reset(); }
+                setTimeout(() => msg.textContent = '', 3000);
+            } catch { msg.innerHTML = '<span style="color:#dc2626;">Lỗi kết nối</span>'; }
+        });
+    </script>
+}

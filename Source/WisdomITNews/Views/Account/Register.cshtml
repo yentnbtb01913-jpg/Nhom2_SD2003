@@ -1,0 +1,200 @@
+@using WisdomITNews.Models
+@model RegisterViewModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Đăng ký — Wisdom IT News</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: 'Inter',sans-serif;
+                background: linear-gradient(135deg,#000613,#001f3f);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+
+            .box {
+                background: #fff;
+                border-radius: 0px;
+                padding: 40px;
+                width: 460px;
+                box-shadow: 0 20px 60px rgba(0,0,0,.3);
+            }
+
+            .logo {
+                text-align: center;
+                margin-bottom: 28px;
+            }
+
+            .logo-icon {
+                width: 56px;
+                height: 56px;
+                background: linear-gradient(135deg,#c1121f,#e63946,#ba1a1a);
+                border-radius: 0px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 28px;
+                margin-bottom: 10px;
+            }
+
+            .logo h2 {
+                font-size: 20px;
+                color: #0a2540;
+            }
+
+            .logo p {
+                font-size: 13px;
+                color: #6c757d;
+            }
+
+            h1 {
+                font-size: 22px;
+                font-weight: 700;
+                color: #0a2540;
+                margin-bottom: 6px;
+                text-align: center;
+            }
+
+            .sub {
+                text-align: center;
+                font-size: 13px;
+                color: #6c757d;
+                margin-bottom: 20px;
+            }
+
+            label {
+                font-size: 13px;
+                font-weight: 600;
+                color: #3d3d3d;
+                display: block;
+                margin-bottom: 5px;
+            }
+
+            input {
+                width: 100%;
+                padding: 11px 14px;
+                border: 1px solid #e0e4e8;
+                border-radius: 0px;
+                font-size: 14px;
+                font-family: inherit;
+                outline: none;
+                transition: border-color .2s;
+                margin-bottom: 16px;
+            }
+
+                input:focus {
+                    border-color: #001f3f;
+                }
+
+            .btn {
+                width: 100%;
+                padding: 12px;
+                background: #001f3f;
+                color: #fff;
+                border: none;
+                border-radius: 0px;
+                font-size: 15px;
+                font-weight: 700;
+                cursor: pointer;
+                font-family: inherit;
+            }
+
+                .btn:hover {
+                    background: #c1121f;
+                }
+
+            .error {
+                background: #fef2f2;
+                color: #001f3f;
+                border: 1px solid #fecaca;
+                border-radius: 0px;
+                padding: 10px 14px;
+                font-size: 13px;
+                margin-bottom: 16px;
+            }
+
+            .link {
+                text-align: center;
+                margin-top: 16px;
+                font-size: 13px;
+                color: #6c757d;
+            }
+
+                .link a {
+                    color: #001f3f;
+                    font-weight: 600;
+                    text-decoration: none;
+                }
+
+            .back {
+                text-align: center;
+                margin-top: 12px;
+            }
+
+                .back a {
+                    font-size: 13px;
+                    color: #6c757d;
+                    text-decoration: none;
+                }
+
+                    .back a:hover {
+                        color: #0a2540;
+                    }
+            /* Nút đăng nhập/đăng ký bằng mạng xã hội (UI — OAuth nối backend sau) */
+            .social{margin-top:14px;display:flex;flex-direction:column;gap:8px;}
+            .social-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px 12px;border-radius:0px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid #e0e4e8;font-family:inherit;}
+            .social-google{background:#fff;color:#3c4043;border-color:#dadce0;}
+            .social-google:hover{background:#f7f8f8;}
+            .social-google i{color:#ea4335;}
+            .social-facebook{background:#1877f2;color:#fff;border-color:#1877f2;}
+            .social-facebook:hover{background:#166fe0;}
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="logo">
+            <div class="logo-icon">⚡</div>
+            <h2>Wisdom IT News</h2>
+            <p>Tạo tài khoản miễn phí</p>
+        </div>
+        @if (!string.IsNullOrEmpty(Model.Error))
+        {
+            <div class="error"><i class="fa fa-triangle-exclamation"></i> @Model.Error</div>
+        }
+        <form method="post" action="/Account/Register" autocomplete="off">
+            @Html.AntiForgeryToken()
+            <label>Họ và tên</label>
+            <input type="text" name="FullName" value="@Model.FullName" placeholder="Nguyễn Văn A" maxlength="80" required />
+            <label>Tên đăng nhập</label>
+            <input type="text" name="Username" value="@Model.Username" placeholder="username (chỉ chữ, số, dấu chấm)" maxlength="40" pattern="[a-zA-Z0-9_.\-]+" required title="Chỉ chữ, số, dấu chấm/gạch dưới/gạch ngang" />
+            <label>Email</label>
+            <input type="email" name="Email" value="@Model.Email" placeholder="email@example.com" maxlength="120" required />
+            <label>Mật khẩu (tối thiểu 6 ký tự)</label>
+            <input type="password" name="Password" placeholder="••••••••" minlength="6" required />
+            <button type="submit" class="btn"><i class="fa fa-user-plus"></i> Đăng ký</button>
+        </form>
+        <div class="link">Đã có tài khoản? <a href="/Account/Login">Đăng nhập</a></div>
+        <div class="social">
+            <a href="/Account/ExternalLogin?provider=Google" class="social-btn social-google"><i class="fa-brands fa-google"></i> Đăng ký bằng tài khoản Google</a>
+            <a href="/Account/ExternalLogin?provider=Facebook" class="social-btn social-facebook"><i class="fa-brands fa-facebook-f"></i> Đăng ký bằng tài khoản Facebook</a>
+        </div>
+        <div class="back"><a href="/"><i class="fa fa-arrow-left"></i> Quay về trang chủ</a></div>
+    </div>
+</body>
+</html>

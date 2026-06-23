@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>@ViewData["Title"] — Wisdom Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: 'Inter',sans-serif;
+                background: #fcf9f8;
+                color: #3d3d3d;
+                display: flex;
+                min-height: 100vh;
+            }
+
+            .admin-sidebar {
+                width: 220px;
+                background: #000613;
+                color: #fff;
+                flex-shrink: 0;
+                display: flex;
+                flex-direction: column;
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                overflow-y: auto;
+            }
+
+            .admin-sidebar-logo {
+                padding: 20px;
+                border-bottom: 1px solid rgba(255,255,255,.1);
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+                .admin-sidebar-logo .icon {
+                    width: 36px;
+                    height: 36px;
+                    background: linear-gradient(135deg,#c1121f,#e63946,#ba1a1a);
+                    border-radius: 0px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 18px;
+                }
+
+                .admin-sidebar-logo span {
+                    font-weight: 700;
+                    font-size: 15px;
+                }
+
+            .sidebar-nav {
+                flex: 1;
+                padding: 16px 0;
+            }
+
+                .sidebar-nav a {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 11px 20px;
+                    color: rgba(255,255,255,.75);
+                    font-size: 14px;
+                    text-decoration: none;
+                    transition: all .2s;
+                    border-left: 3px solid transparent;
+                }
+
+                    .sidebar-nav a:hover, .sidebar-nav a.active {
+                        color: #fff;
+                        background: rgba(255,255,255,.08);
+                        border-left-color: #001f3f;
+                    }
+
+                .sidebar-nav .section-label {
+                    font-size: 10px;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    color: rgba(255,255,255,.35);
+                    padding: 12px 20px 6px;
+                }
+
+            .sidebar-footer {
+                padding: 16px 20px;
+                border-top: 1px solid rgba(255,255,255,.1);
+                font-size: 13px;
+                color: rgba(255,255,255,.5);
+            }
+
+            .admin-main {
+                margin-left: 220px;
+                flex: 1;
+                padding: 24px;
+            }
+    </style>
+</head>
+<body>
+    <div class="admin-sidebar">
+        <div class="admin-sidebar-logo">
+            <div class="icon">&#9889;</div>
+            <span>Wisdom Admin</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/admin/Dashboard"><i class="fa fa-chart-pie" style="width:16px;"></i> Dashboard</a>
+            <div class="section-label">Nội dung</div>
+            <a href="/admin/Articles"><i class="fa fa-newspaper" style="width:16px;"></i> Bài viết</a>
+            <a href="/admin/CreateArticle"><i class="fa fa-plus" style="width:16px;"></i> Viết bài mới</a>
+            <a href="/admin/Categories"><i class="fa fa-folder" style="width:16px;"></i> Danh mục</a>
+            <a href="/admin/Comments"><i class="fa fa-comments" style="width:16px;"></i> Bình luận</a>
+            <a href="/admin/Feedbacks"><i class="fa fa-flag" style="width:16px;"></i> Báo cáo / Góp ý</a>
+            <a href="/admin/Newsletter"><i class="fa fa-envelope" style="width:16px;"></i> Newsletter</a>
+            <div class="section-label">Người dùng</div>
+            <a href="/admin/Users"><i class="fa fa-users" style="width:16px;"></i> Quản lý tài khoản</a>
+            <div class="section-label">AI</div>
+            <a href="/admin/AILogs"><i class="fa fa-robot" style="width:16px;"></i> AI Logs</a>
+            <div class="section-label">Website</div>
+            <a href="/" target="_blank"><i class="fa fa-globe" style="width:16px;"></i> Xem website</a>
+            <a href="/admin/Logout" style="margin-top:auto;color:rgba(255,100,100,.8);"><i class="fa fa-right-from-bracket" style="width:16px;"></i> Đăng xuất</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div>@Context.Session.GetString("AdminName")</div>
+            <div style="font-size:11px;margin-top:2px;">@Context.Session.GetString("AdminRole")</div>
+        </div>
+    </div>
+    <div class="admin-main">
+        @RenderBody()
+    </div>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>
