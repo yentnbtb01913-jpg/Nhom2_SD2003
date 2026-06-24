@@ -77,10 +77,18 @@ public class HomeController : Controller
             aiRegion.AddRange(more);
         }
 
-        // Popular: ưu tiên vùng
-        var popularRegion = await regionQuery
-            .OrderByDescending(a => a.Views)
-            .Take(5).ToListAsync();
+        // Nóng 24H: xếp theo lượt ĐỌC THẬT trong 24 giờ (ViewHistory); thiếu thì bù theo tổng lượt xem
+        var hotSince = DateTime.Now.AddHours(-24);
+        var hotIds = await _db.ViewHistories
+            .Where(v => v.ViewedAt >= hotSince)
+            .GroupBy(v => v.ArticleId)
+            .Select(g => new { Id = g.Key, C = g.Count() })
+            .OrderByDescending(x => x.C)
+            .Take(5).Select(x => x.Id).ToListAsync();
+        var hotArts = await allQuery.Where(a => hotIds.Contains(a.Id)).ToListAsync();
+        var popularRegion = hotIds
+            .Select(id => hotArts.FirstOrDefault(a => a.Id == id))
+            .Where(a => a != null).Cast<Article>().ToList();
 
         if (popularRegion.Count < 5)
         {

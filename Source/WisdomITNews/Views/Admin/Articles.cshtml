@@ -6,7 +6,18 @@
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
     <h1 style="font-size:22px;font-weight:700;">📰 Bài viết</h1>
-    <a href="/admin/CreateArticle" style="background:#16a34a;color:#fff;padding:9px 18px;border-radius:0px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Viết bài mới</a>
+    <div style="display:flex;gap:8px;">
+        <form method="post" action="/admin/ImportNews" style="display:inline;" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Đang nhập...';">
+            @Html.AntiForgeryToken()
+            <button type="submit" style="background:#1e3a8a;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;"><i class="fa fa-download"></i> Nhập tin (The Hacker News)</button>
+        </form>
+        <form method="post" action="/admin/SeedViews" style="display:inline;">
+            @Html.AntiForgeryToken()
+            <button type="submit" style="background:#7c3aed;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;"><i class="fa fa-eye"></i> Tạo lượt xem mẫu</button>
+        </form>
+        <a href="/admin/ExportArticlesExcel" style="background:#0e7d85;color:#fff;padding:9px 18px;border-radius:0px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-file-excel"></i> Xuất Excel</a>
+        <a href="/admin/CreateArticle" style="background:#16a34a;color:#fff;padding:9px 18px;border-radius:0px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Viết bài mới</a>
+    </div>
 </div>
 
 <!-- FILTER -->

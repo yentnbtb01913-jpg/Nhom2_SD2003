@@ -31,6 +31,19 @@ public class AdminController : Controller
 
     private bool IsLoggedIn => HttpContext.Session.GetString("AdminId") != null;
     private int AdminId => int.Parse(HttpContext.Session.GetString("AdminId") ?? "0");
+    private bool IsSuperAdmin => HttpContext.Session.GetString("AdminRole") == "superadmin";
+
+    // KHÓA khu /admin: chỉ Super Admin. Nhân viên (editor) bị đẩy sang khu /nhan-vien.
+    public override void OnActionExecuting(Microsoft.AspNetCore.Mvc.Filters.ActionExecutingContext context)
+    {
+        var action = (context.RouteData.Values["action"]?.ToString() ?? "").ToLowerInvariant();
+        if (IsLoggedIn && !IsSuperAdmin && action != "login" && action != "logout")
+        {
+            context.Result = Redirect("/nhan-vien/Dashboard");
+            return;
+        }
+        base.OnActionExecuting(context);
+    }
 
     // ===== AUTH =====
     public IActionResult Login() => IsLoggedIn ? RedirectToAction("Dashboard") : View();
@@ -49,13 +62,31 @@ public class AdminController : Controller
         HttpContext.Session.SetString("AdminId", admin.Id.ToString());
         HttpContext.Session.SetString("AdminName", admin.FullName);
         HttpContext.Session.SetString("AdminRole", admin.Role);
-        return RedirectToAction("Dashboard");
+        // superadmin → Dashboard admin; nhân viên (editor) → khu Wisdom Nhân viên
+        return admin.Role == "superadmin"
+            ? RedirectToAction("Dashboard")
+            : RedirectToAction("Dashboard", "NhanVien");
     }
 
     public IActionResult Logout()
     {
         HttpContext.Session.Clear();
         return RedirectToAction("Login");
+    }
+
+    // ===== TRANG QUẢN LÝ (cổng riêng cho nhân viên / editor) =====
+    // Là "nhà" của nhân viên: chỉ gồm các lối tắt tới chức năng họ được phép.
+    // Editor đăng nhập sẽ vào thẳng đây; superadmin vẫn dùng Dashboard tổng quan.
+    public async Task<IActionResult> Manage()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+
+        ViewBag.TotalArticles   = await _db.Articles.CountAsync();
+        ViewBag.DraftArticles   = await _db.Articles.CountAsync(a => a.Status == "draft");
+        ViewBag.PendingComments = await _db.Comments.CountAsync(c => c.Status == "pending");
+        ViewBag.OpenFeedbacks   = await _db.FeedbackReports.CountAsync(f => !f.IsResolved);
+        ViewBag.PendingPartners = await _db.Users.CountAsync(u => u.Role == "Journalist" && !u.IsActive);
+        return View();
     }
 
     // ===== DASHBOARD =====
@@ -288,6 +319,7 @@ public class AdminController : Controller
     public async Task<IActionResult> DeleteArticle(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
         var article = await _db.Articles.FindAsync(id);
         if (article == null) return Json(new { success = false });
         _db.Articles.Remove(article);
@@ -359,6 +391,7 @@ public class AdminController : Controller
     public async Task<IActionResult> DeleteAILog(long id)
     {
         if (!IsLoggedIn) return Json(new { success = false, message = "Chưa đăng nhập" });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
         var log = await _db.AILogs.FindAsync(id);
         if (log == null) return Json(new { success = false, message = "Không tìm thấy log" });
         _db.AILogs.Remove(log);
@@ -371,6 +404,7 @@ public class AdminController : Controller
     public async Task<IActionResult> DeleteAILogs(DateTime? from, DateTime? to, bool all = false)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
         var query = _db.AILogs.AsQueryable();
         if (!all)
         {
@@ -422,6 +456,7 @@ public class AdminController : Controller
     public async Task<IActionResult> Newsletter()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
         var subs = await _db.NewsletterSubscribers
             .OrderByDescending(n => n.SubscribedAt)
             .Take(500)
@@ -435,6 +470,7 @@ public class AdminController : Controller
     public async Task<IActionResult> SendNewsletter(string subject, string htmlBody)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
         if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(htmlBody))
         {
             TempData["NewsletterError"] = "Vui lòng nhập tiêu đề và nội dung email.";
@@ -469,6 +505,7 @@ public class AdminController : Controller
     public async Task<IActionResult> SendTestEmail(string testEmail)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
         if (string.IsNullOrWhiteSpace(testEmail) || !testEmail.Contains('@'))
         {
             TempData["NewsletterError"] = "Email test không hợp lệ.";
@@ -490,6 +527,7 @@ public class AdminController : Controller
     public async Task<IActionResult> DeleteSubscriber(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
         var s = await _db.NewsletterSubscribers.FindAsync(id);
         if (s == null) return Json(new { success = false });
         _db.NewsletterSubscribers.Remove(s);
@@ -530,6 +568,7 @@ public class AdminController : Controller
     public async Task<IActionResult> Users()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
         var users = await _db.Users.OrderByDescending(u => u.CreatedAt).ToListAsync();
         return View(users);
     }
@@ -538,6 +577,7 @@ public class AdminController : Controller
     public async Task<IActionResult> UserDetail(int id)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
         var user = await _db.Users.FindAsync(id);
         if (user == null) return NotFound();
 
@@ -557,6 +597,7 @@ public class AdminController : Controller
     public async Task<IActionResult> AdminUploadUserAvatar(int userId, IFormFile avatarFile)
     {
         if (!IsLoggedIn) return Json(new { success = false });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
         if (avatarFile == null || avatarFile.Length == 0)
             return Json(new { success = false, message = "Vui lòng chọn ảnh" });
 
@@ -583,6 +624,7 @@ public class AdminController : Controller
     public async Task<IActionResult> DeleteUser(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
         var user = await _db.Users.FindAsync(id);
         if (user == null) return Json(new { success = false });
         _db.Users.Remove(user);
@@ -593,6 +635,7 @@ public class AdminController : Controller
     public async Task<IActionResult> LockUser(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
         var user = await _db.Users.FindAsync(id);
         if (user == null) return Json(new { success = false, message = "Không tìm thấy user" });
 
@@ -605,6 +648,7 @@ public class AdminController : Controller
     public async Task<IActionResult> UnlockUser(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
         var user = await _db.Users.FindAsync(id);
         if (user == null) return Json(new { success = false, message = "Không tìm thấy user" });
 
@@ -617,6 +661,7 @@ public class AdminController : Controller
     public async Task<IActionResult> ChangeUserRole(int id, string role)
     {
         if (!IsLoggedIn) return Json(new { success = false });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
         var validRoles = new[] { "Reader", "Journalist", "Admin" };
         if (!validRoles.Contains(role))
             return Json(new { success = false, message = "Role không hợp lệ" });
@@ -634,6 +679,7 @@ public class AdminController : Controller
     public IActionResult CreateUser()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
         return View();
     }
 
@@ -642,6 +688,7 @@ public class AdminController : Controller
     public async Task<IActionResult> CreateUser(string username, string email, string password, string fullName, string role)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email)
             || string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(fullName))
@@ -689,6 +736,7 @@ public class AdminController : Controller
     public async Task<IActionResult> AdminDeleteMessage(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
 
         var msg = await _db.ChatMessages.FindAsync(id);
         if (msg == null) return Json(new { success = false, message = "Không tìm thấy tin nhắn" });
@@ -705,6 +753,7 @@ public class AdminController : Controller
     public async Task<IActionResult> KickMember(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
 
         var member = await _db.ChatMembers.FindAsync(id);
         if (member == null) return Json(new { success = false, message = "Không tìm thấy thành viên" });
@@ -717,6 +766,281 @@ public class AdminController : Controller
 
 
     // ===== HELPER =====
+    // ===================== QUẢN LÝ NHÂN VIÊN (chỉ superadmin) =====================
+    public async Task<IActionResult> Staff()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) { TempData["Err"] = "Chỉ Super Admin mới quản lý nhân viên."; return RedirectToAction("Dashboard"); }
+        var staff = await _db.Admins.OrderByDescending(a => a.CreatedAt).ToListAsync();
+        return View(staff);
+    }
+
+    [HttpGet]
+    public IActionResult CreateStaff()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) return RedirectToAction("Dashboard");
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateStaff(string username, string email, string password, string fullName, string role)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) return RedirectToAction("Dashboard");
+
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email)
+            || string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(fullName))
+        {
+            ViewBag.Error = "Vui lòng điền đầy đủ thông tin.";
+            return View();
+        }
+        var uname = username.Trim().ToLowerInvariant();
+        if (await _db.Admins.AnyAsync(a => a.Username == uname))
+        {
+            ViewBag.Error = "Tên đăng nhập đã tồn tại.";
+            return View();
+        }
+        var validRoles = new[] { "superadmin", "editor" };
+        if (!validRoles.Contains(role)) role = "editor";
+
+        _db.Admins.Add(new Admin
+        {
+            Username = uname,
+            Email = email.Trim(),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            FullName = fullName.Trim(),
+            Role = role,
+            IsActive = true,
+            CreatedAt = DateTime.Now
+        });
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã tạo nhân viên mới.";
+        return RedirectToAction("Staff");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> EditStaff(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) return RedirectToAction("Dashboard");
+        var staff = await _db.Admins.FindAsync(id);
+        if (staff == null) return RedirectToAction("Staff");
+        return View(staff);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditStaff(int id, string fullName, string email, string role)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) return RedirectToAction("Dashboard");
+        var staff = await _db.Admins.FindAsync(id);
+        if (staff == null) return RedirectToAction("Staff");
+
+        if (staff.Role == "superadmin" && role != "superadmin")
+        {
+            var superCount = await _db.Admins.CountAsync(a => a.Role == "superadmin" && a.IsActive);
+            if (superCount <= 1) { TempData["Err"] = "Không thể hạ quyền Super Admin cuối cùng."; return RedirectToAction("EditStaff", new { id }); }
+        }
+        var validRoles = new[] { "superadmin", "editor" };
+        if (!validRoles.Contains(role)) role = "editor";
+
+        staff.FullName = (fullName ?? "").Trim();
+        staff.Email = (email ?? "").Trim();
+        staff.Role = role;
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã cập nhật nhân viên.";
+        return RedirectToAction("Staff");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ToggleStaffActive(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        if (!IsSuperAdmin) return Json(new { success = false, message = "Không đủ quyền." });
+        var staff = await _db.Admins.FindAsync(id);
+        if (staff == null) return Json(new { success = false });
+        if (staff.Id == AdminId) return Json(new { success = false, message = "Không thể tự khoá chính mình." });
+        if (staff.IsActive && staff.Role == "superadmin")
+        {
+            var superCount = await _db.Admins.CountAsync(a => a.Role == "superadmin" && a.IsActive);
+            if (superCount <= 1) return Json(new { success = false, message = "Không thể khoá Super Admin cuối cùng." });
+        }
+        staff.IsActive = !staff.IsActive;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, active = staff.IsActive });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetStaffPassword(int id, string newPassword)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (!IsSuperAdmin) return RedirectToAction("Dashboard");
+        var staff = await _db.Admins.FindAsync(id);
+        if (staff != null && !string.IsNullOrWhiteSpace(newPassword))
+        {
+            staff.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword.Trim());
+            await _db.SaveChangesAsync();
+            TempData["Ok"] = "Đã đặt lại mật khẩu.";
+        }
+        return RedirectToAction("EditStaff", new { id });
+    }
+
+    // ===================== ĐỐI TÁC: QUẢN LÝ NHÀ BÁO (admin + quản lý) =====================
+    public async Task<IActionResult> Partners()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var journalists = await _db.Users
+            .Where(u => u.Role == "Journalist")
+            .OrderByDescending(u => u.CreatedAt)
+            .ToListAsync();
+        var ids = journalists.Select(u => u.Id).ToList();
+        ViewBag.ArticleCounts = await _db.Articles
+            .Where(a => a.AuthorUserId != null && ids.Contains(a.AuthorUserId.Value))
+            .GroupBy(a => a.AuthorUserId!.Value)
+            .Select(g => new { Id = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Id, x => x.Count);
+        return View(journalists);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ApproveJournalist(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var u = await _db.Users.FindAsync(id);
+        if (u == null || u.Role != "Journalist") return Json(new { success = false });
+        u.IsActive = true;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> LockJournalist(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var u = await _db.Users.FindAsync(id);
+        if (u == null || u.Role != "Journalist") return Json(new { success = false });
+        u.IsActive = false;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+// ===== ĐĂNG VIDEO (YouTube) =====
+    public async Task<IActionResult> Videos()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var list = await _db.Videos.OrderByDescending(v => v.CreatedAt).ToListAsync();
+        return View(list);
+    }
+
+    public IActionResult CreateVideo()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateVideo(string youtubeUrl, string title, string? source, string? description, string status = "published")
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var vid = YouTubeHelper.ExtractId(youtubeUrl);
+        if (string.IsNullOrEmpty(vid) || string.IsNullOrWhiteSpace(title))
+        {
+            ViewBag.Error = "Vui lòng nhập tiêu đề và link YouTube hợp lệ.";
+            ViewBag.YoutubeUrl = youtubeUrl; ViewBag.VTitle = title; ViewBag.Source = source; ViewBag.Description = description;
+            return View();
+        }
+        _db.Videos.Add(new Video
+        {
+            Title = title.Trim(),
+            YouTubeId = vid,
+            Source = string.IsNullOrWhiteSpace(source) ? null : source.Trim(),
+            Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+            Status = status == "draft" ? "draft" : "published",
+            CreatedByAdminId = AdminId,
+            CreatedAt = DateTime.Now,
+            PublishedAt = DateTime.Now
+        });
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã đăng video.";
+        return RedirectToAction("Videos");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteVideo(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var v = await _db.Videos.FindAsync(id);
+        if (v == null) return Json(new { success = false });
+        _db.Videos.Remove(v);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }    // ===== XUẤT THỐNG KÊ BÀI VIẾT RA EXCEL =====
+    public async Task<IActionResult> ExportArticlesExcel()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var arts = await _db.Articles
+            .Include(a => a.Category).Include(a => a.Author).Include(a => a.AuthorUser)
+            .OrderByDescending(a => a.Views).ToListAsync();
+        var commentCounts = await _db.Comments
+            .GroupBy(c => c.ArticleId).Select(g => new { Id = g.Key, C = g.Count() })
+            .ToDictionaryAsync(x => x.Id, x => x.C);
+
+        var headers = new[] { "ID", "Tiêu đề", "Chuyên mục", "Tác giả", "Trạng thái", "Lượt xem", "Bình luận", "Nổi bật", "Ngày đăng" };
+        var rows = arts.Select(a => new[]
+        {
+            a.Id.ToString(),
+            a.Title,
+            a.Category?.Name ?? "",
+            a.AuthorUser?.FullName ?? a.Author?.FullName ?? "",
+            a.Status,
+            a.Views.ToString(),
+            (commentCounts.TryGetValue(a.Id, out var cc) ? cc : 0).ToString(),
+            a.IsFeatured ? "Có" : "",
+            a.PublishedAt?.ToString("dd/MM/yyyy") ?? ""
+        }).ToList();
+
+        var bytes = WisdomITNews.Services.SimpleXlsx.Build("ThongKe", headers, rows);
+        return File(bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"thong-ke-bai-viet-{DateTime.Now:yyyyMMdd}.xlsx");
+    }
+
+    // ===== NHẬP TIN TỪ RSS (The Hacker News) — bài tổng hợp, có dẫn nguồn =====
+    [HttpPost]
+    public async Task<IActionResult> ImportNews()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var svc = HttpContext.RequestServices.GetRequiredService<WisdomITNews.Services.NewsImportService>();
+        var (added, updated, skipped) = await svc.ImportRssAsync(
+            "https://feeds.feedburner.com/TheHackersNews", "The Hacker News", 7, 30);
+        TempData["Ok"] = $"Nhập tin xong: thêm {added} bài mới, làm mới {updated} bài, bỏ qua {skipped} (nguồn The Hacker News).";
+        return RedirectToAction("Articles");
+    }
+
+    // ===== TẠO LƯỢT XEM MẪU (demo) — chỉ điền cho bài đang 0 view =====
+    [HttpPost]
+    public async Task<IActionResult> SeedViews()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var rnd = new Random();
+        var arts = await _db.Articles.Where(a => a.Views == 0).ToListAsync();
+        foreach (var a in arts)
+        {
+            int v = rnd.Next(80, 6000);
+            if (a.IsFeatured) v += rnd.Next(2000, 9000);   // bài nổi bật cho nhiều hơn
+            if (a.IsBreaking) v += rnd.Next(1000, 5000);
+            a.Views = v;
+        }
+        if (arts.Count > 0) await _db.SaveChangesAsync();
+        TempData["Ok"] = $"Đã tạo lượt xem mẫu cho {arts.Count} bài (chỉ bài đang 0 view).";
+        return RedirectToAction("Articles");
+    }
+
     private async Task SaveTagsAsync(int articleId, string tagsRaw)
     {
         if (string.IsNullOrWhiteSpace(tagsRaw)) return;

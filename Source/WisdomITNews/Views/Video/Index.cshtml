@@ -1,0 +1,79 @@
+@using WisdomITNews.Models
+@using WisdomITNews.Services
+@model List<WisdomITNews.Models.VideoItem>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Video";
+    var pop = ViewBag.Popular as List<Article> ?? new List<Article>();
+}
+
+<div class="bm-home container">
+    <div class="bm-grid">
+
+        <main class="bm-main">
+            <section class="bm-section">
+                <div class="bm-section-head">
+                    <h3>Tin Video</h3>
+                    <div class="bm-vsearch">
+                        <i class="fa fa-search"></i>
+                        <input type="text" placeholder="Tìm nội dung video..." oninput="filterVideos(this.value)" />
+                    </div>
+                </div>
+                <div class="bm-video-grid" id="videoGrid">
+                    @foreach (var v in Model)
+                    {
+                        <a class="bm-video-card" data-vtitle="@v.Title @v.Source" href="/Video/Watch/@v.Id">
+                            <div class="bm-video-thumb">
+                                <img src="@v.Thumbnail" alt="@v.Title" loading="lazy" />
+                                <span class="bm-play"><i class="fa fa-play"></i></span>
+                            </div>
+                            <h4>@v.Title</h4>
+                            <div class="bm-meta">
+                                <span class="bm-cat">@v.Source</span>
+                                <span class="sep">·</span>
+                                <span>@SlugHelper.FormatDate(v.PublishedAt)</span>
+                            </div>
+                        </a>
+                    }
+                </div>
+                <div class="bm-vsearch-empty" style="display:none;padding:16px;color:var(--bm-muted);">Không tìm thấy video phù hợp.</div>
+            </section>
+        </main>
+
+        <aside class="bm-aside">
+            @if (pop.Any())
+            {
+                <div class="bm-widget">
+                    <div class="bm-widget-head">Nóng 24H</div>
+                    @{ var r = 0; }
+                    @foreach (var a in pop)
+                    {
+                        r++;
+                        <div class="bm-rank-item @(r <= 3 ? "top" : "")" onclick="location.href='/bai-viet/@a.Slug'">
+                            <div class="bm-rank-num">@r</div>
+                            <h4><a href="/bai-viet/@a.Slug">@a.Title</a></h4>
+                        </div>
+                    }
+                </div>
+            }
+        </aside>
+
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function filterVideos(q) {
+            q = (q || '').trim().toLowerCase();
+            var any = false;
+            document.querySelectorAll('#videoGrid [data-vtitle]').forEach(function (el) {
+                var t = (el.getAttribute('data-vtitle') || '').toLowerCase();
+                var show = (q === '' || t.indexOf(q) >= 0);
+                el.style.display = show ? '' : 'none';
+                if (show) any = true;
+            });
+            var empty = document.querySelector('.bm-vsearch-empty');
+            if (empty) empty.style.display = any ? 'none' : 'block';
+        }
+    </script>
+}

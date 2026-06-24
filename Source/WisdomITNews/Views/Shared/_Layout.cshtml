@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600;1,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="~/css/site.css?v=20260527e" />
+    <link rel="stylesheet" href="~/css/baomoi-skin.css?v=20260623e" />
     <style>
             /* ===== Account Dropdown (in sticky header) ===== */
             .header-account-dropdown {
@@ -261,7 +262,7 @@
     @await RenderSectionAsync("Head", required: false)
 </head>
 @{
-    var currentTheme = (ViewBag.Theme as string) ?? "default";
+    var currentTheme = "default"; // Re-skin Báo Mới: ép theme sáng đồng nhất (tắt neon/dark theo danh mục). Bỏ dòng này để bật lại theme động.
 }
 <body data-theme="@currentTheme">
     <!-- TOPBAR -->
@@ -327,9 +328,7 @@
                 }
                 else
                 {
-                    <a href="/Account/Login"><i class="fa fa-right-to-bracket"></i> Đăng nhập</a>
-                    <a href="/Account/Register"><i class="fa fa-user-plus"></i> Đăng ký</a>
-                    <a href="/admin/Dashboard"><i class="fa fa-lock"></i> Admin</a>
+                    <!-- Đăng nhập / Đăng ký đã chuyển xuống header; bỏ Admin ở topbar -->
                 }
                 <a href="/rss/list"><i class="fa fa-rss"></i> RSS</a>
             </div>
@@ -346,10 +345,6 @@
                         <span>Tin tức công nghệ · AI · Lập trình</span>
                     </div>
                 </a>
-                <form action="/tim-kiem" method="get" class="search-bar">
-                    <input type="text" name="q" placeholder="Tìm kiếm bài viết..." value="@ViewData["SearchQuery"]" />
-                    <button type="submit"><i class="fa fa-search"></i></button>
-                </form>
                 @if (userId.HasValue)
                 {
                     <!-- DROPDOWN trong header sticky -->
@@ -387,12 +382,20 @@
                             </div>
                             <div class="dd-divider"></div>
                             <a href="/Account/MyProfile" class="dd-item"><i class="fa fa-user"></i> Tài khoản cá nhân</a>
+                            <a href="/Account/Hub?tab=foryou" class="dd-item"><i class="fa fa-award"></i> Tin cho bạn</a>
+                            <a href="/Account/Hub?tab=saved" class="dd-item"><i class="fa fa-bookmark"></i> Báo đã lưu</a>
+                            <a href="/Account/Hub?tab=following" class="dd-item"><i class="fa fa-rss"></i> Theo dõi</a>
                             <a href="javascript:void(0)" class="dd-item" id="ddChangeAvatar"><i class="fa fa-camera"></i> Đổi ảnh đại diện</a>
                             <input type="file" id="ddAvatarInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" />
                             <div class="dd-divider"></div>
                             <a href="/Account/Logout" class="dd-item dd-item-danger"><i class="fa fa-right-from-bracket"></i> Đăng xuất</a>
                         </div>
                     </div>
+                }
+                else
+                {
+                    <a href="/Account/Login" class="btn-auth btn-login"><i class="fa fa-right-to-bracket"></i> Đăng nhập</a>
+                    <a href="/Account/Register" class="btn-auth btn-register"><i class="fa fa-user-plus"></i> Đăng ký</a>
                 }
                 @{
                     var journalistId = Context.Session.GetInt32("JournalistId");
@@ -405,15 +408,31 @@
                 {
                     <a href="/Journalist/Login" class="btn-admin" style="background:#476083;"><i class="fa fa-pen-nib"></i> Nhà Báo</a>
                 }
-                <a href="/admin/Dashboard" class="btn-admin"><i class="fa fa-shield-halved"></i> Admin</a>
             </div>
         </div>
-        <nav>
-            <div class="container">
-                @await Component.InvokeAsync("CategoryMenu")
-            </div>
-        </nav>
     </header>
+    <!-- NAV teal (Báo Mới style): dính trên đầu khi cuộn, logo cuộn mất -->
+    <nav class="bm-nav">
+        <div class="container bm-nav-inner">
+            @{ var _navPath = Context.Request.Path.Value ?? "/"; }
+            <ul class="nav-list bm-nav-list">
+                <li><a href="/" class="@((_navPath == "/" || _navPath == "") ? "active" : "")"><i class="fa fa-fire"></i> NÓNG</a></li>
+                <li><a href="/danh-muc">MỚI</a></li>
+                <li><a href="/video" class="@(_navPath.StartsWith("/video", StringComparison.OrdinalIgnoreCase) ? "active" : "")">VIDEO</a></li>
+                <li><a href="#" title="Sắp ra mắt">CHỦ ĐỀ</a></li>
+            </ul>
+            <form action="/tim-kiem" method="get" class="bm-nav-search">
+                <input type="text" name="q" placeholder="Nhập nội dung tìm kiếm" value="@ViewData["SearchQuery"]" />
+                <button type="submit"><i class="fa fa-search"></i></button>
+            </form>
+            <details class="bm-nav-burger">
+                <summary aria-label="Danh mục"><i class="fa fa-bars"></i></summary>
+                <div class="bm-burger-menu">
+                    @await Component.InvokeAsync("CategoryMenu")
+                </div>
+            </details>
+        </div>
+    </nav>
     @RenderBody()
     <!-- FOOTER -->
     <footer style="background:#000613;color:rgba(255,255,255,.7);padding:48px 0 20px;margin-top:40px;">

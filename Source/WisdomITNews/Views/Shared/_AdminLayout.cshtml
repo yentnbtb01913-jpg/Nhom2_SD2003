@@ -110,17 +110,31 @@
             <div class="icon">&#9889;</div>
             <span>Wisdom Admin</span>
         </div>
+        @{ var isSuper = Context.Session.GetString("AdminRole") == "superadmin"; }
         <nav class="sidebar-nav">
-            <a href="/admin/Dashboard"><i class="fa fa-chart-pie" style="width:16px;"></i> Dashboard</a>
+            @if (isSuper)
+            {
+                <a href="/admin/Dashboard"><i class="fa fa-chart-pie" style="width:16px;"></i> Dashboard</a>
+            }
+            else
+            {
+                <a href="/admin/Manage"><i class="fa fa-gauge-high" style="width:16px;"></i> Quản lý</a>
+            }
             <div class="section-label">Nội dung</div>
             <a href="/admin/Articles"><i class="fa fa-newspaper" style="width:16px;"></i> Bài viết</a>
             <a href="/admin/CreateArticle"><i class="fa fa-plus" style="width:16px;"></i> Viết bài mới</a>
             <a href="/admin/Categories"><i class="fa fa-folder" style="width:16px;"></i> Danh mục</a>
             <a href="/admin/Comments"><i class="fa fa-comments" style="width:16px;"></i> Bình luận</a>
             <a href="/admin/Feedbacks"><i class="fa fa-flag" style="width:16px;"></i> Báo cáo / Góp ý</a>
-            <a href="/admin/Newsletter"><i class="fa fa-envelope" style="width:16px;"></i> Newsletter</a>
+            <a href="/admin/Videos"><i class="fa fa-video" style="width:16px;"></i> Video</a>
+            @if (isSuper) { <a href="/admin/Newsletter"><i class="fa fa-envelope" style="width:16px;"></i> Newsletter</a> }
             <div class="section-label">Người dùng</div>
-            <a href="/admin/Users"><i class="fa fa-users" style="width:16px;"></i> Quản lý tài khoản</a>
+            <a href="/admin/Partners"><i class="fa fa-handshake" style="width:16px;"></i> Đối tác (Nhà Báo)</a>
+            @if (isSuper)
+            {
+                <a href="/admin/Users"><i class="fa fa-users" style="width:16px;"></i> Quản lý tài khoản</a>
+                <a href="/admin/Staff"><i class="fa fa-user-shield" style="width:16px;"></i> Quản lý nhân viên</a>
+            }
             <div class="section-label">AI</div>
             <a href="/admin/AILogs"><i class="fa fa-robot" style="width:16px;"></i> AI Logs</a>
             <div class="section-label">Website</div>

@@ -56,6 +56,9 @@ public class Article
     public bool IsBreaking { get; set; } = false;
     public DateTime? PublishedAt { get; set; }
     public string? AiSummary { get; set; }
+    public string? SourceName { get; set; }   // nguồn (vd: The Hacker News)
+    public string? SourceUrl { get; set; }     // link bài gốc
+    public bool IsExternal { get; set; } = false; // true = bài tổng hợp từ nguồn ngoài
     public string? MetaTitle { get; set; }
     public string? MetaDesc { get; set; }
     public string? Region { get; set; }
