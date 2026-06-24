@@ -108,6 +108,13 @@
             </div>
         </div>
 
+        @if (article.IsExternal && !string.IsNullOrWhiteSpace(article.SourceUrl))
+        {
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin:18px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <span style="font-size:13.5px;color:#1e3a8a;"><i class="fa fa-newspaper"></i> Bài tổng hợp — Nguồn: <strong>@article.SourceName</strong></span>
+                <a href="@article.SourceUrl" target="_blank" rel="noopener noreferrer" style="margin-left:auto;background:#0e7d85;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;"><i class="fa fa-up-right-from-square"></i> Đọc bài gốc</a>
+            </div>
+        }
         @if (!string.IsNullOrWhiteSpace(article.AiSummary))
         {
             <div class="tldr-box" style="background:#e6f4f5;border-left:4px solid #0e7d85;border-radius:10px;padding:16px 18px;margin:18px 0;">

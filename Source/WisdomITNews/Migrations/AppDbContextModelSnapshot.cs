@@ -134,6 +134,15 @@ namespace WisdomITNews.Migrations
                     b.Property<string>("AiSummary")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsExternal")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SourceName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("AuthorId")
                         .HasColumnType("int");
 

@@ -13,6 +13,7 @@ builder.Services.AddScoped<EmailService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<WeatherService>();
 builder.Services.AddScoped<ImageUploadService>();
+builder.Services.AddScoped<NewsImportService>();
 builder.Services.AddSignalR();
 builder.Services.AddSession(opt =>
 {

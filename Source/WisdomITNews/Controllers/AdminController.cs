@@ -1010,6 +1010,37 @@ public class AdminController : Controller
             $"thong-ke-bai-viet-{DateTime.Now:yyyyMMdd}.xlsx");
     }
 
+    // ===== NHẬP TIN TỪ RSS (The Hacker News) — bài tổng hợp, có dẫn nguồn =====
+    [HttpPost]
+    public async Task<IActionResult> ImportNews()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var svc = HttpContext.RequestServices.GetRequiredService<WisdomITNews.Services.NewsImportService>();
+        var (added, updated, skipped) = await svc.ImportRssAsync(
+            "https://feeds.feedburner.com/TheHackersNews", "The Hacker News", 7, 30);
+        TempData["Ok"] = $"Nhập tin xong: thêm {added} bài mới, làm mới {updated} bài, bỏ qua {skipped} (nguồn The Hacker News).";
+        return RedirectToAction("Articles");
+    }
+
+    // ===== TẠO LƯỢT XEM MẪU (demo) — chỉ điền cho bài đang 0 view =====
+    [HttpPost]
+    public async Task<IActionResult> SeedViews()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var rnd = new Random();
+        var arts = await _db.Articles.Where(a => a.Views == 0).ToListAsync();
+        foreach (var a in arts)
+        {
+            int v = rnd.Next(80, 6000);
+            if (a.IsFeatured) v += rnd.Next(2000, 9000);   // bài nổi bật cho nhiều hơn
+            if (a.IsBreaking) v += rnd.Next(1000, 5000);
+            a.Views = v;
+        }
+        if (arts.Count > 0) await _db.SaveChangesAsync();
+        TempData["Ok"] = $"Đã tạo lượt xem mẫu cho {arts.Count} bài (chỉ bài đang 0 view).";
+        return RedirectToAction("Articles");
+    }
+
     private async Task SaveTagsAsync(int articleId, string tagsRaw)
     {
         if (string.IsNullOrWhiteSpace(tagsRaw)) return;
