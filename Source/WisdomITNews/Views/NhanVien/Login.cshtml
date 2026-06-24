@@ -1,0 +1,90 @@
+@{
+    ViewData["Title"] = "Đăng nhập nhân viên";
+    Layout = null;
+    var error = ViewBag.Error as string;
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Wisdom Nhân viên — Đăng nhập</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+        body { min-height:100vh; display:flex; align-items:center; justify-content:center;
+               background:linear-gradient(135deg,#0e7d85,#159aa3); padding:20px; }
+        .card { width:100%; max-width:400px; background:#fff; border-radius:16px; padding:34px 30px;
+                box-shadow:0 18px 50px rgba(0,0,0,.22); }
+        .brand { text-align:center; margin-bottom:22px; }
+        .brand .icon { width:54px; height:54px; margin:0 auto 10px; border-radius:14px; display:flex;
+                       align-items:center; justify-content:center; font-size:26px; color:#fff;
+                       background:linear-gradient(135deg,#c1121f,#e63946,#ba1a1a); }
+        .brand h1 { font-size:20px; color:#0e7d85; }
+        .brand p  { font-size:13px; color:#6b7280; margin-top:3px; }
+
+        .err { background:#fde7e7; color:#b91c1c; font-size:13px; padding:10px 12px; border-radius:8px; margin-bottom:16px; }
+
+        .btn-google { display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
+                      padding:12px; border:1px solid #dadce0; border-radius:10px; background:#fff;
+                      color:#3c4043; font-size:14px; font-weight:600; text-decoration:none; cursor:pointer; }
+        .btn-google:hover { background:#f7f8f8; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+        .btn-google img { width:18px; height:18px; }
+
+        .divider { display:flex; align-items:center; gap:10px; color:#9ca3af; font-size:12px; margin:18px 0; }
+        .divider::before, .divider::after { content:""; flex:1; height:1px; background:#e5e7eb; }
+
+        label { display:block; font-size:12.5px; font-weight:600; color:#374151; margin:0 0 5px; }
+        .field { margin-bottom:14px; }
+        input[type=text], input[type=password] { width:100%; padding:11px 12px; border:1px solid #d1d5db;
+                 border-radius:9px; font-size:14px; outline:none; }
+        input:focus { border-color:#159aa3; box-shadow:0 0 0 3px rgba(21,154,163,.15); }
+        .btn-login { width:100%; padding:12px; border:0; border-radius:10px; background:#0e7d85; color:#fff;
+                     font-size:14px; font-weight:700; cursor:pointer; }
+        .btn-login:hover { background:#0b6168; }
+        .back { display:block; text-align:center; margin-top:16px; font-size:12.5px; color:#6b7280; text-decoration:none; }
+        .back:hover { color:#0e7d85; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="brand">
+            <div class="icon">&#9889;</div>
+            <h1>Wisdom Nhân viên</h1>
+            <p>Khu làm việc dành cho nhân viên</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="err"><i class="fa fa-circle-exclamation"></i> @error</div>
+        }
+        @if (TempData["StaffLoginError"] != null)
+        {
+            <div class="err"><i class="fa fa-circle-exclamation"></i> @TempData["StaffLoginError"]</div>
+        }
+
+        <a class="btn-google" href="/Account/StaffExternalLogin?provider=Google">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+            Đăng nhập bằng Google
+        </a>
+
+        <div class="divider">hoặc dùng tài khoản nội bộ</div>
+
+        <form method="post" action="/nhan-vien/Login">
+            @Html.AntiForgeryToken()
+            <div class="field">
+                <label>Tên đăng nhập</label>
+                <input type="text" name="username" autocomplete="username" required />
+            </div>
+            <div class="field">
+                <label>Mật khẩu</label>
+                <input type="password" name="password" autocomplete="current-password" required />
+            </div>
+            <button type="submit" class="btn-login">Đăng nhập</button>
+        </form>
+
+        <a class="back" href="/"><i class="fa fa-arrow-left"></i> Về trang chủ</a>
+    </div>
+</body>
+</html>

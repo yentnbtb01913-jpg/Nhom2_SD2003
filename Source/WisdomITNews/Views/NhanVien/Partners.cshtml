@@ -1,0 +1,73 @@
+@model List<WisdomITNews.Models.User>
+@{
+    ViewData["Title"] = "Đối tác (Nhà Báo)";
+    Layout = "_ManagerLayout";
+    var counts = ViewBag.ArticleCounts as Dictionary<int, int> ?? new Dictionary<int, int>();
+}
+
+<h1 style="font-size:22px;font-weight:800;margin-bottom:8px;"><i class="fa fa-handshake" style="color:#159aa3;"></i> Đối tác — Nhà Báo</h1>
+<p style="color:#6c757d;font-size:13px;margin-bottom:18px;">Quản lý tài khoản Nhà Báo và duyệt đơn đăng ký. Đơn mới ở trạng thái <b>Chờ duyệt</b>.</p>
+
+<div style="background:#fff;border-radius:6px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="border-bottom:2px solid #f0f2f5;color:#6c757d;">
+                <th style="text-align:left;padding:10px 8px;">Nhà báo</th>
+                <th style="text-align:left;padding:10px 8px;">Email</th>
+                <th style="text-align:left;padding:10px 8px;">Số bài</th>
+                <th style="text-align:left;padding:10px 8px;">Trạng thái</th>
+                <th style="text-align:left;padding:10px 8px;">Đăng ký</th>
+                <th style="padding:10px 8px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in Model)
+            {
+                <tr style="border-bottom:1px solid #f0f2f5;">
+                    <td style="padding:10px 8px;">
+                        <div style="font-weight:600;">@u.FullName</div>
+                        <div style="font-size:12px;color:#94a3b8;">@@@u.Username</div>
+                    </td>
+                    <td style="padding:10px 8px;color:#6c757d;">@u.Email</td>
+                    <td style="padding:10px 8px;">@(counts.ContainsKey(u.Id) ? counts[u.Id] : 0)</td>
+                    <td style="padding:10px 8px;">
+                        <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(u.IsActive?"#dcfce7":"#fef9c3");color:@(u.IsActive?"#16a34a":"#ca8a04");">
+                            @(u.IsActive ? "Đang hoạt động" : "Chờ duyệt")
+                        </span>
+                    </td>
+                    <td style="padding:10px 8px;color:#6c757d;">@u.CreatedAt.ToString("dd/MM/yyyy")</td>
+                    <td style="padding:10px 8px;white-space:nowrap;">
+                        @if (!u.IsActive)
+                        {
+                            <button onclick="approveJ(@u.Id)" style="background:#16a34a;color:#fff;border:none;padding:6px 12px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-check"></i> Duyệt</button>
+                        }
+                        else
+                        {
+                            <button onclick="lockJ(@u.Id)" style="background:#f3f4f6;color:#b91c1c;border:1px solid #fecaca;padding:6px 12px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-ban"></i> Khoá</button>
+                        }
+                        <a href="/u/@u.Username" target="_blank" style="color:#159aa3;font-size:12px;margin-left:6px;text-decoration:none;">Hồ sơ</a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Any())
+            {
+                <tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8;">Chưa có nhà báo nào.</td></tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+<script>
+    async function approveJ(id){
+        if(!confirm('Duyệt nhà báo này?')) return;
+        const r = await fetch('/nhan-vien/ApproveJournalist/'+id,{method:'POST'});
+        const d = await r.json(); if(d.success) location.reload(); else alert(d.message||'Lỗi');
+    }
+    async function lockJ(id){
+        if(!confirm('Khoá nhà báo này?')) return;
+        const r = await fetch('/nhan-vien/LockJournalist/'+id,{method:'POST'});
+        const d = await r.json(); if(d.success) location.reload(); else alert(d.message||'Lỗi');
+    }
+</script>
+}

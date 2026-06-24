@@ -1,0 +1,91 @@
+@using WisdomITNews.Models
+@model List<FeedbackReport>
+@{
+    Layout = "_ManagerLayout";
+    ViewData["Title"] = "Báo cáo & góp ý";
+    var filter = ViewBag.Filter as string ?? "open";
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h1 style="font-size:22px;font-weight:700;">📝 Báo cáo lỗi & góp ý</h1>
+    <div>
+        <a href="/nhan-vien/Feedbacks?filter=open" style="padding:7px 14px;border-radius:0px;text-decoration:none;font-size:13px;@(filter == "open" ? "background:#ba1a1a;color:#fff;" : "background:#f0f2f5;color:#333;")">Chưa xử lý</a>
+        <a href="/nhan-vien/Feedbacks?filter=done" style="padding:7px 14px;border-radius:0px;text-decoration:none;font-size:13px;@(filter == "done" ? "background:#16a34a;color:#fff;" : "background:#f0f2f5;color:#333;")">Đã xử lý</a>
+        <a href="/nhan-vien/Feedbacks?filter=all" style="padding:7px 14px;border-radius:0px;text-decoration:none;font-size:13px;@(filter == "all" ? "background:#0a2540;color:#fff;" : "background:#f0f2f5;color:#333;")">Tất cả</a>
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div style="background:#fff;border-radius:0px;padding:40px;text-align:center;color:#6c757d;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+        <div style="font-size:42px;">📭</div>
+        <p style="margin-top:8px;">Không có báo cáo nào @(filter == "open" ? "chưa xử lý" : filter == "done" ? "đã xử lý" : "")</p>
+    </div>
+}
+else
+{
+    <div style="background:#fff;border-radius:0px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+        <table style="width:100%;border-collapse:collapse;">
+            <thead style="background:#f8fafc;">
+                <tr>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Loại</th>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Mô tả</th>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">URL</th>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Lúc</th>
+                    <th style="padding:12px;text-align:right;font-size:13px;border-bottom:1px solid #e0e4e8;">Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var f in Model)
+                {
+                    <tr id="fb-@f.Id" style="border-bottom:1px solid #f0f2f5;">
+                        <td style="padding:12px;font-size:13px;">
+                            <span style="background:#f0f2f5;padding:3px 10px;border-radius:0px;font-weight:600;">@f.Type</span>
+                        </td>
+                        <td style="padding:12px;font-size:13px;max-width:380px;">@f.Description</td>
+                        <td style="padding:12px;font-size:12px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            @if (!string.IsNullOrEmpty(f.PageUrl))
+                            {
+                                <a href="@f.PageUrl" target="_blank" rel="noopener" style="color:#2196f3;">@f.PageUrl</a>
+                            }
+                        </td>
+                        <td style="padding:12px;font-size:12px;color:#6c757d;">@f.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td style="padding:12px;text-align:right;">
+                            @if (!f.IsResolved)
+                            {
+                                <button type="button" onclick="resolveFeedback(@f.Id)"
+                                        style="background:#16a34a;color:#fff;border:none;padding:6px 14px;border-radius:0px;font-size:12px;cursor:pointer;">
+                                    ✓ Đánh dấu đã xử lý
+                                </button>
+                            }
+                            else
+                            {
+                                <span style="color:#16a34a;font-size:12px;font-weight:600;">✓ Đã xử lý</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@section Scripts {
+<script>
+async function resolveFeedback(id) {
+    if (!confirm('Đánh dấu góp ý #' + id + ' là đã xử lý?')) return;
+    try {
+        const res = await fetch('/nhan-vien/ResolveFeedback?id=' + id, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            const row = document.getElementById('fb-' + id);
+            if (row) row.querySelector('td:last-child').innerHTML = '<span style="color:#16a34a;font-size:12px;font-weight:600;">✓ Đã xử lý</span>';
+        } else {
+            alert('Không cập nhật được');
+        }
+    } catch (err) {
+        alert('Lỗi kết nối');
+    }
+}
+</script>
+}
