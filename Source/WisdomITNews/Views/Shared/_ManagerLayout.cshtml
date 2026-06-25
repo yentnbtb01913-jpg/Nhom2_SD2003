@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>@ViewData["Title"] — Wisdom Nhân viên</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f3fafb; color:#243b3d; display:flex; min-height:100vh; }
+
+        .mgr-sidebar {
+            width:230px; flex-shrink:0; display:flex; flex-direction:column;
+            position:fixed; top:0; left:0; height:100vh; overflow-y:auto;
+            background:linear-gradient(180deg,#0e7d85,#0b6168); color:#fff;
+        }
+        .mgr-logo { padding:20px; border-bottom:1px solid rgba(255,255,255,.14); display:flex; align-items:center; gap:10px; }
+        .mgr-logo .icon {
+            width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+            font-size:18px; background:linear-gradient(135deg,#c1121f,#e63946,#ba1a1a);
+        }
+        .mgr-logo .brand { font-weight:700; font-size:15px; line-height:1.2; }
+        .mgr-logo .brand small { display:block; font-weight:400; font-size:11px; opacity:.8; }
+
+        .mgr-nav { flex:1; padding:14px 0; }
+        .mgr-nav a {
+            display:flex; align-items:center; gap:10px; padding:11px 20px;
+            color:rgba(255,255,255,.85); font-size:14px; text-decoration:none;
+            border-left:3px solid transparent; transition:all .2s;
+        }
+        .mgr-nav a:hover, .mgr-nav a.active { color:#fff; background:rgba(255,255,255,.12); border-left-color:#fff; }
+        .mgr-nav .label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,.5); padding:14px 20px 6px; }
+        .mgr-nav i { width:16px; text-align:center; }
+
+        .mgr-footer { padding:14px 20px; border-top:1px solid rgba(255,255,255,.14); font-size:13px; color:rgba(255,255,255,.8); }
+        .mgr-footer .role { font-size:11px; opacity:.7; margin-top:2px; }
+
+        .mgr-main { margin-left:230px; flex:1; padding:24px; }
+    </style>
+</head>
+<body>
+    <div class="mgr-sidebar">
+        <div class="mgr-logo">
+            <div class="icon">&#9889;</div>
+            <div class="brand">Wisdom<br /><small>Nhân viên</small></div>
+        </div>
+        <nav class="mgr-nav">
+            <a href="/nhan-vien/Dashboard"><i class="fa fa-gauge-high"></i> Bảng điều khiển</a>
+            <div class="label">Nội dung</div>
+            <a href="/nhan-vien/CreateArticle"><i class="fa fa-pen-nib"></i> Viết bài mới</a>
+            <a href="/nhan-vien/Articles"><i class="fa fa-newspaper"></i> Bài viết</a>
+            <a href="/nhan-vien/Categories"><i class="fa fa-folder"></i> Danh mục</a>
+            <a href="/nhan-vien/Comments"><i class="fa fa-comments"></i> Bình luận</a>
+            <a href="/nhan-vien/Feedbacks"><i class="fa fa-flag"></i> Báo cáo / Góp ý</a>
+            <a href="/nhan-vien/Videos"><i class="fa fa-video"></i> Video</a>
+            <div class="label">Đối tác</div>
+            <a href="/nhan-vien/Partners"><i class="fa fa-handshake"></i> Đối tác (Nhà Báo)</a>
+            <div class="label">Khác</div>
+            <a href="/" target="_blank"><i class="fa fa-globe"></i> Xem website</a>
+            <a href="/nhan-vien/Logout" style="color:rgba(255,200,200,.95);"><i class="fa fa-right-from-bracket"></i> Đăng xuất</a>
+        </nav>
+        <div class="mgr-footer">
+            <div>@Context.Session.GetString("AdminName")</div>
+            <div class="role">Nhân viên</div>
+        </div>
+    </div>
+    <div class="mgr-main">
+        @RenderBody()
+    </div>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

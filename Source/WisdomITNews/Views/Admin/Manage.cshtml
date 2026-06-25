@@ -1,0 +1,121 @@
+@{
+    ViewData["Title"] = "Quản lý";
+    Layout = "_AdminLayout";
+    var name = Context.Session.GetString("AdminName");
+    int total   = ViewBag.TotalArticles   ?? 0;
+    int drafts  = ViewBag.DraftArticles   ?? 0;
+    int pcmt    = ViewBag.PendingComments  ?? 0;
+    int pfb     = ViewBag.OpenFeedbacks    ?? 0;
+    int ppart   = ViewBag.PendingPartners  ?? 0;
+}
+
+<style>
+    .mng-hero {
+        background: linear-gradient(120deg,#159aa3,#0e7d85);
+        color:#fff; border-radius:14px; padding:26px 28px; margin-bottom:22px;
+        box-shadow:0 10px 24px rgba(14,125,133,.25);
+    }
+    .mng-hero h1 { font-size:22px; font-weight:700; margin-bottom:4px; }
+    .mng-hero p  { font-size:14px; opacity:.9; }
+    .mng-hero .role-pill {
+        display:inline-block; margin-top:10px; background:rgba(255,255,255,.18);
+        padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600;
+    }
+
+    .mng-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+    .mng-stat { background:#fff; border:1px solid #eee; border-radius:12px; padding:16px 18px;
+                box-shadow:0 4px 12px rgba(0,0,0,.04); }
+    .mng-stat .num { font-size:26px; font-weight:800; color:#0e7d85; line-height:1; }
+    .mng-stat .lbl { font-size:12.5px; color:#6b7280; margin-top:6px; }
+    .mng-stat.alert .num { color:#e8542a; }
+
+    .mng-section-title { font-size:15px; font-weight:700; color:#3d3d3d; margin:6px 0 14px;
+                         display:flex; align-items:center; gap:8px; }
+    .mng-section-title::before { content:""; width:4px; height:18px; background:#159aa3; border-radius:2px; }
+
+    .mng-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+    .mng-card { display:flex; gap:14px; align-items:flex-start; background:#fff; border:1px solid #eee;
+                border-radius:12px; padding:18px; text-decoration:none; color:inherit;
+                transition:transform .15s, box-shadow .15s, border-color .15s; }
+    .mng-card:hover { transform:translateY(-3px); box-shadow:0 10px 22px rgba(0,0,0,.08); border-color:#cdeaec; }
+    .mng-card .ic { width:46px; height:46px; flex:0 0 auto; border-radius:12px; display:flex;
+                    align-items:center; justify-content:center; font-size:19px; color:#fff;
+                    background:linear-gradient(135deg,#159aa3,#0e7d85); }
+    .mng-card .ic.orange { background:linear-gradient(135deg,#f3792f,#e8542a); }
+    .mng-card .tt { font-size:15px; font-weight:700; margin-bottom:3px; }
+    .mng-card .ds { font-size:12.5px; color:#6b7280; line-height:1.5; }
+    .mng-card .badge { display:inline-block; margin-top:7px; font-size:11.5px; font-weight:700;
+                       background:#fde7df; color:#e8542a; padding:2px 9px; border-radius:20px; }
+
+    @@media (max-width:900px){ .mng-stats{grid-template-columns:repeat(2,1fr);} .mng-grid{grid-template-columns:1fr;} }
+</style>
+
+<div class="mng-hero">
+    <h1>Xin chào, @name 👋</h1>
+    <p>Đây là trang quản lý của bạn. Bạn phụ trách nội dung &amp; đối tác — các phần quản trị cấp cao do Super Admin nắm.</p>
+    <span class="role-pill"><i class="fa fa-user-shield"></i> Nhân viên (editor)</span>
+</div>
+
+<div class="mng-stats">
+    <div class="mng-stat"><div class="num">@total</div><div class="lbl">Tổng bài viết</div></div>
+    <div class="mng-stat"><div class="num">@drafts</div><div class="lbl">Bản nháp</div></div>
+    <div class="mng-stat @(pcmt > 0 ? "alert" : "")"><div class="num">@pcmt</div><div class="lbl">Bình luận chờ duyệt</div></div>
+    <div class="mng-stat @(pfb > 0 ? "alert" : "")"><div class="num">@pfb</div><div class="lbl">Góp ý / báo cáo mở</div></div>
+</div>
+
+<div class="mng-section-title">Công việc của bạn</div>
+<div class="mng-grid">
+
+    <a class="mng-card" href="/admin/CreateArticle">
+        <div class="ic"><i class="fa fa-pen-nib"></i></div>
+        <div>
+            <div class="tt">Viết bài mới</div>
+            <div class="ds">Soạn và xuất bản bài viết mới cho trang.</div>
+        </div>
+    </a>
+
+    <a class="mng-card" href="/admin/Articles">
+        <div class="ic"><i class="fa fa-newspaper"></i></div>
+        <div>
+            <div class="tt">Bài viết</div>
+            <div class="ds">Xem, sửa, cập nhật trạng thái các bài đã có.</div>
+            @if (drafts > 0) { <span class="badge">@drafts bản nháp</span> }
+        </div>
+    </a>
+
+    <a class="mng-card" href="/admin/Categories">
+        <div class="ic"><i class="fa fa-folder"></i></div>
+        <div>
+            <div class="tt">Danh mục</div>
+            <div class="ds">Quản lý chuyên mục để phân loại bài viết.</div>
+        </div>
+    </a>
+
+    <a class="mng-card" href="/admin/Comments">
+        <div class="ic orange"><i class="fa fa-comments"></i></div>
+        <div>
+            <div class="tt">Bình luận</div>
+            <div class="ds">Duyệt và kiểm duyệt bình luận của độc giả.</div>
+            @if (pcmt > 0) { <span class="badge">@pcmt chờ duyệt</span> }
+        </div>
+    </a>
+
+    <a class="mng-card" href="/admin/Feedbacks">
+        <div class="ic orange"><i class="fa fa-flag"></i></div>
+        <div>
+            <div class="tt">Báo cáo / Góp ý</div>
+            <div class="ds">Xử lý phản hồi và báo cáo nội dung.</div>
+            @if (pfb > 0) { <span class="badge">@pfb mục mở</span> }
+        </div>
+    </a>
+
+    <a class="mng-card" href="/admin/Partners">
+        <div class="ic"><i class="fa fa-handshake"></i></div>
+        <div>
+            <div class="tt">Đối tác (Nhà Báo)</div>
+            <div class="ds">Quản lý nhà báo &amp; duyệt đơn đăng ký.</div>
+            @if (ppart > 0) { <span class="badge">@ppart đơn chờ duyệt</span> }
+        </div>
+    </a>
+
+</div>

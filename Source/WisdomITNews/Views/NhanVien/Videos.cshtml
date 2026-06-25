@@ -1,0 +1,67 @@
+@model List<WisdomITNews.Models.Video>
+@{
+    ViewData["Title"] = "Quản lý video";
+    Layout = "_ManagerLayout";
+}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+    <h1 style="font-size:22px;font-weight:700;">🎬 Video</h1>
+    <a href="/nhan-vien/CreateVideo" style="background:#0e7d85;color:#fff;padding:9px 18px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Đăng video</a>
+</div>
+@if (TempData["Ok"] != null)
+{
+    <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:8px;margin-bottom:14px;">@TempData["Ok"]</div>
+}
+<div style="background:#fff;border:1px solid #eef1f3;border-radius:10px;overflow:hidden;">
+    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead>
+            <tr style="background:#f8fafc;text-align:left;color:#6b7280;">
+                <th style="padding:12px 14px;">Video</th>
+                <th style="padding:12px 14px;">Nguồn</th>
+                <th style="padding:12px 14px;">Trạng thái</th>
+                <th style="padding:12px 14px;">Lượt xem</th>
+                <th style="padding:12px 14px;">Ngày</th>
+                <th style="padding:12px 14px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var v in Model)
+            {
+                <tr style="border-top:1px solid #eef1f3;">
+                    <td style="padding:10px 14px;">
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            <img src="@v.Thumbnail" alt="" style="width:96px;height:58px;object-fit:cover;border-radius:6px;" />
+                            <div>
+                                <div style="font-weight:600;color:#1a1a1a;">@v.Title</div>
+                                <a href="https://youtu.be/@v.YouTubeId" target="_blank" style="font-size:12px;color:#0e7d85;">youtu.be/@v.YouTubeId</a>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="padding:10px 14px;color:#6b7280;">@v.Source</td>
+                    <td style="padding:10px 14px;">
+                        <span style="font-size:12px;padding:2px 10px;border-radius:20px;background:@(v.Status=="published"?"#dcfce7":"#fef9c3");color:@(v.Status=="published"?"#166534":"#854d0e");">@(v.Status=="published"?"Xuất bản":"Nháp")</span>
+                    </td>
+                    <td style="padding:10px 14px;color:#6b7280;">@v.Views</td>
+                    <td style="padding:10px 14px;color:#6b7280;">@v.CreatedAt.ToString("dd/MM/yyyy")</td>
+                    <td style="padding:10px 14px;white-space:nowrap;">
+                        <a href="/Video/Watch/@v.Id" target="_blank" style="background:#f0f2f5;color:#3d3d3d;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;margin-right:4px;"><i class="fa fa-eye"></i></a>
+                        <button onclick="delVideo(@v.Id, this)" style="background:#fee2e2;color:#ba1a1a;border:none;padding:5px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Any())
+    {
+        <div style="text-align:center;padding:36px;color:#6b7280;">Chưa có video nào. Bấm <b>Đăng video</b> để thêm.</div>
+    }
+</div>
+@section Scripts {
+<script>
+    async function delVideo(id, btn){
+        if(!confirm('Xóa video này?')) return;
+        const r = await fetch('/nhan-vien/DeleteVideo/'+id,{method:'POST'});
+        const d = await r.json();
+        if(d.success){ btn.closest('tr').remove(); } else { alert('Lỗi khi xóa'); }
+    }
+</script>
+}

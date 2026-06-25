@@ -1,0 +1,211 @@
+@using WisdomITNews.Models
+@using WisdomITNews.Services
+@{
+    Layout = "_Layout";
+    var tab = (string)(ViewBag.Tab ?? "foryou");
+    var user = ViewBag.User as User;
+    var articles = ViewBag.Articles as List<Article> ?? new List<Article>();
+    var title = tab switch {
+        "topics" => "Mục của bạn",
+        "following" => "Theo dõi",
+        "history" => "Đọc gần đây",
+        "saved" => "Báo đã lưu",
+        _ => "Tin cho bạn"
+    };
+    ViewData["Title"] = title;
+    var allCats = ViewBag.AllCategories as List<Category> ?? new List<Category>();
+    var followedCatIds = ViewBag.FollowedCatIds as List<int> ?? new List<int>();
+    var followingUsers = ViewBag.FollowingUsers as List<User> ?? new List<User>();
+    int savedCount = ViewBag.SavedCount ?? 0;
+    int followCount = ViewBag.FollowCount ?? 0;
+    int topicCount = ViewBag.TopicCount ?? 0;
+}
+
+<style>
+    .hub { max-width:1080px; margin:0 auto; padding:24px 16px; display:grid; grid-template-columns:260px 1fr; gap:24px; align-items:start; }
+    .hub-side { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; position:sticky; top:90px; }
+    .hub-side .hub-nav { background:#fff !important; padding:0 !important; display:block !important; }
+    .hub-side .hub-nav a { background:transparent; text-transform:none; letter-spacing:normal; }
+    .hub-side .me { padding:22px 18px; text-align:center; border-bottom:1px solid #eef1f3; }
+    .hub-side .me img { width:84px; height:84px; border-radius:50%; object-fit:cover; border:3px solid #e6f4f5; }
+    .hub-side .me .nm { font-weight:700; font-size:16px; margin-top:10px; color:#1a1a1a; }
+    .hub-side .me .un { font-size:12.5px; color:#6b7280; }
+    .hub-nav a { display:flex; align-items:center; gap:12px; padding:12px 18px; color:#374151; font-size:14px; text-decoration:none; border-left:3px solid transparent; }
+    .hub-nav a:hover { background:#f3fafb; }
+    .hub-nav a.active { color:#0e7d85; background:#e6f4f5; border-left-color:#0e7d85; font-weight:600; }
+    .hub-nav a i { width:18px; text-align:center; }
+    .hub-nav a .cnt { margin-left:auto; font-size:11px; background:#e6f4f5; color:#0e7d85; padding:1px 8px; border-radius:20px; }
+    .hub-nav a.out { color:#dc2626; border-top:1px solid #eef1f3; }
+
+    .hub-main { min-width:0; }
+    .hub-h { font-size:20px; font-weight:700; color:#1a1a1a; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .hub-h::before { content:""; width:4px; height:22px; background:#0e7d85; border-radius:2px; }
+    .hub-empty { background:#fff7e6; color:#92702a; border:1px solid #ffe6b0; border-radius:10px; padding:18px; text-align:center; font-size:14px; }
+
+    .art { display:flex; gap:14px; background:#fff; border:1px solid #eef1f3; border-radius:10px; padding:12px; margin-bottom:12px; }
+    .art .th { width:150px; height:96px; flex:0 0 auto; border-radius:8px; overflow:hidden; background:#eef1f3; }
+    .art .th img { width:100%; height:100%; object-fit:cover; }
+    .art .bd { min-width:0; flex:1; }
+    .art .cat { font-size:11.5px; color:#0e7d85; font-weight:600; }
+    .art h3 { font-size:15.5px; font-weight:700; line-height:1.4; margin:3px 0 5px; }
+    .art h3 a { color:#1a1a1a; text-decoration:none; }
+    .art h3 a:hover { color:#0e7d85; }
+    .art .ds { font-size:12.5px; color:#6b7280; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .art .mt { font-size:11.5px; color:#9ca3af; margin-top:6px; display:flex; align-items:center; gap:8px; }
+    .art .rm { margin-left:auto; background:none; border:1px solid #e5e7eb; color:#dc2626; border-radius:6px; padding:3px 9px; font-size:12px; cursor:pointer; }
+    .art .rm:hover { background:#fef2f2; }
+
+    .cat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:22px; }
+    .cat-card { display:flex; align-items:center; gap:10px; background:#fff; border:1px solid #eef1f3; border-radius:10px; padding:12px 14px; }
+    .cat-card .ic { font-size:20px; }
+    .cat-card .nm { font-weight:600; font-size:14px; color:#1a1a1a; }
+    .cat-card .fbtn { margin-left:auto; border:1px solid #0e7d85; background:#fff; color:#0e7d85; border-radius:20px; padding:5px 14px; font-size:12.5px; font-weight:600; cursor:pointer; }
+    .cat-card .fbtn.on { background:#0e7d85; color:#fff; }
+
+    .ufol { display:flex; align-items:center; gap:12px; background:#fff; border:1px solid #eef1f3; border-radius:10px; padding:12px; margin-bottom:10px; }
+    .ufol img { width:48px; height:48px; border-radius:50%; object-fit:cover; }
+    .ufol .nm { font-weight:600; color:#1a1a1a; text-decoration:none; }
+    .ufol .nm:hover { color:#0e7d85; }
+    .ufol .un { font-size:12px; color:#9ca3af; }
+
+    @@media (max-width:820px){ .hub{grid-template-columns:1fr;} .hub-side{position:static;} .cat-grid{grid-template-columns:1fr;} .art .th{width:110px;height:74px;} }
+</style>
+
+<div class="hub">
+    <aside class="hub-side">
+        <div class="me">
+            @if (!string.IsNullOrEmpty(user?.AvatarUrl))
+            { <img src="@user.AvatarUrl" alt="@user.FullName" /> }
+            else
+            { <img src="https://ui-avatars.com/api/?name=@Uri.EscapeDataString(user?.FullName ?? "U")&background=0e7d85&color=fff&size=120" alt="avatar" /> }
+            <div class="nm">@user?.FullName</div>
+            <div class="un">@@@user?.Username</div>
+        </div>
+        <div class="hub-nav">
+            <a href="/Account/Hub?tab=foryou" class="@(tab=="foryou"?"active":"")"><i class="fa fa-award"></i> Tin cho bạn</a>
+            <a href="/Account/Hub?tab=topics" class="@(tab=="topics"?"active":"")"><i class="fa fa-folder"></i> Mục của bạn @if(topicCount>0){<span class="cnt">@topicCount</span>}</a>
+            <a href="/Account/Hub?tab=following" class="@(tab=="following"?"active":"")"><i class="fa fa-rss"></i> Theo dõi @if(followCount>0){<span class="cnt">@followCount</span>}</a>
+            <a href="/Account/Hub?tab=history" class="@(tab=="history"?"active":"")"><i class="fa fa-clock-rotate-left"></i> Đọc gần đây</a>
+            <a href="/Account/Hub?tab=saved" class="@(tab=="saved"?"active":"")"><i class="fa fa-bookmark"></i> Báo đã lưu @if(savedCount>0){<span class="cnt">@savedCount</span>}</a>
+            <a href="/Account/Logout" class="out"><i class="fa fa-right-from-bracket"></i> Thoát</a>
+        </div>
+    </aside>
+
+    <main class="hub-main">
+        <div class="hub-h">@title</div>
+
+        @if (tab == "following")
+        {
+            @if (followingUsers.Any())
+            {
+                foreach (var u in followingUsers)
+                {
+                    <div class="ufol">
+                        <img src="@(string.IsNullOrEmpty(u.AvatarUrl) ? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(u.FullName)}&background=159aa3&color=fff" : u.AvatarUrl)" alt="@u.FullName" />
+                        <div>
+                            <a class="nm" href="/u/@u.Username">@u.FullName</a>
+                            <div class="un">@@@u.Username</div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="hub-empty">Bạn chưa theo dõi ai. Vào trang cá nhân của tác giả để bấm Theo dõi.</div>
+            }
+        }
+        else if (tab == "topics")
+        {
+            <div class="cat-grid">
+                @foreach (var c in allCats)
+                {
+                    var on = followedCatIds.Contains(c.Id);
+                    <div class="cat-card">
+                        <span class="ic">@c.Icon</span>
+                        <span class="nm">@c.Name</span>
+                        <button class="fbtn @(on ? "on" : "")" data-cat="@c.Id" onclick="toggleCat(this)">@(on ? "Đang theo dõi" : "Theo dõi")</button>
+                    </div>
+                }
+            </div>
+            <div class="hub-h">Bài mới trong mục bạn theo dõi</div>
+            @if (articles.Any())
+            {
+                @foreach (var a in articles)
+                {
+                    <div class="art">
+                        <div class="th">
+                            @if (!string.IsNullOrEmpty(a.Thumbnail)) { <img src="@a.Thumbnail" alt="@a.Title" /> }
+                        </div>
+                        <div class="bd">
+                            <div class="cat">@a.Category?.Icon @a.Category?.Name</div>
+                            <h3><a href="/bai-viet/@a.Slug">@a.Title</a></h3>
+                            <div class="ds">@a.Summary</div>
+                            <div class="mt">
+                                <span><i class="fa fa-clock"></i> @SlugHelper.FormatDate(a.PublishedAt)</span>
+                                <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(a.Views)</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="hub-empty">Theo dõi vài chuyên mục ở trên để nhận tin tại đây.</div>
+            }
+        }
+        else
+        {
+            @if (articles.Any())
+            {
+                @foreach (var a in articles)
+                {
+                    <div class="art">
+                        <div class="th">
+                            @if (!string.IsNullOrEmpty(a.Thumbnail)) { <img src="@a.Thumbnail" alt="@a.Title" /> }
+                        </div>
+                        <div class="bd">
+                            <div class="cat">@a.Category?.Icon @a.Category?.Name</div>
+                            <h3><a href="/bai-viet/@a.Slug">@a.Title</a></h3>
+                            <div class="ds">@a.Summary</div>
+                            <div class="mt">
+                                <span><i class="fa fa-clock"></i> @SlugHelper.FormatDate(a.PublishedAt)</span>
+                                <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(a.Views)</span>
+                                @if (tab == "saved")
+                                {
+                                    <button class="rm" data-id="@a.Id" onclick="unsave(this)"><i class="fa fa-trash"></i> Bỏ lưu</button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="hub-empty">
+                    @(tab == "saved" ? "Bạn chưa lưu bài nào. Bấm nút Lưu ở mỗi bài để lưu lại đọc sau."
+                      : tab == "history" ? "Bạn chưa đọc tin nào."
+                      : "Chưa có gợi ý. Đọc và theo dõi vài chuyên mục để nhận tin phù hợp.")
+                </div>
+            }
+        }
+    </main>
+</div>
+
+@section Scripts {
+<script>
+    async function toggleCat(btn){
+        const id = btn.dataset.cat;
+        const r = await fetch('/Account/ToggleFollowCategory/'+id,{method:'POST'});
+        const d = await r.json();
+        if(!d.success){ alert(d.message||'Lỗi'); return; }
+        if(d.following){ btn.classList.add('on'); btn.textContent='Đang theo dõi'; }
+        else { btn.classList.remove('on'); btn.textContent='Theo dõi'; }
+    }
+    async function unsave(btn){
+        const id = btn.dataset.id;
+        const r = await fetch('/Account/ToggleSave/'+id,{method:'POST'});
+        const d = await r.json();
+        if(d.success && !d.saved){ btn.closest('.art').remove(); }
+    }
+</script>
+}
