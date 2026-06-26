@@ -2934,3 +2934,74 @@ html[data-mode="dark"] .read-progress {
             border-right: none;
         }
 }
+
+/* ===== MEGA MENU ===== */
+.mega-menu-wrapper { position: relative; }
+
+.mega-trigger { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.mega-trigger .fa-chevron-down { font-size: 10px; transition: transform .2s; }
+.mega-menu-wrapper:hover .fa-chevron-down { transform: rotate(180deg); }
+
+.mega-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--primary);
+    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    width: 480px;
+    z-index: 9999;
+    padding: 16px;
+}
+.mega-menu-wrapper:hover .mega-menu { display: block; }
+
+.mega-categories {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+}
+
+.mega-cat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    text-decoration: none;
+    color: var(--text-body);
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 4px;
+    transition: background .15s, color .15s;
+}
+.mega-cat-item:hover { background: var(--bg-gray); color: var(--primary); }
+.mega-cat-icon { font-size: 16px; width: 20px; text-align: center; }
+
+.mega-tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+.mega-tags-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+.mega-tag {
+    font-size: 12px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    text-decoration: none;
+    color: var(--text-muted);
+    transition: all .15s;
+}
+.mega-tag:hover { border-color: var(--primary); color: var(--primary); }
+
+@media (max-width: 768px) {
+    .mega-menu { width: 100vw; left: 0; transform: none; }
+    .mega-categories { grid-template-columns: 1fr; }
+}
+/* ===== END MEGA MENU ===== */

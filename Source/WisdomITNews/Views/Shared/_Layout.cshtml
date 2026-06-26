@@ -1,4 +1,16 @@
 @using WisdomITNews.Services
+@inject WisdomITNews.Data.AppDbContext _layoutDb
+@{
+    var megaCategories = await _layoutDb.Categories
+        .Where(c => c.IsVisible)
+        .OrderBy(c => c.SortOrder)
+        .ToListAsync();
+
+    var hotTags = await _layoutDb.Tags
+        .OrderByDescending(t => t.ArticleTags.Count)
+        .Take(10)
+        .ToListAsync();
+}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -431,7 +443,30 @@
                 <li><a href="/" class="@((_navPath == "/" || _navPath == "") ? "active" : "")"><i class="fa fa-fire"></i> NÓNG</a></li>
                 <li><a href="/danh-muc">MỚI</a></li>
                 <li><a href="/video" class="@(_navPath.StartsWith("/video", StringComparison.OrdinalIgnoreCase) ? "active" : "")">VIDEO</a></li>
-                <li><a href="#" title="Sắp ra mắt">CHỦ ĐỀ</a></li>
+                <li class="mega-menu-wrapper">
+                    <a href="/danh-muc" class="mega-trigger">CHỦ ĐỀ <i class="fa fa-chevron-down"></i></a>
+                    <div class="mega-menu">
+                        <div class="mega-categories">
+                            @foreach (var c in megaCategories)
+                            {
+                                <a href="/danh-muc/@c.Slug" class="mega-cat-item">
+                                    <span class="mega-cat-icon">@c.Icon</span>
+                                    <span class="mega-cat-name">@c.Name</span>
+                                </a>
+                            }
+                        </div>
+                        @if (hotTags.Any())
+                        {
+                            <div class="mega-tags-row">
+                                <span class="mega-tags-label">Tags hot:</span>
+                                @foreach (var t in hotTags)
+                                {
+                                    <a href="/tim-kiem?q=@t.Slug" class="mega-tag">#@t.Name</a>
+                                }
+                            </div>
+                        }
+                    </div>
+                </li>
             </ul>
             <form action="/tim-kiem" method="get" class="bm-nav-search" style="position:relative;" autocomplete="off">
                 <input type="text" id="navSearchInput" name="q" placeholder="Nhập nội dung tìm kiếm" value="@ViewData["SearchQuery"]" />
