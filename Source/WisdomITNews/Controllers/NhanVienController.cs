@@ -15,13 +15,15 @@ public class NhanVienController : Controller
     private readonly AppDbContext _db;
     private readonly ImageUploadService _imageUpload;
     private readonly AIService _ai;
+    private readonly VideoUploadService _videoUpload;
     private readonly ILogger<NhanVienController> _logger;
 
-    public NhanVienController(AppDbContext db, ImageUploadService imageUpload, AIService ai, ILogger<NhanVienController> logger)
+    public NhanVienController(AppDbContext db, ImageUploadService imageUpload, AIService ai, VideoUploadService videoUpload, ILogger<NhanVienController> logger)
     {
         _db = db;
         _imageUpload = imageUpload;
         _ai = ai;
+        _videoUpload = videoUpload;
         _logger = logger;
     }
 
@@ -72,7 +74,9 @@ public class NhanVienController : Controller
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
         const int pageSize = 20;
-        var query = _db.Articles.Include(a => a.Category).Include(a => a.Author).Include(a => a.AuthorUser).AsQueryable();
+        var query = _db.Articles.Include(a => a.Category).Include(a => a.Author).Include(a => a.AuthorUser)
+            .Where(a => a.IsExternal == false)  // CHỈ bài gốc của Wisdom
+            .AsQueryable();
         if (!string.IsNullOrEmpty(status))
         {
             if (status == "PendingReview")
@@ -345,7 +349,7 @@ public class NhanVienController : Controller
         return Json(new { success = true });
     }
 
-// ===== ĐĂNG VIDEO (YouTube) =====
+// ===== ĐĂNG VIDEO (YouTube / Upload) =====
     public async Task<IActionResult> Videos()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -361,27 +365,79 @@ public class NhanVienController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreateVideo(string youtubeUrl, string title, string? source, string? description, string status = "published")
+    [RequestSizeLimit(VideoUploadService.MaxSize)]
+    [RequestFormLimits(MultipartBodyLengthLimit = VideoUploadService.MaxSize)]
+    public async Task<IActionResult> CreateVideo(
+        string videoType,
+        string? youtubeUrl,
+        string title,
+        string? source,
+        string? description,
+        string status = "published",
+        IFormFile? videoFile = null)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
-        var vid = YouTubeHelper.ExtractId(youtubeUrl);
-        if (string.IsNullOrEmpty(vid) || string.IsNullOrWhiteSpace(title))
+
+        if (string.IsNullOrWhiteSpace(title))
         {
-            ViewBag.Error = "Vui lòng nhập tiêu đề và link YouTube hợp lệ.";
-            ViewBag.YoutubeUrl = youtubeUrl; ViewBag.VTitle = title; ViewBag.Source = source; ViewBag.Description = description;
+            SetCreateVideoViewBag(videoType, youtubeUrl, title, source, description, "Vui lòng nhập tiêu đề.");
             return View();
         }
-        _db.Videos.Add(new Video
+
+        var isUpload = videoType == "upload";
+        Video video;
+
+        if (isUpload)
         {
-            Title = title.Trim(),
-            YouTubeId = vid,
-            Source = string.IsNullOrWhiteSpace(source) ? null : source.Trim(),
-            Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
-            Status = status == "draft" ? "draft" : "published",
-            CreatedByAdminId = AdminId,
-            CreatedAt = DateTime.Now,
-            PublishedAt = DateTime.Now
-        });
+            if (videoFile == null || videoFile.Length == 0)
+            {
+                SetCreateVideoViewBag(videoType, youtubeUrl, title, source, description, "Vui lòng chọn file video.");
+                return View();
+            }
+            var upload = await _videoUpload.SaveAsync(videoFile);
+            if (!upload.Success)
+            {
+                SetCreateVideoViewBag(videoType, youtubeUrl, title, source, description, upload.Error ?? "Lỗi upload video.");
+                return View();
+            }
+            video = new Video
+            {
+                Title = title.Trim(),
+                YouTubeId = "",
+                VideoType = "upload",
+                VideoUrl = upload.RelativePath,
+                FileSize = upload.FileSize,
+                Source = string.IsNullOrWhiteSpace(source) ? null : source.Trim(),
+                Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                Status = status == "draft" ? "draft" : "published",
+                CreatedByAdminId = AdminId,
+                CreatedAt = DateTime.Now,
+                PublishedAt = DateTime.Now
+            };
+        }
+        else
+        {
+            var vid = YouTubeHelper.ExtractId(youtubeUrl);
+            if (string.IsNullOrEmpty(vid))
+            {
+                SetCreateVideoViewBag(videoType, youtubeUrl, title, source, description, "Vui lòng nhập link YouTube hợp lệ.");
+                return View();
+            }
+            video = new Video
+            {
+                Title = title.Trim(),
+                YouTubeId = vid,
+                VideoType = "youtube",
+                Source = string.IsNullOrWhiteSpace(source) ? null : source.Trim(),
+                Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                Status = status == "draft" ? "draft" : "published",
+                CreatedByAdminId = AdminId,
+                CreatedAt = DateTime.Now,
+                PublishedAt = DateTime.Now
+            };
+        }
+
+        _db.Videos.Add(video);
         await _db.SaveChangesAsync();
         TempData["Ok"] = "Đã đăng video.";
         return RedirectToAction("Videos");
@@ -393,10 +449,145 @@ public class NhanVienController : Controller
         if (!IsLoggedIn) return Json(new { success = false });
         var v = await _db.Videos.FindAsync(id);
         if (v == null) return Json(new { success = false });
+        if (v.VideoType == "upload") _videoUpload.DeletePhysicalFile(v.VideoUrl);
         _db.Videos.Remove(v);
         await _db.SaveChangesAsync();
         return Json(new { success = true });
-    }    // ===== HELPERS =====
+    }
+
+    private void SetCreateVideoViewBag(string videoType, string? youtubeUrl, string? title, string? source, string? description, string error)
+    {
+        ViewBag.Error = error;
+        ViewBag.VideoType = videoType;
+        ViewBag.YoutubeUrl = youtubeUrl;
+        ViewBag.VTitle = title;
+        ViewBag.Source = source;
+        ViewBag.Description = description;
+    }    // ===== XÓA BÀI VIẾT (nhân viên được phép) =====
+    [HttpPost]
+    public async Task<IActionResult> DeleteArticle(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var article = await _db.Articles.FindAsync(id);
+        if (article == null) return Json(new { success = false });
+        _db.Articles.Remove(article);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // ===== QUẢN LÝ NGUỒN TIN =====
+
+    // Danh sách nguồn + danh sách bài đã import (IsExternal = true)
+    public async Task<IActionResult> RssSources(int? sourceId, string? keyword, DateTime? fromDate, DateTime? toDate, int page = 1)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        const int pageSize = 20;
+
+        var sources = await _db.RssSources.OrderBy(s => s.Name).ToListAsync();
+
+        var query = _db.Articles
+            .Include(a => a.Category)
+            .Where(a => a.IsExternal == true);
+
+        if (sourceId.HasValue)
+        {
+            var src = sources.FirstOrDefault(s => s.Id == sourceId);
+            if (src != null) query = query.Where(a => a.SourceName == src.Name);
+        }
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+            query = query.Where(a => a.Title.Contains(keyword));
+
+        if (fromDate.HasValue)
+            query = query.Where(a => a.PublishedAt >= fromDate.Value);
+        if (toDate.HasValue)
+            query = query.Where(a => a.PublishedAt < toDate.Value.AddDays(1));
+
+        var total = await query.CountAsync();
+        var articles = await query
+            .OrderByDescending(a => a.PublishedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        ViewBag.Sources = sources;
+        ViewBag.SelectedSourceId = sourceId;
+        ViewBag.Keyword = keyword;
+        ViewBag.FromDate = fromDate?.ToString("yyyy-MM-dd");
+        ViewBag.ToDate = toDate?.ToString("yyyy-MM-dd");
+        ViewBag.Page = page;
+        ViewBag.TotalPages = (int)Math.Ceiling((double)total / pageSize);
+        return View(articles);
+    }
+
+    // Import từ 1 nguồn cụ thể
+    [HttpPost]
+    public async Task<IActionResult> ImportFromSource(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var source = await _db.RssSources.FindAsync(id);
+        if (source == null) return Json(new { success = false, message = "Không tìm thấy nguồn" });
+        if (!source.IsActive) return Json(new { success = false, message = "Nguồn này đang bị tắt" });
+
+        var svc = HttpContext.RequestServices.GetRequiredService<NewsImportService>();
+        var (added, updated, skipped) = await svc.ImportFromSourceAsync(source);
+        await _db.SaveChangesAsync();
+
+        return Json(new { success = true, message = $"Đã nhập {added} bài mới, cập nhật {updated}, bỏ qua {skipped} từ {source.Name}" });
+    }
+
+    // Import tất cả nguồn đang active
+    [HttpPost]
+    public async Task<IActionResult> ImportAllSources()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var sources = await _db.RssSources.Where(s => s.IsActive).ToListAsync();
+        var svc = HttpContext.RequestServices.GetRequiredService<NewsImportService>();
+
+        int totalAdded = 0, totalUpdated = 0;
+        foreach (var src in sources)
+        {
+            var (added, updated, _) = await svc.ImportFromSourceAsync(src);
+            totalAdded += added; totalUpdated += updated;
+        }
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = $"Nhập xong tất cả nguồn: {totalAdded} bài mới, {totalUpdated} cập nhật.";
+        return RedirectToAction("RssSources");
+    }
+
+    // Xóa bài đã import từ nguồn
+    [HttpPost]
+    public async Task<IActionResult> DeleteImportedArticle(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var article = await _db.Articles.FindAsync(id);
+        if (article == null || !article.IsExternal) return Json(new { success = false });
+        _db.Articles.Remove(article);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // Xóa hàng loạt bài đã import
+    [HttpPost]
+    public async Task<IActionResult> DeleteImportedArticles([FromBody] List<int> ids)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        if (ids == null || ids.Count == 0)
+            return Json(new { success = false, message = "Không có bài nào được chọn" });
+
+        var articles = await _db.Articles
+            .Where(a => ids.Contains(a.Id) && a.IsExternal == true)
+            .ToListAsync();
+
+        if (articles.Count == 0)
+            return Json(new { success = false, message = "Không tìm thấy bài viết hợp lệ" });
+
+        _db.Articles.RemoveRange(articles);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, deleted = articles.Count });
+    }
+
+    // ===== HELPERS =====
     private async Task ApplyAIModerationAsync(Article article)
     {
         try
@@ -438,5 +629,26 @@ public class NhanVienController : Controller
                 _db.ArticleTags.Add(new ArticleTag { ArticleId = articleId, TagId = tag.Id });
         }
         await _db.SaveChangesAsync();
+    }
+
+    // ===== QUẢN LÝ KHÁCH HÀNG =====
+    [HttpGet]
+    public async Task<IActionResult> Customers()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var subs = await _db.NewsletterSubscribers.OrderByDescending(n => n.SubscribedAt).ToListAsync();
+        return View(subs);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteSubscriber(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var s = await _db.NewsletterSubscribers.FindAsync(id);
+        if (s == null) return Json(new { success = false });
+        _db.NewsletterSubscribers.Remove(s);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
     }
 }

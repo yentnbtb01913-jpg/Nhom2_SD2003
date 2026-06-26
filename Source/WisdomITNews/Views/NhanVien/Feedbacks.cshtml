@@ -73,7 +73,7 @@ else
 @section Scripts {
 <script>
 async function resolveFeedback(id) {
-    if (!confirm('Đánh dấu góp ý #' + id + ' là đã xử lý?')) return;
+    if (!await confirmSwal('Đánh dấu góp ý #' + id + ' là đã xử lý?')) return;
     try {
         const res = await fetch('/nhan-vien/ResolveFeedback?id=' + id, { method: 'POST' });
         const data = await res.json();
@@ -81,10 +81,10 @@ async function resolveFeedback(id) {
             const row = document.getElementById('fb-' + id);
             if (row) row.querySelector('td:last-child').innerHTML = '<span style="color:#16a34a;font-size:12px;font-weight:600;">✓ Đã xử lý</span>';
         } else {
-            alert('Không cập nhật được');
+            Swal.fire('Không cập nhật được');
         }
     } catch (err) {
-        alert('Lỗi kết nối');
+        Swal.fire('Lỗi kết nối');
     }
 }
 </script>

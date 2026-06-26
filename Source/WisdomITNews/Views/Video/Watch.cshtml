@@ -13,9 +13,17 @@
         <main class="bm-main">
             <div class="bm-section">
                 <div class="bm-video-player">
-                    <iframe src="@(Model.EmbedUrl)?rel=0" title="@Model.Title"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowfullscreen></iframe>
+                    @if (Model.IsUpload && !string.IsNullOrEmpty(Model.VideoUrl))
+                    {
+                        <video src="@Model.VideoUrl" controls playsinline
+                               style="width:100%;height:100%;background:#000;object-fit:contain;"></video>
+                    }
+                    else
+                    {
+                        <iframe src="@(Model.EmbedUrl)?rel=0" title="@Model.Title"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen></iframe>
+                    }
                 </div>
                 <h1 class="bm-video-title">@Model.Title</h1>
                 <div class="bm-meta">
@@ -25,7 +33,16 @@
                     <span class="sep">·</span>
                     <span>@SlugHelper.FormatViews(Model.Views) lượt xem</span>
                 </div>
-                <p class="bm-desc" style="margin-top:10px;">Video được nhúng từ nguồn ngoài (YouTube). Nội dung thuộc về nguồn gốc.</p>
+                <p class="bm-desc" style="margin-top:10px;">
+                    @if (Model.IsUpload)
+                    {
+                        <text>Video được tải lên trực tiếp trên Wisdom IT News.</text>
+                    }
+                    else
+                    {
+                        <text>Video được nhúng từ nguồn ngoài (YouTube). Nội dung thuộc về nguồn gốc.</text>
+                    }
+                </p>
             </div>
             <a class="bm-more" href="/video"><i class="fa fa-arrow-left"></i> Về trang Video</a>
         </main>
@@ -42,7 +59,14 @@
                     {
                         <div class="bm-list-item" data-vtitle="@v.Title @v.Source" onclick="location.href='/Video/Watch/@v.Id'">
                             <div class="bm-thumb" style="width:130px;">
-                                <img src="@v.Thumbnail" alt="@v.Title" loading="lazy" />
+                                @if (v.IsUpload && !string.IsNullOrEmpty(v.VideoUrl))
+                                {
+                                    <video src="@v.VideoUrl" muted preload="metadata" style="width:100%;height:100%;object-fit:cover;background:#000;"></video>
+                                }
+                                else
+                                {
+                                    <img src="@v.Thumbnail" alt="@v.Title" loading="lazy" />
+                                }
                             </div>
                             <div class="bm-it-body">
                                 <h4><a href="/Video/Watch/@v.Id">@v.Title</a></h4>

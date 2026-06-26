@@ -104,13 +104,13 @@
         document.getElementById('delFrom').value = f;
         document.getElementById('delTo').value = t;
         if (!f && !t) {
-            alert('Hãy chọn "Từ ngày" và/hoặc "Đến ngày" trước khi xóa theo khoảng.');
+            Swal.fire('Hãy chọn "Từ ngày" và/hoặc "Đến ngày" trước khi xóa theo khoảng.');
             return false;
         }
         return confirm('Xóa tất cả log AI trong khoảng đã lọc?');
     }
     async function deleteAILog(id) {
-        if (!confirm('Xóa log AI này?')) return;
+        if (!await confirmSwal('Xóa log AI này?')) return;
         const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
         const fd = new FormData();
         fd.append('id', id);
@@ -121,7 +121,7 @@
             const row = document.getElementById('log-' + id);
             if (row) row.remove();
         } else {
-            alert(data.message || 'Xóa thất bại');
+            Swal.fire(data.message || 'Xóa thất bại');
         }
     }
 </script>

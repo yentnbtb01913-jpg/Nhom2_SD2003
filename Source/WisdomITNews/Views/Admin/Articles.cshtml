@@ -5,12 +5,8 @@
 }
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-    <h1 style="font-size:22px;font-weight:700;">📰 Bài viết</h1>
+    <h1 style="font-size:22px;font-weight:700;">📰 Kênh Wisdom — Bài viết gốc</h1>
     <div style="display:flex;gap:8px;">
-        <form method="post" action="/admin/ImportNews" style="display:inline;" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Đang nhập...';">
-            @Html.AntiForgeryToken()
-            <button type="submit" style="background:#1e3a8a;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;"><i class="fa fa-download"></i> Nhập tin (The Hacker News)</button>
-        </form>
         <form method="post" action="/admin/SeedViews" style="display:inline;">
             @Html.AntiForgeryToken()
             <button type="submit" style="background:#7c3aed;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;"><i class="fa fa-eye"></i> Tạo lượt xem mẫu</button>
@@ -156,22 +152,22 @@
 @section Scripts {
     <script>
         async function deleteArticle(id, btn) {
-            if (!confirm('Xóa bài viết này?')) return;
+            if (!await confirmSwal('Xóa bài viết này?')) return;
             const res = await fetch('/admin/DeleteArticle/' + id, { method: 'POST' });
             const data = await res.json();
             if (data.success) btn.closest('tr').remove();
-            else alert('Lỗi khi xóa!');
+            else Swal.fire('Lỗi khi xóa!');
         }
 
         async function approveArticle(id, btn) {
-            if (!confirm('Duyệt và xuất bản bài viết này?')) return;
+            if (!await confirmSwal('Duyệt và xuất bản bài viết này?')) return;
             const res = await fetch('/admin/ApproveArticle/' + id, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
-                alert('Đã duyệt bài viết thành công!');
+                Swal.fire('Đã duyệt bài viết thành công!');
                 location.reload();
             } else {
-                alert(data.message || 'Lỗi khi duyệt!');
+                Swal.fire(data.message || 'Lỗi khi duyệt!');
             }
         }
 
@@ -185,10 +181,10 @@
             });
             const data = await res.json();
             if (data.success) {
-                alert('Đã từ chối bài viết.');
+                Swal.fire('Đã từ chối bài viết.');
                 location.reload();
             } else {
-                alert(data.message || 'Lỗi!');
+                Swal.fire(data.message || 'Lỗi!');
             }
         }
     </script>

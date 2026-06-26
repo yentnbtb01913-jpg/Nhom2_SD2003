@@ -5,22 +5,47 @@
 @if (ViewBag.Error != null)
 { <div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@ViewBag.Error</div> }
 
-<div style="background:#fff;border-radius:6px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.06);max-width:520px;">
+<div style="background:#fff;border-radius:6px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.06);max-width:560px;">
     <form method="post" action="/admin/CreateStaff">
         @Html.AntiForgeryToken()
-        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Họ và tên</label>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Họ và tên *</label>
         <input name="fullName" required style="width:100%;padding:10px 12px;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:14px;" />
-        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Tên đăng nhập</label>
-        <input name="username" required style="width:100%;padding:10px 12px;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:14px;" />
-        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Email</label>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div>
+                <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Tên đăng nhập *</label>
+                <input name="username" required style="width:100%;padding:10px 12px;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:14px;" />
+            </div>
+            <div>
+                <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Giới tính</label>
+                <select name="gender" style="width:100%;padding:10px 12px;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:14px;">
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                    <option value="Khác">Khác</option>
+                </select>
+            </div>
+        </div>
+
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Email *</label>
         <input name="email" type="email" required style="width:100%;padding:10px 12px;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:14px;" />
-        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Mật khẩu</label>
-        <input name="password" type="password" required minlength="6" style="width:100%;padding:10px 12px;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:14px;" />
-        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Vai trò</label>
-        <select name="role" style="width:100%;padding:10px 12px;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:18px;">
-            <option value="editor">Nhân viên (quyền cơ bản)</option>
-            <option value="superadmin">Super Admin (toàn quyền)</option>
-        </select>
+
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Địa chỉ</label>
+        <input name="address" style="width:100%;padding:10px 12px;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:14px;" />
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div>
+                <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Mật khẩu *</label>
+                <input name="password" type="password" required minlength="6" style="width:100%;padding:10px 12px;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:18px;" />
+            </div>
+            <div>
+                <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Vai trò</label>
+                <select name="role" style="width:100%;padding:10px 12px;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:18px;">
+                    <option value="editor">Nhân viên (quyền cơ bản)</option>
+                    <option value="superadmin">Super Admin (toàn quyền)</option>
+                </select>
+            </div>
+        </div>
+
         <button type="submit" style="background:#159aa3;color:#fff;padding:11px 20px;border:none;border-radius:6px;font-weight:700;cursor:pointer;"><i class="fa fa-check"></i> Tạo nhân viên</button>
         <a href="/admin/Staff" style="margin-left:10px;color:#6c757d;text-decoration:none;">Huỷ</a>
     </form>

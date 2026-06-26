@@ -29,6 +29,7 @@ public class AppDbContext : DbContext
     public DbSet<SavedArticle> SavedArticles { get; set; }
     public DbSet<UserCategoryFollow> UserCategoryFollows { get; set; }
     public DbSet<Video> Videos { get; set; }
+    public DbSet<RssSource> RssSources { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {

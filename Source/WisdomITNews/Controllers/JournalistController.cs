@@ -10,12 +10,14 @@ public class JournalistController : Controller
 {
     private readonly AppDbContext _db;
     private readonly AIService _ai;
+    private readonly VideoUploadService _videoUpload;
     private readonly ILogger<JournalistController> _logger;
 
-    public JournalistController(AppDbContext db, AIService ai, ILogger<JournalistController> logger)
+    public JournalistController(AppDbContext db, AIService ai, VideoUploadService videoUpload, ILogger<JournalistController> logger)
     {
         _db = db;
         _ai = ai;
+        _videoUpload = videoUpload;
         _logger = logger;
     }
 
@@ -616,6 +618,128 @@ public class JournalistController : Controller
         {
             return Json(new { success = false, message = "Upload failed" });
         }
+    }
+
+    // ===== VIDEO (YouTube / Upload) =====
+    public async Task<IActionResult> Videos()
+    {
+        var journalist = await GetCurrentJournalist();
+        if (journalist == null) return RedirectToAction("Login");
+        var list = await _db.Videos
+            .Where(v => v.CreatedByUserId == journalist.Id)
+            .OrderByDescending(v => v.CreatedAt)
+            .ToListAsync();
+        return View(list);
+    }
+
+    public async Task<IActionResult> CreateVideo()
+    {
+        if (await GetCurrentJournalist() == null) return RedirectToAction("Login");
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(VideoUploadService.MaxSize)]
+    [RequestFormLimits(MultipartBodyLengthLimit = VideoUploadService.MaxSize)]
+    public async Task<IActionResult> CreateVideo(
+        string videoType,
+        string? youtubeUrl,
+        string title,
+        string? source,
+        string? description,
+        string status = "published",
+        IFormFile? videoFile = null)
+    {
+        var journalist = await GetCurrentJournalist();
+        if (journalist == null) return RedirectToAction("Login");
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            SetCreateVideoViewBag(videoType, youtubeUrl, title, source, description, "Vui lòng nhập tiêu đề.");
+            return View();
+        }
+
+        var isUpload = videoType == "upload";
+        Video video;
+
+        if (isUpload)
+        {
+            if (videoFile == null || videoFile.Length == 0)
+            {
+                SetCreateVideoViewBag(videoType, youtubeUrl, title, source, description, "Vui lòng chọn file video.");
+                return View();
+            }
+            var upload = await _videoUpload.SaveAsync(videoFile);
+            if (!upload.Success)
+            {
+                SetCreateVideoViewBag(videoType, youtubeUrl, title, source, description, upload.Error ?? "Lỗi upload video.");
+                return View();
+            }
+            video = new Video
+            {
+                Title = title.Trim(),
+                YouTubeId = "",
+                VideoType = "upload",
+                VideoUrl = upload.RelativePath,
+                FileSize = upload.FileSize,
+                Source = string.IsNullOrWhiteSpace(source) ? journalist.FullName : source.Trim(),
+                Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                Status = status == "draft" ? "draft" : "published",
+                CreatedByUserId = journalist.Id,
+                CreatedAt = DateTime.Now,
+                PublishedAt = DateTime.Now
+            };
+        }
+        else
+        {
+            var vid = YouTubeHelper.ExtractId(youtubeUrl);
+            if (string.IsNullOrEmpty(vid))
+            {
+                SetCreateVideoViewBag(videoType, youtubeUrl, title, source, description, "Vui lòng nhập link YouTube hợp lệ.");
+                return View();
+            }
+            video = new Video
+            {
+                Title = title.Trim(),
+                YouTubeId = vid,
+                VideoType = "youtube",
+                Source = string.IsNullOrWhiteSpace(source) ? journalist.FullName : source.Trim(),
+                Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                Status = status == "draft" ? "draft" : "published",
+                CreatedByUserId = journalist.Id,
+                CreatedAt = DateTime.Now,
+                PublishedAt = DateTime.Now
+            };
+        }
+
+        _db.Videos.Add(video);
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã đăng video.";
+        return RedirectToAction("Videos");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteVideo(int id)
+    {
+        var journalist = await GetCurrentJournalist();
+        if (journalist == null) return Json(new { success = false });
+        var v = await _db.Videos.FirstOrDefaultAsync(x => x.Id == id && x.CreatedByUserId == journalist.Id);
+        if (v == null) return Json(new { success = false });
+        if (v.VideoType == "upload") _videoUpload.DeletePhysicalFile(v.VideoUrl);
+        _db.Videos.Remove(v);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    private void SetCreateVideoViewBag(string videoType, string? youtubeUrl, string? title, string? source, string? description, string error)
+    {
+        ViewBag.Error = error;
+        ViewBag.VideoType = videoType;
+        ViewBag.YoutubeUrl = youtubeUrl;
+        ViewBag.VTitle = title;
+        ViewBag.Source = source;
+        ViewBag.Description = description;
     }
 
     // ===== HELPERS =====

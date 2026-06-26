@@ -183,7 +183,7 @@
                     method = 'POST';
                     break;
                 case 'unfriend':
-                    if (!confirm('Hủy kết bạn với người này?')) return;
+                    if (!await confirmSwal('Hủy kết bạn với người này?')) return;
                     url = '/api/friends/by-user/' + TARGET_ID;
                     method = 'DELETE';
                     break;
@@ -192,7 +192,7 @@
                     method = 'POST';
                     break;
                 case 'unfollow':
-                    if (!confirm('Bỏ theo dõi người này?')) return;
+                    if (!await confirmSwal('Bỏ theo dõi người này?')) return;
                     url = '/api/friends/follow/' + TARGET_ID;
                     method = 'DELETE';
                     break;
@@ -221,10 +221,10 @@
                 if (data.success) {
                     location.reload();
                 } else {
-                    alert(data.message || 'Có lỗi xảy ra');
+                    Swal.fire(data.message || 'Có lỗi xảy ra');
                 }
             } catch (e) {
-                alert('Lỗi kết nối');
+                Swal.fire('Lỗi kết nối');
             }
         }
     </script>

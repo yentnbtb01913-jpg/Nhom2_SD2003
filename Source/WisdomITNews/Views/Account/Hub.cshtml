@@ -197,7 +197,7 @@
         const id = btn.dataset.cat;
         const r = await fetch('/Account/ToggleFollowCategory/'+id,{method:'POST'});
         const d = await r.json();
-        if(!d.success){ alert(d.message||'Lỗi'); return; }
+        if(!d.success){ Swal.fire(d.message||'Lỗi'); return; }
         if(d.following){ btn.classList.add('on'); btn.textContent='Đang theo dõi'; }
         else { btn.classList.remove('on'); btn.textContent='Theo dõi'; }
     }

@@ -1,0 +1,7 @@
+@{
+    ViewData["Title"] = "Đăng video";
+    Layout = "_JournalistLayout";
+    ViewBag.FormAction = "/journalist/CreateVideo";
+    ViewBag.BackUrl = "/journalist/Videos";
+}
+@await Html.PartialAsync("_CreateVideoFormPartial")

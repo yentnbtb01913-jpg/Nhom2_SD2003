@@ -13,7 +13,8 @@ public class VideoController : Controller
     private static VideoItem Map(Video v) => new VideoItem
     {
         Id = v.Id, Title = v.Title, YouTubeId = v.YouTubeId,
-        Source = v.Source ?? "", Views = v.Views, PublishedAt = v.PublishedAt
+        Source = v.Source ?? "", Views = v.Views, PublishedAt = v.PublishedAt,
+        VideoType = v.VideoType ?? "youtube", VideoUrl = v.VideoUrl
     };
 
     // Danh sách video — /video

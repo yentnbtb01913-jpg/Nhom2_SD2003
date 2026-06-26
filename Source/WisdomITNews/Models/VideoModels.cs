@@ -11,8 +11,13 @@ public class VideoItem
     public string Source { get; set; } = "";
     public int Views { get; set; }
     public DateTime PublishedAt { get; set; } = DateTime.Now;
+    public string VideoType { get; set; } = "youtube";
+    public string? VideoUrl { get; set; }
 
-    public string Thumbnail => $"https://img.youtube.com/vi/{YouTubeId}/hqdefault.jpg";
+    public bool IsUpload => VideoType == "upload";
+    public string Thumbnail => IsUpload
+        ? (VideoUrl ?? "")
+        : $"https://img.youtube.com/vi/{YouTubeId}/hqdefault.jpg";
     public string EmbedUrl  => $"https://www.youtube.com/embed/{YouTubeId}";
 }
 
@@ -35,7 +40,7 @@ public static class VideoSampleData
     };
 }
 
-// ===== Entity Video (lưu DB) — đăng từ link YouTube =====
+// ===== Entity Video (lưu DB) — YouTube hoặc upload file =====
 public class Video
 {
     public int Id { get; set; }
@@ -46,10 +51,17 @@ public class Video
     public string Status { get; set; } = "published";
     public int Views { get; set; }
     public int? CreatedByAdminId { get; set; }
+    public int? CreatedByUserId { get; set; }
+    public string? VideoUrl { get; set; }
+    public string? VideoType { get; set; } = "youtube";
+    public long? FileSize { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime PublishedAt { get; set; } = DateTime.Now;
 
-    public string Thumbnail => $"https://img.youtube.com/vi/{YouTubeId}/hqdefault.jpg";
+    public bool IsUpload => VideoType == "upload";
+    public string Thumbnail => IsUpload
+        ? (VideoUrl ?? "")
+        : $"https://img.youtube.com/vi/{YouTubeId}/hqdefault.jpg";
     public string EmbedUrl  => $"https://www.youtube.com/embed/{YouTubeId}";
 }
 

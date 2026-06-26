@@ -37,18 +37,9 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterViewModel vm)
     {
-        if (string.IsNullOrWhiteSpace(vm.Username) ||
-            string.IsNullOrWhiteSpace(vm.Email) ||
-            string.IsNullOrWhiteSpace(vm.Password) ||
-            string.IsNullOrWhiteSpace(vm.FullName))
+        if (!ModelState.IsValid)
         {
-            vm.Error = "Vui lòng điền đầy đủ thông tin";
-            return View(vm);
-        }
-
-        if (vm.Password.Length < 6)
-        {
-            vm.Error = "Mật khẩu tối thiểu 6 ký tự";
+            vm.Error = string.Join(" • ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
             return View(vm);
         }
 
@@ -108,9 +99,9 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel vm)
     {
-        if (string.IsNullOrWhiteSpace(vm.UsernameOrEmail) || string.IsNullOrWhiteSpace(vm.Password))
+        if (!ModelState.IsValid)
         {
-            vm.Error = "Vui lòng nhập đầy đủ";
+            vm.Error = string.Join(" • ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
             return View(vm);
         }
 

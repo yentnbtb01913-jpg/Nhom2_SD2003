@@ -4,53 +4,55 @@
     ViewData["Title"] = Model.Category?.Name ?? "Tất cả bài viết"; Layout = "_Layout";
 }
 
-<div class="page-wrapper">
-    <main>
-        <div class="category-header-box">
-            <h1>
-                @if (Model.Category != null)
+<div class="bm-home container">
+    <div class="bm-grid">
+        <main class="bm-main">
+            <div class="category-header-box">
+                <h1>
+                    @if (Model.Category != null)
+                    {
+                        <span>@Model.Category.Icon</span>
+                    }
+                    @(Model.Category?.Name ?? "Tất cả bài viết")
+                </h1>
+                @if (!string.IsNullOrEmpty(Model.Category?.Description))
                 {
-                    <span>@Model.Category.Icon</span>
+                    <p class="cat-desc">@Model.Category.Description</p>
                 }
-                @(Model.Category?.Name ?? "Tất cả bài viết")
-            </h1>
-            @if (!string.IsNullOrEmpty(Model.Category?.Description))
-            {
-                <p class="cat-desc">@Model.Category.Description</p>
-            }
-            <p class="cat-count">@Model.TotalCount bài viết</p>
-        </div>
+                <p class="cat-count">@Model.TotalCount bài viết</p>
+            </div>
 
-        <div class="article-list">
-            @foreach (var a in Model.Articles)
-            {
-                @await Html.PartialAsync("_ArticleCard", a)
-            }
-        </div>
-
-        @if (Model.TotalPages > 1)
-        {
-            <div class="cat-pagination">
-                @for (int i = 1; i <= Model.TotalPages; i++)
+            <div class="article-list">
+                @foreach (var a in Model.Articles)
                 {
-                    <a href="/danh-muc/@Model.Category?.Slug?page=@i"
-                       class="cat-page-btn @(Model.Page == i ? "active" : "")">@i</a>
+                    @await Html.PartialAsync("_ArticleCard", a)
                 }
             </div>
-        }
-    </main>
 
-    <aside class="sidebar">
-        <div class="sidebar-widget">
-            <div class="widget-header"><i class="fa fa-folder"></i> Danh mục</div>
-            <div class="widget-body">
-                @foreach (var c in Model.AllCategories)
-                {
-                    <a href="/danh-muc/@c.Slug" class="cat-sidebar-link @(Model.Category?.Id == c.Id ? "active" : "")">
-                        <span>@c.Icon @c.Name</span>
-                    </a>
-                }
+            @if (Model.TotalPages > 1)
+            {
+                <div class="cat-pagination">
+                    @for (int i = 1; i <= Model.TotalPages; i++)
+                    {
+                        <a href="/danh-muc/@Model.Category?.Slug?page=@i"
+                           class="cat-page-btn @(Model.Page == i ? "active" : "")">@i</a>
+                    }
+                </div>
+            }
+        </main>
+
+        <aside class="bm-aside">
+            <div class="sidebar-widget">
+                <div class="widget-header"><i class="fa fa-folder"></i> Danh mục</div>
+                <div class="widget-body">
+                    @foreach (var c in Model.AllCategories)
+                    {
+                        <a href="/danh-muc/@c.Slug" class="cat-sidebar-link @(Model.Category?.Id == c.Id ? "active" : "")">
+                            <span>@c.Icon @c.Name</span>
+                        </a>
+                    }
+                </div>
             </div>
-        </div>
-    </aside>
+        </aside>
+    </div>
 </div>

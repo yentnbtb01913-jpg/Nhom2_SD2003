@@ -1,0 +1,429 @@
+@using WisdomITNews.Models
+@model List<Article>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Nhập Bài Báo";
+    var sources = ViewBag.Sources as List<RssSource> ?? new List<RssSource>();
+    var selectedSourceId = ViewBag.SelectedSourceId as int?;
+    var keyword = ViewBag.Keyword as string;
+    var fromDate = ViewBag.FromDate as string;
+    var toDate = ViewBag.ToDate as string;
+    var page = ViewBag.Page as int? ?? 1;
+    var totalPages = ViewBag.TotalPages as int? ?? 1;
+    var isSuper = Context.Session.GetString("AdminRole") == "superadmin";
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h1 style="font-size:22px;font-weight:700;">📡 Nhập Bài Báo</h1>
+    <form method="post" action="/admin/ImportAllSources" style="display:inline;">
+        @Html.AntiForgeryToken()
+        <button type="submit" onclick="return confirm('Nhập tin từ tất cả nguồn đang active?')" 
+                style="background:#16a34a;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;">
+            <i class="fa fa-download"></i> Nhập tất cả nguồn
+        </button>
+    </form>
+</div>
+
+<!-- PHẦN TRÊN: DANH SÁCH NGUỒN TIN -->
+<div style="background:#fff;padding:20px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+    <h2 style="font-size:16px;font-weight:600;margin-bottom:16px;">📰 Nguồn tin RSS</h2>
+    
+    @if (isSuper)
+    {
+        <div style="background:#f8fafc;padding:16px;margin-bottom:16px;border:1px solid #e2e8f0;border-radius:8px;">
+            <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">Thêm nguồn mới</h3>
+            <form id="addSourceForm" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+                <input type="text" name="name" placeholder="Tên nguồn" required style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+                <input type="url" name="feedUrl" placeholder="URL RSS feed" required style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+                <input type="url" name="websiteUrl" placeholder="Link trang chủ" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+                <input type="text" name="country" placeholder="Quốc gia (VN/US)" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+                <input type="number" name="defaultCategoryId" placeholder="Danh mục mặc định (ID)" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+                <input type="number" name="maxImport" placeholder="Số bài tối đa" value="30" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+                <input type="text" name="description" placeholder="Mô tả" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+                <button type="submit" style="background:#0e7d85;color:#fff;padding:8px 16px;border:none;font-weight:600;font-size:13px;cursor:pointer;">Thêm nguồn</button>
+            </form>
+        </div>
+    }
+
+    @if (!sources.Any())
+    {
+        <div style="padding:20px;text-align:center;color:#6c757d;">Chưa có nguồn tin nào.</div>
+    }
+    else
+    {
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead style="background:#f8fafc;color:#6c757d;text-align:left;">
+                <tr>
+                    <th style="padding:10px;">Tên kênh</th>
+                    <th style="padding:10px;">Quốc gia</th>
+                    <th style="padding:10px;">Mô tả</th>
+                    <th style="padding:10px;">Trạng thái</th>
+                    <th style="padding:10px;">Lần import</th>
+                    <th style="padding:10px;">Tổng bài</th>
+                    <th style="padding:10px;text-align:right;">Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var src in sources)
+                {
+                    <tr style="border-bottom:1px solid #e5e7eb;">
+                        <td style="padding:10px;font-weight:600;">@src.Name</td>
+                        <td style="padding:10px;">
+                            @if (src.Country == "VN")
+                            {
+                                <span style="background:#dcfce7;color:#166534;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">VN</span>
+                            }
+                            else if (src.Country == "US")
+                            {
+                                <span style="background:#dbeafe;color:#1e40af;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">US</span>
+                            }
+                            else
+                            {
+                                <span style="background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:4px;font-size:11px;">@(src.Country ?? "N/A")</span>
+                            }
+                        </td>
+                        <td style="padding:10px;color:#6c757d;">@src.Description</td>
+                        <td style="padding:10px;">
+                            @if (src.IsActive)
+                            {
+                                <span style="background:#dcfce7;color:#166534;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">Bật</span>
+                            }
+                            else
+                            {
+                                <span style="background:#fee2e2;color:#991b1b;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">Tắt</span>
+                            }
+                        </td>
+                        <td style="padding:10px;color:#6c757d;">@(src.LastImportAt?.ToString("dd/MM/yyyy HH:mm") ?? "Chưa")</td>
+                        <td style="padding:10px;font-weight:600;">@src.TotalImported</td>
+                        <td style="padding:10px;text-align:right;">
+                            <button onclick="importFromSource(@src.Id)" 
+                                    style="padding:5px 10px;background:#16a34a;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;margin-right:4px;">
+                                Nhập tin
+                            </button>
+                            <button onclick="toggleSource(@src.Id)" 
+                                    style="padding:5px 10px;background:#f59e0b;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;margin-right:4px;">
+                                @(src.IsActive ? "Tắt" : "Bật")
+                            </button>
+                            @if (isSuper)
+                            {
+                                <button onclick="deleteSource(@src.Id)" 
+                                        style="padding:5px 10px;background:#dc2626;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;">
+                                    Xóa
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+<!-- PHẦN DƯỚI: DANH SÁCH BÀI ĐÃ IMPORT -->
+<div style="background:#fff;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+    <h2 style="font-size:16px;font-weight:600;margin-bottom:16px;">📝 Bài đã import</h2>
+    
+    <!-- Bộ lọc nâng cao -->
+    <form method="get" action="/admin/RssSources" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;padding:16px;background:#f8fafc;border-radius:8px;">
+        <select name="sourceId" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;">
+            <option value="">-- Tất cả nguồn --</option>
+            @foreach (var src in sources)
+            {
+                @if (selectedSourceId == src.Id)
+                {
+                    <option value="@src.Id" selected>@src.Name</option>
+                }
+                else
+                {
+                    <option value="@src.Id">@src.Name</option>
+                }
+            }
+        </select>
+        <input type="text" name="keyword" placeholder="Tìm kiếm tiêu đề..." value="@keyword" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+        <input type="date" name="fromDate" value="@fromDate" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+        <input type="date" name="toDate" value="@toDate" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+        <div style="display:flex;gap:8px;">
+            <button type="submit" style="background:#0e7d85;color:#fff;padding:8px 16px;border:none;font-weight:600;font-size:13px;cursor:pointer;">Lọc</button>
+            <a href="/admin/RssSources" style="background:#6b7280;color:#fff;padding:8px 16px;text-decoration:none;font-weight:600;font-size:13px;">Xóa bộ lọc</a>
+        </div>
+    </form>
+
+    @if (!Model.Any())
+    {
+        <div style="padding:30px;text-align:center;color:#6c757d;">Chưa có bài nào được import.</div>
+    }
+    else
+    {
+        <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;color:#6c757d;">Tổng @Model.Count bài</span>
+            <button id="deleteSelectedBtn" onclick="deleteSelected()" 
+                    style="padding:6px 14px;background:#dc2626;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;border-radius:4px;display:none;">
+                Xóa các bài đã chọn
+            </button>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead style="background:#f8fafc;color:#6c757d;text-align:left;">
+                <tr>
+                    <th style="padding:10px;width:40px;"><input type="checkbox" id="selectAll" onchange="toggleAll()" /></th>
+                    <th style="padding:10px;">Tiêu đề</th>
+                    <th style="padding:10px;">Nguồn</th>
+                    <th style="padding:10px;">Danh mục</th>
+                    <th style="padding:10px;">Ngày đăng</th>
+                    <th style="padding:10px;">Link gốc</th>
+                    <th style="padding:10px;text-align:right;">Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr style="border-bottom:1px solid #e5e7eb;">
+                        <td style="padding:10px;"><input type="checkbox" class="row-check" value="@item.Id" onchange="updateSelectedCount()" /></td>
+                        <td style="padding:10px;font-weight:600;">@item.Title</td>
+                        <td style="padding:10px;">
+                            <span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">@item.SourceName</span>
+                        </td>
+                        <td style="padding:10px;">@item.Category?.Name</td>
+                        <td style="padding:10px;color:#6c757d;">@item.PublishedAt?.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td style="padding:10px;">
+                            @if (!string.IsNullOrEmpty(item.SourceUrl))
+                            {
+                                <a href="@item.SourceUrl" target="_blank" rel="noopener noreferrer" style="color:#0e7d85;text-decoration:none;font-size:12px;">Xem gốc</a>
+                            }
+                        </td>
+                        <td style="padding:10px;text-align:right;">
+                            <button onclick="deleteArticle(@item.Id)" 
+                                    style="padding:5px 10px;background:#dc2626;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;">
+                                Xóa
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <!-- Phân trang -->
+        @if (totalPages > 1)
+        {
+            <div style="display:flex;justify-content:center;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;">
+                @if (page > 1)
+                {
+                    <a href="/admin/RssSources?sourceId=@selectedSourceId&keyword=@keyword&fromDate=@fromDate&toDate=@toDate&page=@(page-1)" 
+                       style="padding:6px 12px;background:#f3f4f6;text-decoration:none;border-radius:4px;font-size:13px;">Trước</a>
+                }
+                @for (int i = 1; i <= totalPages; i++)
+                {
+                    <a href="/admin/RssSources?sourceId=@selectedSourceId&keyword=@keyword&fromDate=@fromDate&toDate=@toDate&page=@i" 
+                       style="padding:6px 12px;text-decoration:none;border-radius:4px;font-size:13px;@(i == page ? "background:#0e7d85;color:#fff;" : "background:#f3f4f6;")">@i</a>
+                }
+                @if (page < totalPages)
+                {
+                    <a href="/admin/RssSources?sourceId=@selectedSourceId&keyword=@keyword&fromDate=@fromDate&toDate=@toDate&page=@(page+1)" 
+                       style="padding:6px 12px;background:#f3f4f6;text-decoration:none;border-radius:4px;font-size:13px;">Sau</a>
+                }
+            </div>
+        }
+    }
+</div>
+
+<script>
+    // Thêm nguồn mới
+    document.getElementById('addSourceForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const params = new URLSearchParams();
+        for (const [key, value] of formData.entries()) {
+            params.append(key, value);
+        }
+        
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        
+        try {
+            const res = await fetch('/admin/AddRssSource', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'RequestVerificationToken': token
+                },
+                body: params.toString()
+            });
+            const data = await res.json();
+            if (data.success) {
+                Swal.fire('Thành công', 'Đã thêm nguồn mới', 'success').then(() => location.reload());
+            } else {
+                Swal.fire('Lỗi', data.message || 'Không thêm được', 'error');
+            }
+        } catch (err) {
+            Swal.fire('Lỗi', 'Lỗi kết nối', 'error');
+        }
+    });
+
+    // Import từ nguồn
+    async function importFromSource(id) {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        try {
+            const res = await fetch('/admin/ImportFromSource/' + id, {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': token
+                }
+            });
+            const data = await res.json();
+            if (data.success) {
+                Swal.fire('Thành công', data.message, 'success').then(() => location.reload());
+            } else {
+                Swal.fire('Lỗi', data.message || 'Nhập thất bại', 'error');
+            }
+        } catch (err) {
+            Swal.fire('Lỗi', 'Lỗi kết nối', 'error');
+        }
+    }
+
+    // Toggle nguồn
+    async function toggleSource(id) {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        try {
+            const res = await fetch('/admin/ToggleRssSource/' + id, {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': token
+                }
+            });
+            const data = await res.json();
+            if (data.success) {
+                location.reload();
+            }
+        } catch (err) {
+            Swal.fire('Lỗi', 'Lỗi kết nối', 'error');
+        }
+    }
+
+    // Xóa nguồn
+    async function deleteSource(id) {
+        const result = await Swal.fire({
+            title: 'Xóa nguồn tin?',
+            text: 'Hành động này không thể hoàn tác!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Xóa',
+            cancelButtonText: 'Huỷ'
+        });
+        if (!result.isConfirmed) return;
+
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        try {
+            const res = await fetch('/admin/DeleteRssSource/' + id, {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': token
+                }
+            });
+            const data = await res.json();
+            if (data.success) {
+                Swal.fire('Thành công', 'Đã xóa nguồn', 'success').then(() => location.reload());
+            } else {
+                Swal.fire('Lỗi', data.message || 'Không xóa được', 'error');
+            }
+        } catch (err) {
+            Swal.fire('Lỗi', 'Lỗi kết nối', 'error');
+        }
+    }
+
+    // Xóa bài
+    async function deleteArticle(id) {
+        const result = await Swal.fire({
+            title: 'Xóa bài viết?',
+            text: 'Hành động này không thể hoàn tác!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Xóa',
+            cancelButtonText: 'Huỷ'
+        });
+        if (!result.isConfirmed) return;
+
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        try {
+            const res = await fetch('/admin/DeleteImportedArticle/' + id, {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': token
+                }
+            });
+            const data = await res.json();
+            if (data.success) {
+                Swal.fire('Thành công', 'Đã xóa bài', 'success').then(() => location.reload());
+            } else {
+                Swal.fire('Lỗi', 'Không xóa được', 'error');
+            }
+        } catch (err) {
+            Swal.fire('Lỗi', 'Lỗi kết nối', 'error');
+        }
+    }
+
+    // Checkbox handling
+    function toggleAll() {
+        const selectAll = document.getElementById('selectAll').checked;
+        document.querySelectorAll('.row-check').forEach(cb => cb.checked = selectAll);
+        updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+        const checked = document.querySelectorAll('.row-check:checked').length;
+        const btn = document.getElementById('deleteSelectedBtn');
+        if (checked > 0) {
+            btn.style.display = 'inline-block';
+            btn.textContent = `Xóa ${checked} bài đã chọn`;
+        } else {
+            btn.style.display = 'none';
+        }
+    }
+
+    // Xóa hàng loạt
+    async function deleteSelected() {
+        const checked = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.value));
+        if (checked.length === 0) return;
+
+        const result = await Swal.fire({
+            title: `Xóa ${checked.length} bài đã chọn?`,
+            text: 'Hành động này không thể hoàn tác!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Xóa',
+            cancelButtonText: 'Huỷ'
+        });
+
+        if (!result.isConfirmed) return;
+
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        const res = await fetch('/admin/DeleteImportedArticles', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': token
+            },
+            body: JSON.stringify(checked)
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: `Đã xóa ${data.deleted} bài`,
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                // Giữ nguyên bộ lọc sau khi reload
+                const url = new URL(window.location);
+                location.reload();
+            });
+        } else {
+            Swal.fire('Lỗi', data.message || 'Không xóa được', 'error');
+        }
+    }
+</script>

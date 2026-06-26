@@ -5,7 +5,7 @@
 }
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-    <h1 style="font-size:22px;font-weight:700;">📰 Bài viết</h1>
+    <h1 style="font-size:22px;font-weight:700;">📰 Kênh Wisdom — Bài viết gốc</h1>
     <a href="/nhan-vien/CreateArticle" style="background:#16a34a;color:#fff;padding:9px 18px;border-radius:0px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Viết bài mới</a>
 </div>
 
@@ -118,6 +118,7 @@
                         }
                         <a href="/bai-viet/@a.Slug" target="_blank" style="background:#f0f2f5;color:#3d3d3d;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;margin-right:4px;"><i class="fa fa-eye"></i></a>
                         <a href="/nhan-vien/EditArticle/@a.Id" style="background:#ba1a1a;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;margin-right:4px;"><i class="fa fa-pen"></i></a>
+                        <button onclick="deleteArticle(@a.Id, this)" title="Xóa" style="background:#fee2e2;color:#ba1a1a;border:none;padding:5px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i></button>
                     </td>
                 </tr>
             }
@@ -143,15 +144,23 @@
 
 @section Scripts {
     <script>
+        async function deleteArticle(id, btn){
+            if (!await confirmSwal('Xóa bài viết này? Không thể hoàn tác!')) return;
+            const res = await fetch('/nhan-vien/DeleteArticle/' + id, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) { btn.closest('tr').remove(); Swal.fire({icon:'success',title:'Đã xóa',timer:1200,showConfirmButton:false}); }
+            else Swal.fire('Lỗi khi xóa!');
+        }
+
         async function approveArticle(id, btn) {
-            if (!confirm('Duyệt và xuất bản bài viết này?')) return;
+            if (!await confirmSwal('Duyệt và xuất bản bài viết này?')) return;
             const res = await fetch('/nhan-vien/ApproveArticle/' + id, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
-                alert('Đã duyệt bài viết thành công!');
+                Swal.fire('Đã duyệt bài viết thành công!');
                 location.reload();
             } else {
-                alert(data.message || 'Lỗi khi duyệt!');
+                Swal.fire(data.message || 'Lỗi khi duyệt!');
             }
         }
 
@@ -165,10 +174,10 @@
             });
             const data = await res.json();
             if (data.success) {
-                alert('Đã từ chối bài viết.');
+                Swal.fire('Đã từ chối bài viết.');
                 location.reload();
             } else {
-                alert(data.message || 'Lỗi!');
+                Swal.fire(data.message || 'Lỗi!');
             }
         }
     </script>

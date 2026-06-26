@@ -101,7 +101,7 @@ async function approveComment(id, btn) {
   }
 }
 async function deleteComment(id, btn) {
-  if (!confirm('Xóa bình luận này?')) return;
+  if (!await confirmSwal('Xóa bình luận này?')) return;
   const res  = await fetch('/admin/DeleteComment/' + id, { method: 'POST' });
   const data = await res.json();
   if (data.success) btn.closest('div[style*="border-bottom"]').remove();

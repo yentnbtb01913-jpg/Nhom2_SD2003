@@ -150,16 +150,16 @@
 @section Scripts {
     <script>
         async function deleteArticle(id) {
-            if (!confirm('Bạn có chắc muốn xóa bài viết này?')) return;
+            if (!await confirmSwal('Bạn có chắc muốn xóa bài viết này?')) return;
             try {
                 const formData = new FormData();
                 const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
                 if (tokenEl) formData.append('__RequestVerificationToken', tokenEl.value);
                 const res = await fetch('/Journalist/Delete/' + id, { method: 'POST', body: formData });
                 const data = await res.json();
-                alert(data.message);
+                Swal.fire(data.message);
                 if (data.success) location.reload();
-            } catch { alert('Lỗi kết nối'); }
+            } catch { Swal.fire('Lỗi kết nối'); }
         }
 
         async function sendChat() {

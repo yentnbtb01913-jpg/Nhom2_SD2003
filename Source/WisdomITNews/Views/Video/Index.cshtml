@@ -1,4 +1,4 @@
-@using WisdomITNews.Models
+ @using WisdomITNews.Models
 @using WisdomITNews.Services
 @model List<WisdomITNews.Models.VideoItem>
 @{
@@ -24,7 +24,14 @@
                     {
                         <a class="bm-video-card" data-vtitle="@v.Title @v.Source" href="/Video/Watch/@v.Id">
                             <div class="bm-video-thumb">
-                                <img src="@v.Thumbnail" alt="@v.Title" loading="lazy" />
+                                @if (v.IsUpload && !string.IsNullOrEmpty(v.VideoUrl))
+                                {
+                                    <video src="@v.VideoUrl" muted preload="metadata" style="width:100%;height:100%;object-fit:cover;background:#000;"></video>
+                                }
+                                else
+                                {
+                                    <img src="@v.Thumbnail" alt="@v.Title" loading="lazy" />
+                                }
                                 <span class="bm-play"><i class="fa fa-play"></i></span>
                             </div>
                             <h4>@v.Title</h4>

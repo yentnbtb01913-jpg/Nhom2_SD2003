@@ -323,7 +323,7 @@
         document.getElementById('avatarInput').addEventListener('change', async function () {
             const file = this.files[0];
             if (!file) return;
-            if (file.size > 5 * 1024 * 1024) { alert('Ảnh quá lớn (tối đa 5MB)'); return; }
+            if (file.size > 5 * 1024 * 1024) { Swal.fire('Ảnh quá lớn (tối đa 5MB)'); return; }
 
             const formData = new FormData();
             formData.append('avatarFile', file);
@@ -336,18 +336,18 @@
                 if (data.success) {
                     const avatar = document.querySelector('.mp-av');
                     avatar.innerHTML = '<img id="avatarImg" src="' + data.avatarUrl + '" alt="Avatar" />';
-                    alert(data.message);
+                    Swal.fire(data.message);
                 } else {
-                    alert(data.message || 'Lỗi upload');
+                    Swal.fire(data.message || 'Lỗi upload');
                 }
-            } catch { alert('Lỗi kết nối'); }
+            } catch { Swal.fire('Lỗi kết nối'); }
         });
 
         // Cover upload
         document.getElementById('coverInput').addEventListener('change', async function () {
             const file = this.files[0];
             if (!file) return;
-            if (file.size > 10 * 1024 * 1024) { alert('Ảnh quá lớn (tối đa 10MB)'); return; }
+            if (file.size > 10 * 1024 * 1024) { Swal.fire('Ảnh quá lớn (tối đa 10MB)'); return; }
 
             const formData = new FormData();
             formData.append('coverFile', file);
@@ -369,11 +369,11 @@
                         img.alt = 'Cover';
                         cover.insertBefore(img, cover.firstChild);
                     }
-                    alert(data.message);
+                    Swal.fire(data.message);
                 } else {
-                    alert(data.message || 'Lỗi upload');
+                    Swal.fire(data.message || 'Lỗi upload');
                 }
-            } catch { alert('Lỗi kết nối'); }
+            } catch { Swal.fire('Lỗi kết nối'); }
         });
 
         // Edit profile

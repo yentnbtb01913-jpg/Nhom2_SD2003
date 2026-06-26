@@ -112,20 +112,20 @@ async function adminUploadAvatar(userId, input) {
         if (data.success) {
             const cell = document.getElementById('avatar-' + userId);
             cell.innerHTML = `<img src="${data.avatarUrl}" alt="Avatar" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" />`;
-            alert('Cap nhat avatar thanh cong!');
-        } else { alert(data.message || 'Loi'); }
-    } catch { alert('Loi ket noi'); }
+            Swal.fire('Cap nhat avatar thanh cong!');
+        } else { Swal.fire(data.message || 'Loi'); }
+    } catch { Swal.fire('Loi ket noi'); }
 }
 
 async function deleteUser(id) {
-    if (!confirm('Ban co chac muon xoa tai khoan nay?')) return;
+    if (!await confirmSwal('Ban co chac muon xoa tai khoan nay?')) return;
     try {
         const res = await fetch('/admin/DeleteUser/' + id, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
             document.getElementById('user-row-' + id)?.remove();
-        } else { alert('Loi xoa'); }
-    } catch { alert('Loi ket noi'); }
+        } else { Swal.fire('Loi xoa'); }
+    } catch { Swal.fire('Loi ket noi'); }
 }
 </script>
 }

@@ -260,6 +260,18 @@
                 }
     </style>
     @await RenderSectionAsync("Head", required: false)
+    <style>
+        .nav-suggest{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.15);z-index:2000;max-height:400px;overflow-y:auto;}
+        .nav-suggest .sg-item{display:flex;gap:10px;padding:9px 12px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f2f4f6;align-items:center;}
+        .nav-suggest .sg-item:last-child{border-bottom:0;}
+        .nav-suggest .sg-item:hover{background:#f3fafb;}
+        .nav-suggest .sg-item img,.nav-suggest .sg-item .ph{width:54px;height:38px;object-fit:cover;border-radius:5px;flex:0 0 auto;background:#eef1f3;}
+        .nav-suggest .sg-t{font-size:13px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .nav-suggest .sg-c{font-size:11px;color:#0e7d85;font-weight:600;margin-top:2px;}
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 @{
     var currentTheme = "default"; // Re-skin Báo Mới: ép theme sáng đồng nhất (tắt neon/dark theo danh mục). Bỏ dòng này để bật lại theme động.
@@ -421,9 +433,10 @@
                 <li><a href="/video" class="@(_navPath.StartsWith("/video", StringComparison.OrdinalIgnoreCase) ? "active" : "")">VIDEO</a></li>
                 <li><a href="#" title="Sắp ra mắt">CHỦ ĐỀ</a></li>
             </ul>
-            <form action="/tim-kiem" method="get" class="bm-nav-search">
-                <input type="text" name="q" placeholder="Nhập nội dung tìm kiếm" value="@ViewData["SearchQuery"]" />
+            <form action="/tim-kiem" method="get" class="bm-nav-search" style="position:relative;" autocomplete="off">
+                <input type="text" id="navSearchInput" name="q" placeholder="Nhập nội dung tìm kiếm" value="@ViewData["SearchQuery"]" />
                 <button type="submit"><i class="fa fa-search"></i></button>
+                <div id="navSuggest" class="nav-suggest" style="display:none;"></div>
             </form>
             <details class="bm-nav-burger">
                 <summary aria-label="Danh mục"><i class="fa fa-bars"></i></summary>
@@ -837,7 +850,7 @@ const chatUI = {
     fd.append('file', file);
     const res = await fetch('/api/chat/upload', { method: 'POST', body: fd });
     const data = await res.json();
-    if (!data.success) { alert(data.message || 'Lỗi upload'); return; }
+    if (!data.success) { Swal.fire(data.message || 'Lỗi upload'); return; }
     await fetch('/api/chat/groups/' + this.currentGroup + '/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -863,7 +876,7 @@ const chatUI = {
   },
 
   async deleteMessage(msgId) {
-    if (!confirm('Xóa tin nhắn này?')) return;
+    if (!await confirmSwal('Xóa tin nhắn này?')) return;
     await fetch('/api/chat/messages/' + msgId, { method: 'DELETE' });
   },
 
@@ -975,16 +988,16 @@ const chatUI = {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId })
     });
     const data = await res.json();
-    if (data.success) { alert('Đã thêm thành viên!'); this.showMembers(); }
-    else alert(data.message || 'Lỗi');
+    if (data.success) { Swal.fire('Đã thêm thành viên!'); this.showMembers(); }
+    else Swal.fire(data.message || 'Lỗi');
   },
 
   async showPinned() {
     if (!this.currentGroup) return;
     const res = await fetch('/api/chat/groups/' + this.currentGroup + '/pinned');
     const msgs = await res.json();
-    if (!msgs.length) { alert('Chưa có tin nhắn được ghim'); return; }
-    alert('Tin ghim:\n\n' + msgs.map(m => m.senderName + ': ' + m.content).join('\n'));
+    if (!msgs.length) { Swal.fire('Chưa có tin nhắn được ghim'); return; }
+    Swal.fire('Tin ghim:\n\n' + msgs.map(m => m.senderName + ': ' + m.content).join('\n'));
   },
 
   // Tạo nhóm
@@ -1034,14 +1047,14 @@ const chatUI = {
 
   async createGroup() {
     const name = document.getElementById('newGroupName').value.trim();
-    if (!name) { alert('Vui lòng nhập tên nhóm'); return; }
+    if (!name) { Swal.fire('Vui lòng nhập tên nhóm'); return; }
     const res = await fetch('/api/chat/groups', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, memberIds: this.selectedMembers.map(s => s.id) })
     });
     const data = await res.json();
             if (data.success) { this.hideCreateGroup(); this.loadGroups(); this.openGroup(data.groupId); }
-    else alert('Lỗi tạo nhóm');
+    else Swal.fire('Lỗi tạo nhóm');
   },
 
   // Tìm user trên sidebar
@@ -1284,16 +1297,16 @@ document.addEventListener('click', function(e) {
 
 // ============ ĐĂNG KÝ NHẬN TIN (NEWSLETTER) ============
 async function subscribeNewsletterMe() {
-    if (!confirm('Đăng ký nhận bản tin Wisdom IT News qua email của bạn?')) return;
+    if (!await confirmSwal('Đăng ký nhận bản tin Wisdom IT News qua email của bạn?')) return;
     try {
         const r = await fetch('/api/newsletter/subscribe-me', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
         const data = await r.json();
-        alert(data.message || (data.success ? 'Đăng ký thành công!' : 'Đăng ký thất bại'));
+        Swal.fire(data.message || (data.success ? 'Đăng ký thành công!' : 'Đăng ký thất bại'));
     } catch (e) {
-        alert('Lỗi kết nối, thử lại sau.');
+        Swal.fire('Lỗi kết nối, thử lại sau.');
     }
 }
 </script>
@@ -1396,7 +1409,7 @@ async function subscribeNewsletterMe() {
                 ddFileInput.addEventListener('change', async function () {
                     const file = this.files[0];
                     if (!file) return;
-                    if (file.size > 5 * 1024 * 1024) { alert('Ảnh quá lớn (tối đa 5MB)'); return; }
+                    if (file.size > 5 * 1024 * 1024) { Swal.fire('Ảnh quá lớn (tối đa 5MB)'); return; }
                     const formData = new FormData();
                     formData.append('avatarFile', file);
                     const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -1405,12 +1418,12 @@ async function subscribeNewsletterMe() {
                         const res = await fetch('/Account/UploadAvatar', { method: 'POST', body: formData });
                         const data = await res.json();
                         if (data.success) {
-                            alert(data.message);
+                            Swal.fire(data.message);
                             location.reload();
                         } else {
-                            alert(data.message || 'Lỗi upload');
+                            Swal.fire(data.message || 'Lỗi upload');
                         }
-                    } catch { alert('Lỗi kết nối'); }
+                    } catch { Swal.fire('Lỗi kết nối'); }
                 });
             }
     </script>
@@ -1438,5 +1451,35 @@ async function subscribeNewsletterMe() {
             };
             })();
         </script>
+<script>
+(function(){
+  var inp=document.getElementById('navSearchInput'), box=document.getElementById('navSuggest');
+  if(!inp||!box) return;
+  function esc(x){return (x||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  var t;
+  inp.addEventListener('input', function(){
+    clearTimeout(t);
+    var q=inp.value.trim();
+    if(q.length<1){ box.style.display='none'; box.innerHTML=''; return; }
+    t=setTimeout(function(){
+      fetch('/Home/SearchSuggest?q='+encodeURIComponent(q))
+        .then(function(r){return r.json();})
+        .then(function(items){
+          if(!items || !items.length){ box.style.display='none'; box.innerHTML=''; return; }
+          box.innerHTML=items.map(function(a){
+            var img=a.thumbnail ? '<img src="'+esc(a.thumbnail)+'" alt="" />' : '<div class="ph"></div>';
+            return '<a class="sg-item" href="/bai-viet/'+esc(a.slug)+'">'+img+'<div><div class="sg-t">'+esc(a.title)+'</div><div class="sg-c">'+esc(a.categoryName)+'</div></div></a>';
+          }).join('');
+          box.style.display='block';
+        }).catch(function(){ box.style.display='none'; });
+    }, 200);
+  });
+  document.addEventListener('click', function(e){ if(!box.contains(e.target) && e.target!==inp) box.style.display='none'; });
+})();
+</script>
+<script>
+  window.confirmSwal=function(msg,title){return Swal.fire({title:title||'Xác nhận?',text:msg,icon:'warning',showCancelButton:true,confirmButtonColor:'#d33',cancelButtonColor:'#6c757d',confirmButtonText:'Đồng ý',cancelButtonText:'Huỷ'}).then(function(r){return r.isConfirmed;});};
+  window.swalToast=function(icon,msg){if(window.Swal)Swal.fire({toast:true,position:'top-end',icon:icon,title:msg,showConfirmButton:false,timer:3000,timerProgressBar:true});};
+</script>
 </body>
 </html>

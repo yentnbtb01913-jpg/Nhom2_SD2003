@@ -1,0 +1,8 @@
+@model List<WisdomITNews.Models.Video>
+@{
+    ViewData["Title"] = "Video của tôi";
+    Layout = "_JournalistLayout";
+    ViewBag.CreateUrl = "/journalist/CreateVideo";
+    ViewBag.DeleteUrlPrefix = "/journalist/DeleteVideo/";
+}
+@await Html.PartialAsync("_VideosListPartial", Model)

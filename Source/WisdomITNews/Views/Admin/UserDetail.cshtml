@@ -133,30 +133,30 @@
                 const data = await res.json();
                 if (data.success) {
                     document.getElementById('detailAvatar').innerHTML = `<img src="${data.avatarUrl}" style="width:100%;height:100%;object-fit:cover;" />`;
-                    alert('Cập nhật avatar thành công!');
-                } else { alert(data.message || 'Lỗi'); }
-            } catch { alert('Lỗi kết nối'); }
+                    Swal.fire('Cập nhật avatar thành công!');
+                } else { Swal.fire(data.message || 'Lỗi'); }
+            } catch { Swal.fire('Lỗi kết nối'); }
         });
 
         async function lockUser(id) {
-            if (!confirm('Khóa tài khoản này?')) return;
+            if (!await confirmSwal('Khóa tài khoản này?')) return;
             const res = await fetch(`/Admin/LockUser?id=${id}`, { method: 'POST' });
             const data = await res.json();
             if (data.success) location.reload();
-            else alert(data.message || 'Lỗi');
+            else Swal.fire(data.message || 'Lỗi');
         }
         async function unlockUser(id) {
-            if (!confirm('Mở khóa tài khoản này?')) return;
+            if (!await confirmSwal('Mở khóa tài khoản này?')) return;
             const res = await fetch(`/Admin/UnlockUser?id=${id}`, { method: 'POST' });
             const data = await res.json();
             if (data.success) location.reload();
-            else alert(data.message || 'Lỗi');
+            else Swal.fire(data.message || 'Lỗi');
         }
         async function changeRole(id, role) {
             const res = await fetch(`/Admin/ChangeUserRole?id=${id}&role=${role}`, { method: 'POST' });
             const data = await res.json();
-            if (data.success) alert('Da doi role thanh cong!');
-            else alert(data.message || 'Loi');
+            if (data.success) Swal.fire('Da doi role thanh cong!');
+            else Swal.fire(data.message || 'Loi');
         }
     </script>
 }

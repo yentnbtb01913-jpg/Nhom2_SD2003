@@ -153,6 +153,28 @@ public class HomeController : Controller
         return View(vm);
     }
 
+    // Gợi ý tìm kiếm (autocomplete) — trả JSON tối đa 6 bài
+    [HttpGet]
+    public async Task<IActionResult> SearchSuggest(string q)
+    {
+        if (string.IsNullOrWhiteSpace(q)) return Json(new object[0]);
+        var key = q.Trim();
+        var items = await _db.Articles
+            .Include(a => a.Category)
+            .Where(a => a.Status == "published" && a.Title.Contains(key))
+            .OrderByDescending(a => a.PublishedAt)
+            .Take(6)
+            .Select(a => new
+            {
+                title = a.Title,
+                slug = a.Slug,
+                thumbnail = a.Thumbnail,
+                categoryName = a.Category != null ? a.Category.Name : ""
+            })
+            .ToListAsync();
+        return Json(items);
+    }
+
     public async Task<IActionResult> Search(string q = "")
     {
         var results = new List<Article>();

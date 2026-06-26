@@ -277,7 +277,7 @@
         document.getElementById('avatarInput').addEventListener('change', async function () {
             const file = this.files[0];
             if (!file) return;
-            if (file.size > 5 * 1024 * 1024) { alert('Ảnh quá lớn (tối đa 5MB)'); return; }
+            if (file.size > 5 * 1024 * 1024) { Swal.fire('Ảnh quá lớn (tối đa 5MB)'); return; }
             const formData = new FormData();
             formData.append('avatarFile', file);
             const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
@@ -292,9 +292,9 @@
                     let img = document.getElementById('avatarImg');
                     if (img) { img.src = data.avatarUrl; }
                     else { avatar.innerHTML = '<img id="avatarImg" src="' + data.avatarUrl + '" />'; }
-                    alert(data.message);
-                } else { alert(data.message); }
-            } catch { alert('Lỗi kết nối'); }
+                    Swal.fire(data.message);
+                } else { Swal.fire(data.message); }
+            } catch { Swal.fire('Lỗi kết nối'); }
         });
 
         // Edit profile

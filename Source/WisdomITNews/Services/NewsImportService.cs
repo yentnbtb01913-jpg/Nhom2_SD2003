@@ -13,14 +13,39 @@ public class NewsImportService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<NewsImportService> _logger;
-    private static readonly HttpClient _http = new HttpClient();
+    private static readonly HttpClient _http = CreateHttpClient();
+
+    private static HttpClient CreateHttpClient()
+    {
+        var handler = new HttpClientHandler
+        {
+            AllowAutoRedirect = true,
+            MaxAutomaticRedirections = 5,
+            AutomaticDecompression = System.Net.DecompressionMethods.GZip
+                                   | System.Net.DecompressionMethods.Deflate
+                                   | System.Net.DecompressionMethods.Brotli
+        };
+
+        var client = new HttpClient(handler);
+        client.Timeout = TimeSpan.FromSeconds(30);
+        client.DefaultRequestHeaders.Clear();
+        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language",
+            "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Encoding",
+            "gzip, deflate, br");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Cache-Control", "no-cache");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Connection", "keep-alive");
+        return client;
+    }
 
     public NewsImportService(AppDbContext db, ILogger<NewsImportService> logger)
     {
         _db = db;
         _logger = logger;
-        if (_http.DefaultRequestHeaders.UserAgent.Count == 0)
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd("WisdomITNews/1.0 (+rss-aggregator)");
     }
 
     // Trả về (thêm mới, cập nhật, bỏ qua)
@@ -29,8 +54,26 @@ public class NewsImportService
         int added = 0, updated = 0, skipped = 0;
 
         string xml;
-        try { xml = await _http.GetStringAsync(feedUrl); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Tải RSS thất bại: {Url}", feedUrl); return (0, 0, 0); }
+        try
+        {
+            xml = await _http.GetStringAsync(feedUrl);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Tải RSS thất bại [{StatusCode}]: {Url}",
+                ex.StatusCode, feedUrl);
+            return (0, 0, 0);
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogWarning(ex, "RSS timeout sau 30s: {Url}", feedUrl);
+            return (0, 0, 0);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Lỗi không xác định khi tải RSS: {Url}", feedUrl);
+            return (0, 0, 0);
+        }
 
         XDocument doc;
         try { doc = XDocument.Parse(xml); }
@@ -53,7 +96,7 @@ public class NewsImportService
             var summaryShort = plain.Length > 280 ? plain.Substring(0, 280).TrimEnd() + "…" : plain;
             if (string.IsNullOrWhiteSpace(summaryShort)) summaryShort = title;
 
-            var img = (string?)it.Element("enclosure")?.Attribute("url");
+            var img = GetThumbnail(it);
             var bodyHtml = BuildBody(paras, sourceName, link);
 
             var published = DateTime.Now;
@@ -131,5 +174,62 @@ public class NewsImportService
           .Append("Đọc <b>toàn văn</b> tại nguồn: <a href=\"").Append(System.Net.WebUtility.HtmlEncode(sourceUrl))
           .Append("\" target=\"_blank\" rel=\"noopener noreferrer\">").Append(System.Net.WebUtility.HtmlEncode(sourceUrl)).Append("</a>.</p>");
         return sb.ToString();
+    }
+
+    // Lấy thumbnail theo thứ tự ưu tiên: enclosure(image) → media:content → media:thumbnail → regex từ description
+    private static string? GetThumbnail(XElement item)
+    {
+        // 1. enclosure với type="image/..."
+        var enclosure = item.Element("enclosure");
+        if (enclosure != null)
+        {
+            var type = enclosure.Attribute("type")?.Value;
+            var url = enclosure.Attribute("url")?.Value;
+            if (!string.IsNullOrWhiteSpace(type) && type.StartsWith("image/") && !string.IsNullOrWhiteSpace(url))
+                return url;
+        }
+
+        // 2. media:content
+        XNamespace media = "http://search.yahoo.com/mrss/";
+        var mediaContent = item.Element(media + "content");
+        if (mediaContent != null)
+        {
+            var url = mediaContent.Attribute("url")?.Value;
+            if (!string.IsNullOrWhiteSpace(url))
+                return url;
+        }
+
+        // 3. media:thumbnail
+        var mediaThumbnail = item.Element(media + "thumbnail");
+        if (mediaThumbnail != null)
+        {
+            var url = mediaThumbnail.Attribute("url")?.Value;
+            if (!string.IsNullOrWhiteSpace(url))
+                return url;
+        }
+
+        // 4. Regex extract <img src> từ description hoặc content:encoded
+        XNamespace cns = "http://purl.org/rss/1.0/modules/content/";
+        var contentEncoded = (string?)item.Element(cns + "encoded");
+        var descRaw = (string?)item.Element("description") ?? "";
+        var contentToSearch = (contentEncoded != null && contentEncoded.Length > descRaw.Length) ? contentEncoded : descRaw;
+
+        if (!string.IsNullOrWhiteSpace(contentToSearch))
+        {
+            var imgMatch = System.Text.RegularExpressions.Regex.Match(contentToSearch, @"<img[^>]+src=[""']([^""']+)[""']", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (imgMatch.Success && !string.IsNullOrWhiteSpace(imgMatch.Groups[1].Value))
+                return imgMatch.Groups[1].Value;
+        }
+
+        return null;
+    }
+
+    // Import từ RssSource object
+    public async Task<(int added, int updated, int skipped)> ImportFromSourceAsync(RssSource source)
+    {
+        var result = await ImportRssAsync(source.FeedUrl, source.Name, source.DefaultCategoryId, source.MaxImport);
+        source.LastImportAt = DateTime.Now;
+        source.TotalImported += result.added;
+        return result;
     }
 }

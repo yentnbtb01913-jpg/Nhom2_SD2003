@@ -1,74 +1,7 @@
 @{
     ViewData["Title"] = "Đăng video";
     Layout = "_ManagerLayout";
-    var url = ViewBag.YoutubeUrl as string ?? "";
-    var vtitle = ViewBag.VTitle as string ?? "";
-    var src = ViewBag.Source as string ?? "";
-    var desc = ViewBag.Description as string ?? "";
+    ViewBag.FormAction = "/nhan-vien/CreateVideo";
+    ViewBag.BackUrl = "/nhan-vien/Videos";
 }
-<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
-    <a href="/nhan-vien/Videos" style="background:#f0f2f5;color:#3d3d3d;padding:9px 16px;border-radius:6px;font-size:14px;text-decoration:none;"><i class="fa fa-arrow-left"></i> Quay lại</a>
-    <h1 style="font-size:22px;font-weight:700;">Đăng video từ YouTube</h1>
-</div>
-@if (ViewBag.Error != null)
-{
-    <div style="background:#fee2e2;color:#b91c1c;padding:10px 14px;border-radius:8px;margin-bottom:14px;">@ViewBag.Error</div>
-}
-<form method="post" action="/nhan-vien/CreateVideo" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
-    @Html.AntiForgeryToken()
-    <div style="background:#fff;border:1px solid #eef1f3;border-radius:10px;padding:18px;">
-        <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;">Link YouTube *</label>
-        <input id="ytUrl" name="youtubeUrl" value="@url" oninput="updatePreview()" placeholder="https://www.youtube.com/watch?v=..." required
-               style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;margin-bottom:6px;" />
-        <div id="ytHint" style="font-size:12px;color:#9ca3af;margin-bottom:14px;">Dán link xem (watch?v=), youtu.be, shorts hoặc embed.</div>
-
-        <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;">Tiêu đề *</label>
-        <input name="title" value="@vtitle" required style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;margin-bottom:14px;" />
-
-        <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;">Nguồn / Kênh</label>
-        <input name="source" value="@src" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;margin-bottom:14px;" />
-
-        <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;">Mô tả</label>
-        <textarea name="description" rows="3" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;margin-bottom:14px;">@desc</textarea>
-
-        <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;">Trạng thái</label>
-        <select name="status" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;margin-bottom:18px;">
-            <option value="published">Xuất bản</option>
-            <option value="draft">Nháp</option>
-        </select>
-
-        <button type="submit" style="background:#0e7d85;color:#fff;border:none;padding:11px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;"><i class="fa fa-paper-plane"></i> Đăng video</button>
-    </div>
-
-    <div style="background:#fff;border:1px solid #eef1f3;border-radius:10px;padding:18px;">
-        <div style="font-weight:600;font-size:13px;margin-bottom:10px;color:#6b7280;">Xem trước</div>
-        <div id="previewWrap" style="aspect-ratio:16/9;background:#0f172a;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:14px;overflow:hidden;">
-            <span id="previewEmpty">Dán link YouTube để xem trước</span>
-            <iframe id="previewFrame" style="width:100%;height:100%;border:0;display:none;" allowfullscreen></iframe>
-        </div>
-    </div>
-</form>
-@section Scripts {
-<script>
-    function ytId(input){
-        if(!input) return null;
-        input = input.trim();
-        if(/^[A-Za-z0-9_-]{11}$/.test(input)) return input;
-        var m = input.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/)|[?&]v=)([A-Za-z0-9_-]{11})/);
-        return m ? m[1] : null;
-    }
-    function updatePreview(){
-        var id = ytId(document.getElementById('ytUrl').value);
-        var f = document.getElementById('previewFrame'), e = document.getElementById('previewEmpty'), h = document.getElementById('ytHint');
-        if(id){
-            f.src = 'https://www.youtube.com/embed/'+id+'?rel=0';
-            f.style.display='block'; e.style.display='none';
-            h.textContent = '✓ Đã nhận video: '+id; h.style.color='#0e7d85';
-        } else {
-            f.src=''; f.style.display='none'; e.style.display='block';
-            h.textContent='Dán link xem (watch?v=), youtu.be, shorts hoặc embed.'; h.style.color='#9ca3af';
-        }
-    }
-    updatePreview();
-</script>
-}
+@await Html.PartialAsync("_CreateVideoFormPartial")

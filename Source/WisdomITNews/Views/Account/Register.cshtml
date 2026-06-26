@@ -185,8 +185,10 @@
             <input type="text" name="Username" value="@Model.Username" placeholder="username (chỉ chữ, số, dấu chấm)" maxlength="40" pattern="[a-zA-Z0-9_.\-]+" required title="Chỉ chữ, số, dấu chấm/gạch dưới/gạch ngang" />
             <label>Email</label>
             <input type="email" name="Email" value="@Model.Email" placeholder="email@example.com" maxlength="120" required />
-            <label>Mật khẩu (tối thiểu 6 ký tự)</label>
-            <input type="password" name="Password" placeholder="••••••••" minlength="6" required />
+            <label>Mật khẩu (≥6 ký tự, gồm cả chữ và số)</label>
+            <input type="password" id="pw" name="Password" placeholder="••••••••" minlength="6" required pattern="(?=.*[A-Za-z])(?=.*\d).{6,}" title="Tối thiểu 6 ký tự, gồm cả chữ và số" />
+            <label>Nhập lại mật khẩu</label>
+            <input type="password" id="pw2" name="ConfirmPassword" placeholder="••••••••" required />
             <button type="submit" class="btn"><i class="fa fa-user-plus"></i> Đăng ký</button>
         </form>
         <div class="link">Đã có tài khoản? <a href="/Account/Login">Đăng nhập</a></div>
@@ -196,5 +198,12 @@
         </div>
         <div class="back"><a href="/"><i class="fa fa-arrow-left"></i> Quay về trang chủ</a></div>
     </div>
+<script>
+  (function(){
+    var pw=document.getElementById('pw'), pw2=document.getElementById('pw2');
+    function chk(){ if(pw&&pw2) pw2.setCustomValidity(pw2.value && pw2.value!==pw.value ? 'Mật khẩu nhập lại không khớp' : ''); }
+    if(pw&&pw2){ pw.addEventListener('input',chk); pw2.addEventListener('input',chk); }
+  })();
+</script>
 </body>
 </html>

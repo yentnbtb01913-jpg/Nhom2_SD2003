@@ -10,6 +10,8 @@ public class Admin
     [Required] public string PasswordHash { get; set; } = "";
     [Required] public string FullName { get; set; } = "";
     [Required] public string Email { get; set; } = "";
+    public string? Gender { get; set; }
+    public string? Address { get; set; }
     public string Role { get; set; } = "editor";
     public bool IsActive { get; set; } = true;
     public DateTime? LastLogin { get; set; }
@@ -138,6 +140,9 @@ public class NewsletterSubscriber
 {
     public int Id { get; set; }
     [Required] public string Email { get; set; } = "";
+    public string? FullName { get; set; }
+    public string? Phone { get; set; }
+    public string? Source { get; set; }
     public string Status { get; set; } = "active";
     public DateTime SubscribedAt { get; set; } = DateTime.Now;
 }
@@ -190,4 +195,20 @@ public class User
     
     public ICollection<Article> Articles { get; set; } = new List<Article>();
     public ICollection<Comment> Comments { get; set; } = new List<Comment>();
+}
+
+public class RssSource
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string FeedUrl { get; set; } = "";
+    public string? Description { get; set; }
+    public string? WebsiteUrl { get; set; }
+    public string? Country { get; set; }
+    public bool IsActive { get; set; } = true;
+    public int? DefaultCategoryId { get; set; }
+    public int MaxImport { get; set; } = 30;
+    public DateTime? LastImportAt { get; set; }
+    public int TotalImported { get; set; } = 0;
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
 }

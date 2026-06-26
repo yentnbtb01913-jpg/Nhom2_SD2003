@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 namespace WisdomITNews.Models;
 
 public class HomeViewModel
@@ -146,17 +147,40 @@ public class ModerationResult
 
 public class RegisterViewModel
 {
-    public string Username { get; set; } = "";
-    public string Email { get; set; } = "";
-    public string Password { get; set; } = "";
+    [Required(ErrorMessage = "Vui lòng nhập họ tên")]
+    [StringLength(60, MinimumLength = 2, ErrorMessage = "Họ tên từ 2 đến 60 ký tự")]
     public string FullName { get; set; } = "";
+
+    [Required(ErrorMessage = "Vui lòng nhập tên đăng nhập")]
+    [StringLength(30, MinimumLength = 3, ErrorMessage = "Tên đăng nhập từ 3 đến 30 ký tự")]
+    [RegularExpression(@"^[a-zA-Z0-9_.\-]+$", ErrorMessage = "Tên đăng nhập chỉ gồm chữ, số và . _ -")]
+    public string Username { get; set; } = "";
+
+    [Required(ErrorMessage = "Vui lòng nhập email")]
+    [EmailAddress(ErrorMessage = "Email không hợp lệ")]
+    [StringLength(120, ErrorMessage = "Email tối đa 120 ký tự")]
+    public string Email { get; set; } = "";
+
+    [Required(ErrorMessage = "Vui lòng nhập mật khẩu")]
+    [StringLength(100, MinimumLength = 6, ErrorMessage = "Mật khẩu tối thiểu 6 ký tự")]
+    [RegularExpression(@"^(?=.*[A-Za-z])(?=.*\d).+$", ErrorMessage = "Mật khẩu phải có cả chữ và số")]
+    public string Password { get; set; } = "";
+
+    [Required(ErrorMessage = "Vui lòng nhập lại mật khẩu")]
+    [Compare("Password", ErrorMessage = "Mật khẩu nhập lại không khớp")]
+    public string ConfirmPassword { get; set; } = "";
+
     public string Error { get; set; } = "";
 }
 
 public class LoginViewModel
 {
+    [Required(ErrorMessage = "Vui lòng nhập tên đăng nhập hoặc email")]
     public string UsernameOrEmail { get; set; } = "";
+
+    [Required(ErrorMessage = "Vui lòng nhập mật khẩu")]
     public string Password { get; set; } = "";
+
     public string Error { get; set; } = "";
 }
 

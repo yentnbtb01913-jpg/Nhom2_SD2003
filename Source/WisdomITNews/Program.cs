@@ -1,8 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http.Features;
 using WisdomITNews.Data;
 using WisdomITNews.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = VideoUploadService.MaxSize);
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = VideoUploadService.MaxSize);
 
 builder.Services.AddControllersWithViews().AddNewtonsoftJson();
 builder.Services.AddHttpClient();
@@ -13,6 +17,7 @@ builder.Services.AddScoped<EmailService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<WeatherService>();
 builder.Services.AddScoped<ImageUploadService>();
+builder.Services.AddScoped<VideoUploadService>();
 builder.Services.AddScoped<NewsImportService>();
 builder.Services.AddSignalR();
 builder.Services.AddSession(opt =>

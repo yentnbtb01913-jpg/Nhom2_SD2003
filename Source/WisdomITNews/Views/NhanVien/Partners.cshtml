@@ -60,14 +60,14 @@
 @section Scripts {
 <script>
     async function approveJ(id){
-        if(!confirm('Duyệt nhà báo này?')) return;
+        if(!await confirmSwal('Duyệt nhà báo này?')) return;
         const r = await fetch('/nhan-vien/ApproveJournalist/'+id,{method:'POST'});
-        const d = await r.json(); if(d.success) location.reload(); else alert(d.message||'Lỗi');
+        const d = await r.json(); if(d.success) location.reload(); else Swal.fire(d.message||'Lỗi');
     }
     async function lockJ(id){
-        if(!confirm('Khoá nhà báo này?')) return;
+        if(!await confirmSwal('Khoá nhà báo này?')) return;
         const r = await fetch('/nhan-vien/LockJournalist/'+id,{method:'POST'});
-        const d = await r.json(); if(d.success) location.reload(); else alert(d.message||'Lỗi');
+        const d = await r.json(); if(d.success) location.reload(); else Swal.fire(d.message||'Lỗi');
     }
 </script>
 }
