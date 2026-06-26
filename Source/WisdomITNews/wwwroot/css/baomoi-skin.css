@@ -40,6 +40,17 @@ nav{background:var(--bm-teal) !important;border-bottom:1px solid var(--bm-teal-d
 .nav-list li a:hover,
 .nav-list li a.active{background:rgba(255,255,255,.12) !important;border-bottom-color:#fff !important;color:#fff !important;}
 .nav-list .mega-dropdown a{color:var(--bm-ink) !important;}  /* dropdown nền trắng, chữ tối */
+.bm-nav-list{overflow:visible !important;}
+.bm-nav-list li.mega-menu-wrapper{overflow:visible !important;position:relative !important;}
+.bm-nav-list li.mega-menu-wrapper > a.mega-trigger{
+  display:flex !important;
+  align-items:center !important;
+  gap:5px !important;
+}
+.mega-menu{overflow:visible !important;display:none !important;position:absolute !important;top:100% !important;left:50% !important;transform:translateX(-50%) !important;z-index:10000 !important;min-width:480px !important;width:auto !important;background:#fff !important;color:var(--bm-ink) !important;}
+.mega-menu *{color:var(--bm-ink) !important;}
+.bm-nav-list li.mega-menu-wrapper:hover .mega-menu{display:block !important;}
+.bm-nav-list li.mega-menu-wrapper:hover{position:relative !important;}
 
 /* ============================ TRANG CHỦ — 2 CỘT ========================== */
 .bm-home{padding:22px 0 50px;}
@@ -150,9 +161,9 @@ nav{background:var(--bm-teal) !important;border-bottom:1px solid var(--bm-teal-d
 
 /* ============ ĐỢT 2: NAV teal dính top, hàng logo cuộn mất ================= */
 header{position:static !important;}                 /* hàng logo KHÔNG còn sticky -> cuộn là ẩn */
-.bm-nav{position:sticky;top:0;z-index:1001;}        /* CHỈ thanh nav teal dính sát đỉnh */
-.bm-nav-inner{display:flex;align-items:center;gap:6px;min-height:52px;}
-.bm-nav .nav-list{flex:0 1 auto;}
+.bm-nav{position:sticky;top:0;z-index:1001;overflow:visible !important;}        /* CHỈ thanh nav teal dính sát đỉnh */
+.bm-nav-inner{display:flex;align-items:center;gap:6px;min-height:52px;overflow:visible !important;}
+.bm-nav .nav-list{flex:0 1 auto;overflow:visible !important;}
 .bm-nav-list li a{display:flex;align-items:center;gap:6px;}
 
 /* ô tìm kiếm trong nav (chuyển từ header xuống) */

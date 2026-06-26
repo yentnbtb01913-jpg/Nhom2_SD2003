@@ -22,7 +22,8 @@ header{background:var(--bg-white);border-bottom:1px solid var(--border);position
 .btn-admin{background:var(--primary);color:#fff;padding:9px 18px;border-radius:0px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;text-transform:uppercase;letter-spacing:0.05em;}
 .btn-admin:hover{background:var(--accent);color:#fff;}
 nav{background:var(--primary);border-bottom:2px solid var(--accent);}
-.nav-list{display:flex;list-style:none;overflow-x:auto;}.nav-list::-webkit-scrollbar{display:none;}
+.nav-list{display:flex;list-style:none;overflow-x:auto;overflow-y:visible;}.nav-list::-webkit-scrollbar{display:none;}
+.nav-list li.mega-menu-wrapper{overflow:visible;}
 .nav-list li a{display:block;color:rgba(255,255,255,.85);padding:13px 18px;font-size:13px;font-weight:600;white-space:nowrap;transition:all var(--tr);border-bottom:2px solid transparent;margin-bottom:-2px;text-transform:uppercase;letter-spacing:0.05em;}
 .nav-list li a:hover,.nav-list li a.active{color:#fff;background:rgba(255,255,255,.06);border-bottom-color:#fff;}
 .nav-list li a.hot{color:#ffd166;}
@@ -2953,10 +2954,10 @@ html[data-mode="dark"] .read-progress {
     border-top: 2px solid var(--primary);
     box-shadow: 0 8px 24px rgba(0,0,0,.12);
     width: 480px;
-    z-index: 9999;
+    z-index: 10000;
     padding: 16px;
 }
-.mega-menu-wrapper:hover .mega-menu { display: block; }
+.mega-menu-wrapper:hover .mega-menu { display: block !important; }
 
 .mega-categories {
     display: grid;

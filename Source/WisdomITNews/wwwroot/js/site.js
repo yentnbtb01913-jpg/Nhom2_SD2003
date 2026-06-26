@@ -5,6 +5,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.nav-list a').forEach(a => {
         if (a.getAttribute('href') === path) a.classList.add('active');
     });
+
+    // Mega menu hover fix
+    const megaWrappers = document.querySelectorAll('.mega-menu-wrapper');
+    megaWrappers.forEach(wrapper => {
+        wrapper.addEventListener('mouseenter', function() {
+            const menu = this.querySelector('.mega-menu');
+            if (menu) menu.style.display = 'block';
+        });
+        wrapper.addEventListener('mouseleave', function() {
+            const menu = this.querySelector('.mega-menu');
+            if (menu) menu.style.display = 'none';
+        });
+    });
 });
 
 /* ============== [B] Hover preview popup ============== */
