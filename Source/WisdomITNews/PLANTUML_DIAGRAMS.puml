@@ -1,0 +1,297 @@
+@startuml WisdomITNews_ObjectDiagram
+
+' ==================== OBJECT DIAGRAM ====================
+
+' Admin object
+object admin1 {
+    Id = 1
+    Username = admin
+    FullName = Quản Trị Viên
+    Email = admin@wisdomitnews.vn
+    Role = superadmin
+    IsActive = true
+}
+
+' User objects
+object user1 {
+    Id = 5
+    Username = phamvana
+    Email = phamvana@gmail.com
+    FullName = Phạm Văn A
+    Role = Journalist
+    IsActive = true
+}
+
+object user2 {
+    Id = 8
+    Username = tranvanb
+    Email = tranvanb@gmail.com
+    FullName = Trần Văn B
+    Role = Reader
+    IsActive = true
+}
+
+object user3 {
+    Id = 12
+    Username = lethic
+    Email = lethic@gmail.com
+    FullName = Lê Thị C
+    Role = Reader
+    IsActive = true
+}
+
+' Category object
+object category1 {
+    Id = 2
+    Name = Lập Trình
+    Slug = lap-trinh
+    SortOrder = 2
+    IsVisible = true
+}
+
+' Article object
+object article1 {
+    Id = 101
+    Title = Hướng dẫn ASP.NET Core 8
+    Slug = huong-dan-aspnet-core-8
+    CategoryId = 2
+    AuthorUserId = 5
+    Views = 1250
+    Status = published
+    PublishedAt = 10-06-2026
+}
+
+' Tag object
+object tag1 {
+    Id = 11
+    Name = aspnet
+    Slug = aspnet
+}
+
+' ArticleTag object
+object articleTag1 {
+    ArticleId = 101
+    TagId = 11
+}
+
+' Comment object
+object comment1 {
+    Id = 501
+    ArticleId = 101
+    AuthorName = Trần Văn B
+    Content = Bài rất hữu ích!
+    UserId = 8
+    Status = approved
+    LikeCount = 5
+}
+
+' CommentVote object
+object commentVote1 {
+    Id = 1001
+    CommentId = 501
+    SessionId = abc123
+    VoteType = Like
+}
+
+' ViewHistory object
+object viewHistory1 {
+    Id = 2001
+    ArticleId = 101
+    SessionId = xyz789
+    ViewedAt = 10-06-2026 09h30
+}
+
+' AILog object
+object aiLog1 {
+    Id = 5001
+    ArticleId = 101
+    Action = summarize
+    ModelUsed = gemini-2.5-flash
+    TokensUsed = 450
+    IsSuccess = true
+}
+
+' ChatGroup object
+object chatGroup1 {
+    Id = 31
+    Name = Nhóm dev ASP.NET
+    CreatorId = 5
+    IsDirectMessage = false
+}
+
+' ChatMember object
+object chatMember1 {
+    Id = 71
+    GroupId = 31
+    MemberId = 5
+    Role = admin
+}
+
+' ChatMessage object
+object chatMessage1 {
+    Id = 901
+    GroupId = 31
+    SenderId = 5
+    SenderName = Phạm Văn A
+    Content = Mọi người xem bài mới chưa?
+    MessageType = text
+}
+
+' Friendship object
+object friendship1 {
+    Id = 201
+    RequesterId = 5
+    ReceiverId = 8
+    Status = accepted
+    AcceptedAt = 05-06-2026
+}
+
+' UserFollow object
+object userFollow1 {
+    Id = 301
+    FollowerId = 12
+    FollowingId = 5
+}
+
+' NewsletterSubscriber object
+object newsletterSubscriber1 {
+    Id = 1
+    Email = phamvana@gmail.com
+    Status = active
+    SubscribedAt = 10-06-2026
+}
+
+' FeedbackReport object
+object feedbackReport1 {
+    Id = 1
+    PageUrl = BaiVietASPNetCore8
+    Type = bug
+    Description = Ảnh không hiển thị trên mobile
+    IsResolved = false
+}
+
+' Video object
+object video1 {
+    Id = 1
+    Title = Demo Llama 4
+    YouTubeId = jNQXAC9IVRw
+    Source = Wisdom TV
+    Views = 21000
+    Status = published
+    CreatedByUserId = 5
+}
+
+' RssSource object
+object rssSource1 {
+    Id = 1
+    Name = The Hacker News
+    FeedUrl = https://feeds.feedburner.com/TheHackersNews
+    Country = US
+    IsActive = true
+    MaxImport = 30
+    TotalImported = 150
+}
+
+' SavedArticle object
+object savedArticle1 {
+    Id = 1
+    UserId = 8
+    ArticleId = 101
+    SavedAt = 10-06-2026
+}
+
+' UserCategoryFollow object
+object userCategoryFollow1 {
+    Id = 1
+    UserId = 8
+    CategoryId = 2
+    CreatedAt = 05-06-2026
+}
+
+' ==================== RELATIONSHIPS ====================
+
+' Admin relationships
+admin1 -- article1 : Duyệt bài
+admin1 -- comment1 : Duyệt bình luận
+admin1 -- aiLog1 : Xem nhật ký AI
+admin1 -- feedbackReport1 : Xử lý
+
+' User relationships
+user1 -- article1 : Viết bài
+user1 -- chatGroup1 : Tạo nhóm
+user1 -- chatMessage1 : Gửi tin nhắn
+user1 -- newsletterSubscriber1 : Đăng ký nhận tin
+user1 -- friendship1 : Gửi lời mời
+user1 -- userFollow1 : Gửi lời mời
+user1 -- video1 : Tạo video
+
+user2 -- article1 : Xem bài
+user2 -- comment1 : Đăng bình luận
+user2 -- viewHistory1 : Lưu lịch sử
+user2 -- friendship1 : Chấp nhận
+user2 -- savedArticle1 : Lưu bài viết
+user2 -- userCategoryFollow1 : Theo dõi danh mục
+
+user3 -- commentVote1 : Like
+user3 -- userFollow1 : Theo dõi
+
+' Article relationships
+article1 -- category1 : Thuộc danh mục
+article1 -- articleTag1 : Gắn tag
+article1 -- comment1 : has
+article1 -- viewHistory1 : has
+article1 -- aiLog1 : Tóm tắt AI
+article1 -- savedArticle1 : Được lưu
+
+' Tag relationships
+articleTag1 -- tag1 : references
+
+' Comment relationships
+comment1 -- commentVote1 : has
+
+' Chat relationships
+chatGroup1 -- chatMember1 : Có thành viên
+chatGroup1 -- chatMessage1 : contains
+
+' RSS relationships
+rssSource1 -- article1 : imported from
+
+' Video relationships
+video1 -- user1 : created by
+
+note right of article1
+  Article about ASP.NET Core 8
+  Written by user1 (Journalist)
+  Has comments, views, AI summary
+  Tagged with aspnet
+end note
+
+note left of comment1
+  Comment by user2 on article1
+  5 likes, approved status
+end note
+
+note right of chatGroup1
+  Chat group created by user1
+  Contains messages and members
+end note
+
+note left of video1
+  Video created by user1
+  21000 views, published
+end note
+
+note right of rssSource1
+  RSS source for importing news
+  150 articles imported
+end note
+
+note bottom of savedArticle1
+  User2 saved article article1
+end note
+
+note bottom of userCategoryFollow1
+  User2 follows category category1
+end note
+
+@enduml

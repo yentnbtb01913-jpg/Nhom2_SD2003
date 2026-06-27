@@ -654,16 +654,6 @@
                                 </a>
                             }
                         </div>
-                        @if (hotTags.Any())
-                        {
-                            <div class="mega-tags-row">
-                                <span class="mega-tags-label">Tags hot:</span>
-                                @foreach (var t in hotTags)
-                                {
-                                    <a href="/tim-kiem?q=@t.Slug" class="mega-tag">#@t.Name</a>
-                                }
-                            </div>
-                        }
                     </div>
                 </li>
             </ul>
