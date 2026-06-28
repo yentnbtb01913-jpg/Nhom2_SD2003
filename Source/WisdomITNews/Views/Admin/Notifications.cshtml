@@ -1,0 +1,359 @@
+@using WisdomITNews.Models
+@model List<Notification>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Quản lý Thông báo";
+    var keyword = ViewBag.Keyword as string;
+    var type = ViewBag.Type as string;
+    var fromDate = ViewBag.FromDate as string;
+    var toDate = ViewBag.ToDate as string;
+    var page = ViewBag.Page as int? ?? 1;
+    var totalPages = ViewBag.TotalPages as int? ?? 1;
+    var unreadCount = ViewBag.UnreadCount as int? ?? 0;
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h1 style="font-size:22px;font-weight:700;">🔔 Quản lý Thông báo</h1>
+    <div style="display:flex;gap:10px;">
+        <span style="background:#f0f2f5;padding:6px 12px;border-radius:0px;font-size:13px;">Tổng: @Model.Count</span>
+        <span style="background:#fef3c7;padding:6px 12px;border-radius:0px;font-size:13px;">Chưa đọc: @unreadCount</span>
+    </div>
+</div>
+
+<!-- Form gửi thông báo mới -->
+<div style="background:#fff;border-radius:0px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:15px;">Gửi thông báo mới</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+        <div>
+            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Tiêu đề</label>
+            <input type="text" id="notifTitle" style="width:100%;padding:8px;border:1px solid #e0e4e8;border-radius:0px;" placeholder="Nhập tiêu đề thông báo">
+        </div>
+        <div>
+            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Icon</label>
+            <select id="notifIcon" style="width:100%;padding:8px;border:1px solid #e0e4e8;border-radius:0px;">
+                <option value="bell">🔔 Bell</option>
+                <option value="robot">🤖 Robot</option>
+                <option value="ban">🚫 Ban</option>
+                <option value="video">📹 Video</option>
+                <option value="user">👤 User</option>
+            </select>
+        </div>
+    </div>
+    <div style="margin-top:15px;">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Nội dung</label>
+        <textarea id="notifContent" rows="3" style="width:100%;padding:8px;border:1px solid #e0e4e8;border-radius:0px;" placeholder="Nhập nội dung chi tiết"></textarea>
+    </div>
+    <div style="margin-top:15px;">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Đối tượng nhận</label>
+        <div style="display:flex;gap:15px;">
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;">
+                <input type="radio" name="targetType" value="all" checked onchange="toggleTargetFields()"> Toàn bộ hệ thống
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;">
+                <input type="radio" name="targetType" value="email" onchange="toggleTargetFields()"> Theo email
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;">
+                <input type="radio" name="targetType" value="journalist" onchange="toggleTargetFields()"> Nhà báo
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;">
+                <input type="radio" name="targetType" value="user" onchange="toggleTargetFields()"> Cá nhân (User ID)
+            </label>
+        </div>
+    </div>
+    <div id="emailField" style="display:none;margin-top:15px;">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Email</label>
+        <input type="email" id="targetEmail" style="width:100%;padding:8px;border:1px solid #e0e4e8;border-radius:0px;" placeholder="user@example.com">
+    </div>
+    <div id="userIdField" style="display:none;margin-top:15px;">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">User ID</label>
+        <input type="number" id="targetUserId" style="width:100%;padding:8px;border:1px solid #e0e4e8;border-radius:0px;" placeholder="Nhập ID người dùng">
+    </div>
+    <div style="margin-top:15px;">
+        <button type="button" onclick="sendNotification()" style="background:#159aa3;color:#fff;border:none;padding:10px 20px;border-radius:0px;font-size:14px;cursor:pointer;">Gửi thông báo</button>
+    </div>
+</div>
+
+<!-- Bộ lọc -->
+<div style="background:#fff;border-radius:0px;padding:15px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:3px;">Tìm kiếm</label>
+            <input type="text" id="filterKeyword" value="@keyword" style="padding:6px;border:1px solid #e0e4e8;border-radius:0px;font-size:13px;" placeholder="Tiêu đề hoặc nội dung">
+        </div>
+        <div>
+            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:3px;">Loại</label>
+            <select id="filterType" style="padding:6px;border:1px solid #e0e4e8;border-radius:0px;font-size:13px;">
+                <option value="">Tất cả</option>
+                <option value="system" selected="@(type == "system")">System</option>
+                <option value="ai_violation" selected="@(type == "ai_violation")">AI Violation</option>
+                <option value="article_rejected" selected="@(type == "article_rejected")">Article Rejected</option>
+                <option value="video_rejected" selected="@(type == "video_rejected")">Video Rejected</option>
+                <option value="custom" selected="@(type == "custom")">Custom</option>
+            </select>
+        </div>
+        <div>
+            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:3px;">Từ ngày</label>
+            <input type="date" id="filterFromDate" value="@fromDate" style="padding:6px;border:1px solid #e0e4e8;border-radius:0px;font-size:13px;">
+        </div>
+        <div>
+            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:3px;">Đến ngày</label>
+            <input type="date" id="filterToDate" value="@toDate" style="padding:6px;border:1px solid #e0e4e8;border-radius:0px;font-size:13px;">
+        </div>
+        <button type="button" onclick="applyFilter()" style="background:#0a2540;color:#fff;border:none;padding:7px 14px;border-radius:0px;font-size:13px;cursor:pointer;">Lọc</button>
+        <button type="button" onclick="clearFilter()" style="background:#f0f2f5;color:#333;border:none;padding:7px 14px;border-radius:0px;font-size:13px;cursor:pointer;">Xóa bộ lọc</button>
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div style="background:#fff;border-radius:0px;padding:40px;text-align:center;color:#6c757d;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+        <div style="font-size:42px;">🔔</div>
+        <p style="margin-top:8px;">Không có thông báo nào</p>
+    </div>
+}
+else
+{
+    <div style="background:#fff;border-radius:0px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+        <div style="padding:10px;background:#f8fafc;border-bottom:1px solid #e0e4e8;display:flex;justify-content:space-between;align-items:center;">
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;">
+                <input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> Chọn tất cả
+            </label>
+            <button type="button" id="bulkDeleteBtn" onclick="bulkDelete()" style="display:none;background:#dc2626;color:#fff;border:none;padding:6px 12px;border-radius:0px;font-size:12px;cursor:pointer;">Xóa đã chọn</button>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+            <thead style="background:#f8fafc;">
+                <tr>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;width:40px;"></th>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Mã</th>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Thông báo</th>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Loại</th>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Đối tượng</th>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Trạng thái</th>
+                    <th style="padding:12px;text-align:left;font-size:13px;border-bottom:1px solid #e0e4e8;">Ngày tạo</th>
+                    <th style="padding:12px;text-align:right;font-size:13px;border-bottom:1px solid #e0e4e8;">Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var n in Model)
+                {
+                    <tr id="notif-@n.Id" style="border-bottom:1px solid #f0f2f5;">
+                        <td style="padding:12px;">
+                            <input type="checkbox" class="notif-checkbox" value="@n.Id" onchange="updateBulkDeleteBtn()">
+                        </td>
+                        <td style="padding:12px;font-size:12px;font-family:monospace;">@n.Code</td>
+                        <td style="padding:12px;font-size:13px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <i class="fa fa-@n.Icon" style="color:@n.IconColor;width:16px;"></i>
+                                <span style="font-weight:@(n.IsRead ? "400" : "700");">@n.Title</span>
+                            </div>
+                            <div style="font-size:12px;color:#6c757d;margin-top:3px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@n.Content</div>
+                            @if (!string.IsNullOrEmpty(n.ViolationContent))
+                            {
+                                <div style="margin-top:5px;padding:5px 8px;background:#fef3c7;border-radius:0px;font-size:11px;color:#92400e;">
+                                    Nội dung vi phạm: @n.ViolationContent
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(n.ViolationReason))
+                            {
+                                <div style="margin-top:5px;padding:5px 8px;background:#fee2e2;border-radius:0px;font-size:11px;color:#991b1b;">
+                                    Lý do từ chối: @n.ViolationReason
+                                </div>
+                            }
+                        </td>
+                        <td style="padding:12px;font-size:12px;">
+                            <span style="background:#f0f2f5;padding:3px 8px;border-radius:0px;font-weight:600;">@n.Type</span>
+                        </td>
+                        <td style="padding:12px;font-size:12px;">
+                            @if (n.TargetType == "all")
+                            {
+                                <span>Toàn bộ</span>
+                            }
+                            else if (n.TargetType == "user" && n.TargetUserId.HasValue)
+                            {
+                                <span>User #@n.TargetUserId</span>
+                            }
+                            else if (n.TargetType == "email" && !string.IsNullOrEmpty(n.TargetEmail))
+                            {
+                                <span>@n.TargetEmail</span>
+                            }
+                            else if (n.TargetType == "journalist")
+                            {
+                                <span>Nhà báo</span>
+                            }
+                            else
+                            {
+                                <span>@n.TargetType</span>
+                            }
+                        </td>
+                        <td style="padding:12px;font-size:12px;">
+                            @if (n.IsRead)
+                            {
+                                <span style="color:#16a34a;font-weight:600;">✓ Đã đọc</span>
+                            }
+                            else
+                            {
+                                <span style="color:#dc2626;font-weight:600;">● Chưa đọc</span>
+                            }
+                        </td>
+                        <td style="padding:12px;font-size:12px;color:#6c757d;">@n.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td style="padding:12px;text-align:right;">
+                            @if (!n.IsRead)
+                            {
+                                <button type="button" onclick="markRead(@n.Id)" style="background:#16a34a;color:#fff;border:none;padding:5px 10px;border-radius:0px;font-size:11px;cursor:pointer;margin-right:5px;">Đã đọc</button>
+                            }
+                            <button type="button" onclick="deleteNotification(@n.Id)" style="background:#dc2626;color:#fff;border:none;padding:5px 10px;border-radius:0px;font-size:11px;cursor:pointer;">Xóa</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Phân trang -->
+    @if (totalPages > 1)
+    {
+        <div style="display:flex;justify-content:center;gap:5px;margin-top:20px;">
+            @if (page > 1)
+            {
+                <a href="?keyword=@keyword&type=@type&fromDate=@fromDate&toDate=@toDate&page=@(page-1)" style="padding:6px 12px;background:#f0f2f5;text-decoration:none;font-size:13px;">«</a>
+            }
+            @for (int i = 1; i <= totalPages; i++)
+            {
+                <a href="?keyword=@keyword&type=@type&fromDate=@fromDate&toDate=@toDate&page=@i" style="padding:6px 12px;@(i == page ? "background:#159aa3;color:#fff;" : "background:#f0f2f5;")text-decoration:none;font-size:13px;">@i</a>
+            }
+            @if (page < totalPages)
+            {
+                <a href="?keyword=@keyword&type=@type&fromDate=@fromDate&toDate=@toDate&page=@(page+1)" style="padding:6px 12px;background:#f0f2f5;text-decoration:none;font-size:13px;">»</a>
+            }
+        </div>
+    }
+}
+
+@section Scripts {
+<script>
+function toggleTargetFields() {
+    const targetType = document.querySelector('input[name="targetType"]:checked').value;
+    document.getElementById('emailField').style.display = targetType === 'email' ? 'block' : 'none';
+    document.getElementById('userIdField').style.display = targetType === 'user' ? 'block' : 'none';
+}
+
+async function sendNotification() {
+    const title = document.getElementById('notifTitle').value.trim();
+    const content = document.getElementById('notifContent').value.trim();
+    const icon = document.getElementById('notifIcon').value;
+    const targetType = document.querySelector('input[name="targetType"]:checked').value;
+    const targetEmail = document.getElementById('targetEmail').value.trim();
+    const targetUserId = document.getElementById('targetUserId').value;
+
+    if (!title || !content) {
+        Swal.fire('Vui lòng nhập tiêu đề và nội dung');
+        return;
+    }
+
+    if (targetType === 'email' && !targetEmail) {
+        Swal.fire('Vui lòng nhập email');
+        return;
+    }
+
+    if (targetType === 'user' && !targetUserId) {
+        Swal.fire('Vui lòng nhập User ID');
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('content', content);
+        formData.append('targetType', targetType);
+        formData.append('icon', icon);
+        if (targetEmail) formData.append('targetEmail', targetEmail);
+        if (targetUserId) formData.append('targetUserId', targetUserId);
+
+        const res = await fetch('/admin/SendNotification', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: 'Đã gửi thông báo thành công', timer: 1500, showConfirmButton: false });
+            document.getElementById('notifTitle').value = '';
+            document.getElementById('notifContent').value = '';
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            Swal.fire('Không gửi được thông báo');
+        }
+    } catch (err) {
+        Swal.fire('Lỗi kết nối');
+    }
+}
+
+function applyFilter() {
+    const keyword = document.getElementById('filterKeyword').value;
+    const type = document.getElementById('filterType').value;
+    const fromDate = document.getElementById('filterFromDate').value;
+    const toDate = document.getElementById('filterToDate').value;
+    window.location.href = `?keyword=${encodeURIComponent(keyword)}&type=${type}&fromDate=${fromDate}&toDate=${toDate}`;
+}
+
+function clearFilter() {
+    window.location.href = '/admin/Notifications';
+}
+
+async function deleteNotification(id) {
+    if (!await confirmSwal('Xóa thông báo này?')) return;
+    try {
+        const res = await fetch('/admin/DeleteNotification?id=' + id, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('notif-' + id).remove();
+        } else {
+            Swal.fire('Không xóa được');
+        }
+    } catch (err) {
+        Swal.fire('Lỗi kết nối');
+    }
+}
+
+function toggleSelectAll() {
+    const checked = document.getElementById('selectAll').checked;
+    document.querySelectorAll('.notif-checkbox').forEach(cb => cb.checked = checked);
+    updateBulkDeleteBtn();
+}
+
+function updateBulkDeleteBtn() {
+    const checkedCount = document.querySelectorAll('.notif-checkbox:checked').length;
+    document.getElementById('bulkDeleteBtn').style.display = checkedCount > 0 ? 'block' : 'none';
+}
+
+async function bulkDelete() {
+    const ids = Array.from(document.querySelectorAll('.notif-checkbox:checked')).map(cb => parseInt(cb.value));
+    if (ids.length === 0) return;
+    if (!await confirmSwal(`Xóa ${ids.length} thông báo đã chọn?`)) return;
+    try {
+        const res = await fetch('/admin/DeleteNotifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ids) });
+        const data = await res.json();
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: `Đã xóa ${data.deleted} thông báo`, timer: 1500, showConfirmButton: false });
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            Swal.fire('Không xóa được');
+        }
+    } catch (err) {
+        Swal.fire('Lỗi kết nối');
+    }
+}
+
+async function markRead(id) {
+    try {
+        const res = await fetch('/admin/MarkNotificationRead?id=' + id, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            const row = document.getElementById('notif-' + id);
+            if (row) {
+                row.querySelector('td:nth-child(6)').innerHTML = '<span style="color:#16a34a;font-weight:600;">✓ Đã đọc</span>';
+                row.querySelector('button[onclick="markRead(' + id + ')"]').remove();
+            }
+        }
+    } catch (err) {
+        Swal.fire('Lỗi kết nối');
+    }
+}
+</script>
+}

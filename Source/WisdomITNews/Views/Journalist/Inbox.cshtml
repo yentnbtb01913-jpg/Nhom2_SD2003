@@ -1,0 +1,479 @@
+@model List<WisdomITNews.Models.Notification>
+@{ ViewData["Title"] = "Hộp thư"; Layout = "_JournalistLayout"; }
+
+<div style="max-width:860px;margin:30px auto;padding:0 16px;">
+
+    <!-- Tiêu đề + thống kê -->
+    <div style="display:flex;justify-content:space-between;
+        align-items:center;margin-bottom:20px;">
+        <div>
+            <h1 style="font-size:22px;font-weight:800;color:#1e293b;margin:0;">
+                <i class="fa fa-inbox" style="color:#159aa3;"></i> Hộp thư
+            </h1>
+            <p style="font-size:13px;color:#64748b;margin:4px 0 0;">
+                Tổng @ViewBag.TotalCount thư — 
+                <span style="color:#dc2626;font-weight:600;">
+                    @ViewBag.UnreadCount chưa đọc
+                </span> / 
+                <span style="color:#16a34a;">
+                    @ViewBag.ReadCount đã đọc
+                </span>
+            </p>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <!-- Nút đánh dấu tất cả đã đọc -->
+            <button onclick="markAllReadInbox()"
+                style="background:#f0fafa;color:#159aa3;border:1px solid #159aa3;
+                padding:8px 14px;border-radius:6px;font-size:13px;
+                font-weight:600;cursor:pointer;">
+                <i class="fa fa-check-double"></i> Đọc tất cả
+            </button>
+            <!-- Nút xóa đã đọc -->
+            <button onclick="deleteAllReadInbox()"
+                style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;
+                padding:8px 14px;border-radius:6px;font-size:13px;
+                font-weight:600;cursor:pointer;">
+                <i class="fa fa-trash"></i> Xóa đã đọc
+            </button>
+        </div>
+    </div>
+
+    <!-- Bộ lọc -->
+    <form method="get" action="/Journalist/Inbox"
+        style="background:#fff;border-radius:10px;padding:16px;
+        box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:20px;">
+        <div style="display:grid;grid-template-columns:1fr 160px 140px 1fr 1fr auto;
+            gap:10px;align-items:end;">
+            
+            <div>
+                <label style="font-size:12px;font-weight:600;color:#64748b;
+                    display:block;margin-bottom:4px;">Tìm kiếm</label>
+                <input name="keyword" value="@ViewBag.Keyword"
+                    placeholder="Tiêu đề, nội dung..."
+                    style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;
+                    border-radius:6px;font-size:13px;" />
+            </div>
+
+            <div>
+                <label style="font-size:12px;font-weight:600;color:#64748b;
+                    display:block;margin-bottom:4px;">Loại thông báo</label>
+                <select name="type"
+                    style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;
+                    border-radius:6px;font-size:13px;">
+                    <option value="">Tất cả</option>
+                    <option value="system" selected="@(ViewBag.Type=="system")">
+                        Hệ thống
+                    </option>
+                    <option value="ai_violation" selected="@(ViewBag.Type=="ai_violation")">
+                        Vi phạm AI
+                    </option>
+                    <option value="article_rejected" selected="@(ViewBag.Type=="article_rejected")">
+                        Bài bị từ chối
+                    </option>
+                    <option value="video_rejected" selected="@(ViewBag.Type=="video_rejected")">
+                        Video bị từ chối
+                    </option>
+                    <option value="custom" selected="@(ViewBag.Type=="custom")">
+                        Thông báo khác
+                    </option>
+                </select>
+            </div>
+
+            <div>
+                <label style="font-size:12px;font-weight:600;color:#64748b;
+                    display:block;margin-bottom:4px;">Trạng thái</label>
+                <select name="status"
+                    style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;
+                    border-radius:6px;font-size:13px;">
+                    <option value="">Tất cả</option>
+                    <option value="unread" selected="@(ViewBag.Status=="unread")">
+                        Chưa đọc
+                    </option>
+                    <option value="read" selected="@(ViewBag.Status=="read")">
+                        Đã đọc
+                    </option>
+                </select>
+            </div>
+
+            <div>
+                <label style="font-size:12px;font-weight:600;color:#64748b;
+                    display:block;margin-bottom:4px;">Từ ngày</label>
+                <input type="date" name="fromDate" value="@ViewBag.FromDate"
+                    style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;
+                    border-radius:6px;font-size:13px;" />
+            </div>
+
+            <div>
+                <label style="font-size:12px;font-weight:600;color:#64748b;
+                    display:block;margin-bottom:4px;">Đến ngày</label>
+                <input type="date" name="toDate" value="@ViewBag.ToDate"
+                    style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;
+                    border-radius:6px;font-size:13px;" />
+            </div>
+
+            <div style="display:flex;gap:6px;">
+                <button type="submit"
+                    style="background:#159aa3;color:#fff;border:none;
+                    padding:8px 16px;border-radius:6px;font-size:13px;
+                    font-weight:600;cursor:pointer;white-space:nowrap;">
+                    <i class="fa fa-filter"></i> Lọc
+                </button>
+                <a href="/Journalist/Inbox"
+                    style="background:#f1f5f9;color:#64748b;border:none;
+                    padding:8px 12px;border-radius:6px;font-size:13px;
+                    font-weight:600;cursor:pointer;text-decoration:none;
+                    display:inline-flex;align-items:center;">
+                    <i class="fa fa-xmark"></i>
+                </a>
+            </div>
+        </div>
+    </form>
+
+    <!-- Toolbar chọn hàng loạt -->
+    <div style="display:flex;justify-content:space-between;
+        align-items:center;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <label style="display:flex;align-items:center;gap:6px;
+                font-size:13px;color:#64748b;cursor:pointer;">
+                <input type="checkbox" id="check-all" onchange="toggleCheckAll()"
+                    style="width:14px;height:14px;accent-color:#159aa3;" />
+                Chọn tất cả
+            </label>
+            <span id="inbox-selected-count" 
+                style="font-size:12px;color:#94a3b8;"></span>
+        </div>
+        <button id="btn-delete-inbox-selected"
+            onclick="deleteInboxSelected()"
+            style="display:none;background:#fee2e2;color:#dc2626;
+            border:1px solid #fca5a5;padding:6px 12px;border-radius:6px;
+            font-size:12px;font-weight:600;cursor:pointer;">
+            <i class="fa fa-trash"></i> Xóa đã chọn
+        </button>
+    </div>
+
+    <!-- Danh sách thư -->
+    <div style="background:#fff;border-radius:10px;
+        box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden;">
+
+        @if (!Model.Any())
+        {
+            <div style="padding:48px;text-align:center;color:#94a3b8;">
+                <i class="fa fa-inbox" 
+                    style="font-size:40px;display:block;margin-bottom:12px;"></i>
+                <p style="font-size:15px;font-weight:600;margin:0 0 4px;">
+                    Hộp thư trống
+                </p>
+                <p style="font-size:13px;margin:0;">
+                    Không có thông báo nào phù hợp với bộ lọc
+                </p>
+            </div>
+        }
+        else
+        {
+            @foreach (var n in Model)
+            {
+                <div id="inbox-item-@n.Id"
+                    style="border-bottom:1px solid #f0f2f5;">
+
+                    <!-- ROW TIÊU ĐỀ -->
+                    <div style="padding:14px 16px;display:flex;
+                        align-items:center;gap:12px;cursor:pointer;
+                        background:@(n.IsRead ? "#fff" : "#f0fafa");"
+                        id="inbox-header-@n.Id"
+                        onclick="toggleInboxItem(@n.Id)">
+
+                        <!-- Checkbox -->
+                        <input type="checkbox" 
+                            id="inbox-check-@n.Id"
+                            value="@n.Id"
+                            onchange="onInboxCheckChange()"
+                            onclick="event.stopPropagation()"
+                            style="width:14px;height:14px;
+                            cursor:pointer;flex-shrink:0;
+                            accent-color:#159aa3;" />
+
+                        <!-- Icon loại thông báo -->
+                        <div style="width:38px;height:38px;border-radius:50%;
+                            background:@(n.IconColor)20;display:flex;
+                            align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="fa fa-@n.Icon" 
+                                style="color:@n.IconColor;font-size:15px;"></i>
+                        </div>
+
+                        <!-- Nội dung chính -->
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <!-- Badge loại -->
+                                <span style="padding:2px 8px;border-radius:20px;
+                                    font-size:10px;font-weight:700;flex-shrink:0;
+                                    background:@(n.Type switch {
+                                        "ai_violation" => "#fef3c7",
+                                        "article_rejected" => "#fee2e2",
+                                        "video_rejected" => "#fee2e2",
+                                        "system" => "#e0f2fe",
+                                        _ => "#f0f9ff"
+                                    });
+                                    color:@(n.Type switch {
+                                        "ai_violation" => "#92400e",
+                                        "article_rejected" => "#991b1b",
+                                        "video_rejected" => "#991b1b",
+                                        "system" => "#0369a1",
+                                        _ => "#0c4a6e"
+                                    });">
+                                    @(n.Type switch {
+                                        "ai_violation" => "Vi phạm AI",
+                                        "article_rejected" => "Bài bị từ chối",
+                                        "video_rejected" => "Video bị từ chối",
+                                        "system" => "Hệ thống",
+                                        _ => "Thông báo"
+                                    })
+                                </span>
+                                <!-- Tiêu đề -->
+                                <span id="inbox-title-@n.Id"
+                                    style="font-weight:@(n.IsRead ? "500" : "700");
+                                    font-size:14px;color:#1e293b;
+                                    white-space:nowrap;overflow:hidden;
+                                    text-overflow:ellipsis;">
+                                    @n.Title
+                                </span>
+                            </div>
+                            <!-- Preview nội dung -->
+                            <div style="font-size:12px;color:#64748b;
+                                margin-top:3px;white-space:nowrap;
+                                overflow:hidden;text-overflow:ellipsis;">
+                                @n.Content
+                            </div>
+                        </div>
+
+                        <!-- Thời gian + trạng thái -->
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-size:12px;color:#94a3b8;">
+                                @n.CreatedAt.ToString("dd/MM/yyyy HH:mm")
+                            </div>
+                            @if (!n.IsRead)
+                            {
+                                <span style="display:inline-block;margin-top:3px;
+                                    padding:2px 8px;background:#dc2626;color:#fff;
+                                    border-radius:20px;font-size:10px;font-weight:700;">
+                                    Mới
+                                </span>
+                            }
+                            else
+                            {
+                                <span style="display:inline-block;margin-top:3px;
+                                    padding:2px 8px;background:#dcfce7;color:#16a34a;
+                                    border-radius:20px;font-size:10px;font-weight:600;">
+                                    Đã đọc
+                                </span>
+                            }
+                        </div>
+
+                        <!-- Mũi tên xổ -->
+                        <i id="inbox-arrow-@n.Id"
+                            class="fa fa-chevron-down"
+                            style="font-size:11px;color:#94a3b8;
+                            transition:transform .25s;flex-shrink:0;">
+                        </i>
+
+                        <!-- Nút xóa -->
+                        <button onclick="deleteInboxItem(@n.Id); event.stopPropagation();"
+                            title="Xóa thông báo này"
+                            style="background:none;border:none;color:#cbd5e1;
+                            cursor:pointer;padding:4px;flex-shrink:0;font-size:14px;
+                            transition:color .2s;"
+                            onmouseover="this.style.color='#dc2626'"
+                            onmouseout="this.style.color='#cbd5e1'">
+                            <i class="fa fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <!-- NỘI DUNG CHI TIẾT (ẩn mặc định) -->
+                    <div id="inbox-body-@n.Id"
+                        style="display:none;padding:16px 16px 20px 82px;
+                        background:#f8fafc;border-top:1px solid #f0f2f5;">
+
+                        <!-- Nội dung đầy đủ -->
+                        <p style="font-size:14px;color:#374151;
+                            line-height:1.7;margin:0 0 10px;">
+                            @n.Content
+                        </p>
+
+                        <!-- Box nội dung vi phạm -->
+                        @if (!string.IsNullOrEmpty(n.ViolationContent))
+                        {
+                            <div style="padding:10px 14px;background:#fef3c7;
+                                border-left:4px solid #f59e0b;border-radius:6px;
+                                font-size:13px;color:#92400e;margin-top:8px;">
+                                <i class="fa fa-triangle-exclamation" 
+                                    style="margin-right:6px;"></i>
+                                <strong>Nội dung vi phạm:</strong><br/>
+                                <span style="margin-top:4px;display:block;
+                                    font-style:italic;">@n.ViolationContent</span>
+                            </div>
+                        }
+
+                        <!-- Box lý do từ chối -->
+                        @if (!string.IsNullOrEmpty(n.ViolationReason))
+                        {
+                            <div style="padding:10px 14px;background:#fee2e2;
+                                border-left:4px solid #dc2626;border-radius:6px;
+                                font-size:13px;color:#991b1b;margin-top:8px;">
+                                <i class="fa fa-ban" style="margin-right:6px;"></i>
+                                <strong>Lý do từ chối:</strong><br/>
+                                <span style="margin-top:4px;display:block;">
+                                    @n.ViolationReason
+                                </span>
+                            </div>
+                        }
+
+                        <!-- Link bài viết liên quan -->
+                        @if (n.RelatedArticleId.HasValue)
+                        {
+                            <a href="/bai-viet/@n.RelatedArticleId"
+                                style="display:inline-flex;align-items:center;gap:6px;
+                                margin-top:10px;padding:6px 12px;background:#e0f2fe;
+                                color:#0369a1;border-radius:6px;font-size:12px;
+                                font-weight:600;text-decoration:none;">
+                                <i class="fa fa-newspaper"></i> Xem bài viết liên quan
+                            </a>
+                        }
+
+                        <!-- Thời gian đầy đủ -->
+                        <div style="margin-top:12px;font-size:11px;color:#94a3b8;
+                            display:flex;align-items:center;gap:4px;">
+                            <i class="fa fa-clock"></i>
+                            Nhận lúc @n.CreatedAt.ToString("HH:mm — dd/MM/yyyy")
+                            @if (n.ReadAt.HasValue)
+                            {
+                                <span> · Đọc lúc @n.ReadAt.Value.ToString("HH:mm — dd/MM/yyyy")</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+    <!-- Phân trang -->
+    @if (ViewBag.TotalPages > 1)
+    {
+        <div style="display:flex;justify-content:center;gap:6px;margin-top:20px;">
+            @for (int i = 1; i <= ViewBag.TotalPages; i++)
+            {
+                <a href="?page=@i&keyword=@ViewBag.Keyword&type=@ViewBag.Type&status=@ViewBag.Status&fromDate=@ViewBag.FromDate&toDate=@ViewBag.ToDate"
+                    style="padding:6px 12px;border-radius:6px;font-size:13px;
+                    font-weight:600;text-decoration:none;
+                    background:@(i == ViewBag.Page ? "#159aa3" : "#f1f5f9");
+                    color:@(i == ViewBag.Page ? "#fff" : "#64748b");">
+                    @i
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+const inboxOpenState = {};
+
+// Toggle mở/đóng từng thư
+async function toggleInboxItem(id) {
+    const body = document.getElementById(`inbox-body-${id}`);
+    const arrow = document.getElementById(`inbox-arrow-${id}`);
+    const header = document.getElementById(`inbox-header-${id}`);
+    const title = document.getElementById(`inbox-title-${id}`);
+    const isOpen = inboxOpenState[id] || false;
+
+    if (!isOpen) {
+        body.style.display = 'block';
+        arrow.style.transform = 'rotate(180deg)';
+        inboxOpenState[id] = true;
+
+        // Đánh dấu đã đọc nếu chưa đọc
+        if (header.style.background !== 'rgb(255, 255, 255)') {
+            await fetch('/Journalist/MarkNotificationRead/' + id, 
+                { method: 'POST' });
+            header.style.background = '#fff';
+            if (title) title.style.fontWeight = '500';
+
+            // Cập nhật badge "Mới" → "Đã đọc"
+            const badgeContainer = header.querySelector('[style*="Mới"]');
+            if (badgeContainer) {
+                badgeContainer.style.background = '#dcfce7';
+                badgeContainer.style.color = '#16a34a';
+                badgeContainer.textContent = 'Đã đọc';
+            }
+        }
+    } else {
+        body.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
+        inboxOpenState[id] = false;
+    }
+}
+
+// Checkbox chọn tất cả
+function toggleCheckAll() {
+    const checkAll = document.getElementById('check-all');
+    document.querySelectorAll('[id^="inbox-check-"]').forEach(cb => {
+        cb.checked = checkAll.checked;
+    });
+    onInboxCheckChange();
+}
+
+// Cập nhật trạng thái nút xóa hàng loạt
+function onInboxCheckChange() {
+    const checked = document.querySelectorAll('[id^="inbox-check-"]:checked').length;
+    const btn = document.getElementById('btn-delete-inbox-selected');
+    const count = document.getElementById('inbox-selected-count');
+    if (btn) btn.style.display = checked > 0 ? 'inline-block' : 'none';
+    if (count) count.textContent = checked > 0 ? `Đang chọn: ${checked} thư` : '';
+}
+
+// Xóa 1 thư
+async function deleteInboxItem(id) {
+    if (!confirm('Xóa thông báo này?')) return;
+    const item = document.getElementById(`inbox-item-${id}`);
+    if (item) {
+        item.style.opacity = '0';
+        item.style.transition = 'opacity .2s';
+        setTimeout(async () => {
+            await fetch('/Journalist/DeleteNotification/' + id, 
+                { method: 'POST' });
+            item.remove();
+        }, 200);
+    }
+}
+
+// Xóa hàng loạt đã chọn
+async function deleteInboxSelected() {
+    const checked = [...document.querySelectorAll('[id^="inbox-check-"]:checked')]
+        .map(cb => parseInt(cb.value));
+    if (checked.length === 0) return;
+    if (!confirm(`Xóa ${checked.length} thông báo đã chọn?`)) return;
+
+    await fetch('/Journalist/DeleteNotifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checked)
+    });
+
+    checked.forEach(id => {
+        document.getElementById(`inbox-item-${id}`)?.remove();
+    });
+    onInboxCheckChange();
+}
+
+// Đánh dấu tất cả đã đọc
+async function markAllReadInbox() {
+    await fetch('/Journalist/MarkAllNotificationsRead', { method: 'POST' });
+    location.reload();
+}
+
+// Xóa tất cả đã đọc
+async function deleteAllReadInbox() {
+    if (!confirm('Xóa tất cả thông báo đã đọc?')) return;
+    await fetch('/Journalist/DeleteAllReadNotifications', { method: 'POST' });
+    location.reload();
+}
+</script>
+}
