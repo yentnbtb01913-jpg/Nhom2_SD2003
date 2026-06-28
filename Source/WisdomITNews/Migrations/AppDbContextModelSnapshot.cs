@@ -123,7 +123,7 @@ namespace WisdomITNews.Migrations
                             Email = "admin@wisdomitnews.vn",
                             FullName = "Quản Trị Viên",
                             IsActive = true,
-                            PasswordHash = "$2a$11$9QlYUReSA49AK7.pwaQAfeE1lT/UqbSo9LGnigjY3hpN0cFDzh/s6",
+                            PasswordHash = "$2a$11$j.lPTihd2ahErWIU93TEe.Eyf04Q46RPNPwYgLXxS4WhnGwPpjwgC",
                             Role = "superadmin",
                             Username = "admin"
                         });
@@ -716,6 +716,90 @@ namespace WisdomITNews.Migrations
                         .IsUnique();
 
                     b.ToTable("NewsletterSubscribers");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IconColor")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RelatedArticleId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RelatedCommentId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RelatedVideoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SentBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("SentByAdminId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TargetEmail")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TargetRole")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("TargetUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ViolationContent")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ViolationReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.RssSource", b =>

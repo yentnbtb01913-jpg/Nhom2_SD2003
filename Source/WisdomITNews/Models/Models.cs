@@ -212,3 +212,34 @@ public class RssSource
     public int TotalImported { get; set; } = 0;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
+
+public class Notification
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Content { get; set; } = "";
+    public string Type { get; set; } = "system";
+    public string Icon { get; set; } = "bell";
+    public string IconColor { get; set; } = "#159aa3";
+    
+    public string TargetType { get; set; } = "all";
+    public int? TargetUserId { get; set; }
+    public string? TargetEmail { get; set; }
+    public string? TargetRole { get; set; }
+    
+    public string? ViolationContent { get; set; }
+    public string? ViolationReason { get; set; }
+    public int? RelatedArticleId { get; set; }
+    public int? RelatedCommentId { get; set; }
+    public int? RelatedVideoId { get; set; }
+    
+    public bool IsRead { get; set; } = false;
+    public bool IsDeleted { get; set; } = false;
+    
+    public string SentBy { get; set; } = "system";
+    public int? SentByAdminId { get; set; }
+    
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime? ReadAt { get; set; }
+}

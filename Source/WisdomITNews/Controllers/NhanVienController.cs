@@ -17,14 +17,16 @@ public class NhanVienController : Controller
     private readonly AIService _ai;
     private readonly VideoUploadService _videoUpload;
     private readonly ILogger<NhanVienController> _logger;
+    private readonly IServiceProvider _serviceProvider;
 
-    public NhanVienController(AppDbContext db, ImageUploadService imageUpload, AIService ai, VideoUploadService videoUpload, ILogger<NhanVienController> logger)
+    public NhanVienController(AppDbContext db, ImageUploadService imageUpload, AIService ai, VideoUploadService videoUpload, ILogger<NhanVienController> logger, IServiceProvider serviceProvider)
     {
         _db = db;
         _imageUpload = imageUpload;
         _ai = ai;
         _videoUpload = videoUpload;
         _logger = logger;
+        _serviceProvider = serviceProvider;
     }
 
     private bool IsLoggedIn => HttpContext.Session.GetString("AdminId") != null;
@@ -240,6 +242,18 @@ public class NhanVienController : Controller
         article.Status = "Rejected";
         article.UpdatedAt = DateTime.Now;
         await _db.SaveChangesAsync();
+
+        if (article.AuthorUserId.HasValue)
+        {
+            var notifSvc = HttpContext.RequestServices.GetRequiredService<NotificationService>();
+            await notifSvc.SendArticleRejectedAsync(
+                article.AuthorUserId.Value,
+                article.Id,
+                article.Title,
+                req?.Reason ?? "Không đáp ứng tiêu chuẩn nội dung"
+            );
+        }
+
         return Json(new { success = true });
     }
 
@@ -604,6 +618,16 @@ public class NhanVienController : Controller
             if (result.Score > 70) article.Status = "Rejected";
             else if (result.Score >= 40) article.Status = "PendingReview";
             else if (article.Status != "draft" && article.Status != "published") article.Status = "PendingApproval";
+
+            if (article.AuthorUserId.HasValue && result.Score > 40)
+            {
+                var notifSvc = _serviceProvider.GetRequiredService<NotificationService>();
+                await notifSvc.SendAiViolationAsync(
+                    article.AuthorUserId.Value,
+                    $"Nội dung bị gắn cờ: {string.Join(", ", result.Issues)}",
+                    null
+                );
+            }
         }
         catch (Exception ex)
         {
@@ -633,11 +657,34 @@ public class NhanVienController : Controller
 
     // ===== QUẢN LÝ KHÁCH HÀNG =====
     [HttpGet]
-    public async Task<IActionResult> Customers()
+    public async Task<IActionResult> Customers(string? filter = "all")
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
-        var subs = await _db.NewsletterSubscribers.OrderByDescending(n => n.SubscribedAt).ToListAsync();
+        var query = _db.NewsletterSubscribers.AsQueryable();
+        if (filter == "active") query = query.Where(n => n.Status == "active");
+        else if (filter == "inactive") query = query.Where(n => n.Status != "active");
+        var subs = await query.OrderByDescending(n => n.SubscribedAt).ToListAsync();
+        ViewBag.Filter = filter;
         return View(subs);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditSubscriber(int id, string? fullName, string? phone, string email, string status, string? source)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var s = await _db.NewsletterSubscribers.FindAsync(id);
+        if (s != null)
+        {
+            if (!string.IsNullOrWhiteSpace(email)) s.Email = email.Trim();
+            s.FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim();
+            s.Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
+            s.Source = string.IsNullOrWhiteSpace(source) ? null : source.Trim();
+            s.Status = status == "active" ? "active" : "inactive";
+            await _db.SaveChangesAsync();
+            TempData["Ok"] = "Đã cập nhật khách hàng.";
+        }
+        return RedirectToAction("Customers");
     }
 
     [HttpPost]
@@ -650,5 +697,143 @@ public class NhanVienController : Controller
         _db.NewsletterSubscribers.Remove(s);
         await _db.SaveChangesAsync();
         return Json(new { success = true });
+    }
+
+    // ===== QUẢN LÝ THÔNG BÁO =====
+
+    public async Task<IActionResult> Notifications(
+        string? keyword, string? type,
+        DateTime? fromDate, DateTime? toDate, int page = 1)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        const int pageSize = 20;
+
+        var query = _db.Notifications
+            .Where(n => !n.IsDeleted)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+            query = query.Where(n => n.Title.Contains(keyword) || n.Content.Contains(keyword));
+        if (!string.IsNullOrWhiteSpace(type))
+            query = query.Where(n => n.Type == type);
+        if (fromDate.HasValue)
+            query = query.Where(n => n.CreatedAt >= fromDate.Value);
+        if (toDate.HasValue)
+            query = query.Where(n => n.CreatedAt < toDate.Value.AddDays(1));
+
+        var total = await query.CountAsync();
+        var list = await query
+            .OrderByDescending(n => n.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        ViewBag.Keyword = keyword;
+        ViewBag.Type = type;
+        ViewBag.FromDate = fromDate?.ToString("yyyy-MM-dd");
+        ViewBag.ToDate = toDate?.ToString("yyyy-MM-dd");
+        ViewBag.Page = page;
+        ViewBag.TotalPages = (int)Math.Ceiling((double)total / pageSize);
+        ViewBag.UnreadCount = await _db.Notifications.CountAsync(n => !n.IsRead && !n.IsDeleted);
+        return View(list);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SendNotification(
+        string title, string content, string targetType,
+        string? targetEmail, string icon = "bell", string iconColor = "#159aa3")
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+
+        // Nhân viên chỉ được gửi all hoặc journalist
+        var allowedTargets = new[] { "all", "journalist" };
+        if (!allowedTargets.Contains(targetType))
+            return Json(new { success = false, message = "Bạn không có quyền gửi loại thông báo này" });
+
+        var svc = HttpContext.RequestServices.GetRequiredService<NotificationService>();
+
+        if (targetType == "all")
+            await svc.SendSystemAsync(title, content, icon, iconColor);
+        else if (targetType == "journalist")
+            await svc.SendToJournalistsAsync(title, content);
+
+        return Json(new { success = true, message = "Đã gửi thông báo thành công" });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteNotification(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var n = await _db.Notifications.FindAsync(id);
+        if (n == null) return Json(new { success = false });
+        n.IsDeleted = true;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteNotifications([FromBody] List<int> ids)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var list = await _db.Notifications
+            .Where(n => ids.Contains(n.Id))
+            .ToListAsync();
+        foreach (var n in list) n.IsDeleted = true;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, deleted = list.Count });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> MarkNotificationRead(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var n = await _db.Notifications.FindAsync(id);
+        if (n == null) return Json(new { success = false });
+        n.IsRead = true;
+        n.ReadAt = DateTime.Now;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetUnreadCount()
+    {
+        if (!IsLoggedIn) return Json(new { count = 0 });
+        var count = await _db.Notifications
+            .CountAsync(n => !n.IsRead && !n.IsDeleted);
+        return Json(new { count });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetRecentNotifications()
+    {
+        if (!IsLoggedIn) return Json(new List<object>());
+        var list = await _db.Notifications
+            .Where(n => !n.IsDeleted)
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(5)
+            .Select(n => new {
+                n.Id, n.Code, n.Title, n.Content,
+                n.Type, n.Icon, n.IconColor,
+                n.IsRead, n.ViolationContent, n.ViolationReason,
+                CreatedAt = n.CreatedAt.ToString("dd/MM/yyyy HH:mm")
+            })
+            .ToListAsync();
+        return Json(list);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAllReadNotifications()
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+
+        var list = await _db.Notifications
+            .Where(n => n.IsRead && !n.IsDeleted)
+            .ToListAsync();
+
+        foreach (var n in list) n.IsDeleted = true;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, deleted = list.Count });
     }
 }

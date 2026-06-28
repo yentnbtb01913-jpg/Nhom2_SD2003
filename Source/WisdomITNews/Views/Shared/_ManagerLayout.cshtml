@@ -39,6 +39,7 @@
         .mgr-main { margin-left:230px; flex:1; padding:24px; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
 </head>
 <body>
     <div class="mgr-sidebar">
@@ -56,6 +57,13 @@
             <a href="/nhan-vien/Comments"><i class="fa fa-comments"></i> Bình luận</a>
             <a href="/nhan-vien/Feedbacks"><i class="fa fa-flag"></i> Báo cáo / Góp ý</a>
             <a href="/nhan-vien/Videos"><i class="fa fa-video"></i> Video</a>
+            <a href="/nhan-vien/Notifications">
+                <i class="fa fa-bell"></i> Quản lý Thông báo
+                <span id="sidebar-notif-count-nv"
+                    style="background:#dc2626;color:#fff;border-radius:10px;
+                    padding:1px 6px;font-size:11px;margin-left:4px;display:none;">
+                </span>
+            </a>
             <div class="label">Đối tác</div>
             <a href="/nhan-vien/Partners"><i class="fa fa-handshake"></i> Đối tác (Nhà Báo)</a>
             <a href="/nhan-vien/Customers"><i class="fa fa-users"></i> Quản lý Khách Hàng</a>
@@ -69,12 +77,236 @@
         </div>
     </div>
     <div class="mgr-main">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h2 style="font-size:20px;font-weight:700;">@ViewData["Title"]</h2>
+            <div style="display:flex;align-items:center;gap:15px;">
+                <div style="position:relative;cursor:pointer;" onclick="toggleNotifDropdown()">
+                    <i class="fa fa-bell" style="font-size:18px;color:#374151;"></i>
+                    <span id="notif-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;text-align:center;line-height:18px;">0</span>
+                </div>
+                <div id="notif-dropdown" style="display:none;position:absolute;top:50px;right:20px;width:380px;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:9999;">
+                    <div style="padding:12px 16px;border-bottom:1px solid #f0f2f5;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:700;font-size:14px;">Thông báo</span>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <button id="btn-delete-selected" onclick="deleteSelectedNotifs()" style="display:none;background:#fee2e2;color:#dc2626;border:none;border-radius:5px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;"><i class="fa fa-trash"></i> Xóa đã chọn</button>
+                            <button onclick="deleteAllRead()" style="background:none;border:none;color:#94a3b8;font-size:12px;cursor:pointer;font-weight:500;">Xóa đã đọc</button>
+                            <button onclick="markAllRead()" style="background:none;border:none;color:#159aa3;font-size:12px;cursor:pointer;font-weight:600;">Đọc tất cả</button>
+                        </div>
+                    </div>
+                    <div id="notif-list" style="max-height:400px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;"></div>
+                    <div style="padding:10px 16px;border-top:1px solid #f0f2f5;display:flex;justify-content:space-between;align-items:center;">
+                        <span id="notif-selected-count" style="font-size:12px;color:#94a3b8;"></span>
+                        <a href="/nhan-vien/Notifications" style="font-size:13px;color:#159aa3;font-weight:600;text-decoration:none;">Xem tất cả →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
         @RenderBody()
     </div>
     @RenderSection("Scripts", required: false)
 <script>
   window.confirmSwal=function(msg,title){return Swal.fire({title:title||'Xác nhận?',text:msg,icon:'warning',showCancelButton:true,confirmButtonColor:'#d33',cancelButtonColor:'#6c757d',confirmButtonText:'Đồng ý',cancelButtonText:'Huỷ'}).then(function(r){return r.isConfirmed;});};
   window.swalToast=function(icon,msg){if(window.Swal)Swal.fire({toast:true,position:'top-end',icon:icon,title:msg,showConfirmButton:false,timer:3000,timerProgressBar:true});};
+
+  const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/hubs/notification")
+    .withAutomaticReconnect()
+    .build();
+
+  connection.on("ReceiveNotification", function(notif) {
+    updateBadge();
+    loadRecentNotifications();
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'info',
+      title: notif.title,
+      text: notif.content,
+      showConfirmButton: false,
+      timer: 4000,
+      timerProgressBar: true
+    });
+  });
+
+  connection.start().catch(err => console.error(err));
+
+  async function updateBadge() {
+    const res = await fetch('/nhan-vien/GetUnreadCount');
+    const data = await res.json();
+    const badge = document.getElementById('notif-badge');
+    const sidebarBadge = document.getElementById('sidebar-notif-count-nv');
+    if (data.count > 0) {
+      if (badge) {
+        badge.style.display = 'block';
+        badge.textContent = data.count > 99 ? '99+' : data.count;
+      }
+      if (sidebarBadge) {
+        sidebarBadge.style.display = 'inline';
+        sidebarBadge.textContent = data.count;
+      }
+    } else {
+      if (badge) badge.style.display = 'none';
+      if (sidebarBadge) sidebarBadge.style.display = 'none';
+    }
+  }
+
+  let allMgrNotifs = [];
+  const NOTIF_DEFAULT_SHOW = 3;
+  let notifShowAll = false;
+
+  async function loadRecentNotifications() {
+    const res = await fetch('/nhan-vien/GetRecentNotifications');
+    allMgrNotifs = await res.json();
+    renderMgrNotifs();
+  }
+
+  function renderMgrNotifs() {
+    const container = document.getElementById('notif-list');
+    if (!container) return;
+
+    const displayList = notifShowAll 
+      ? allMgrNotifs 
+      : allMgrNotifs.slice(0, NOTIF_DEFAULT_SHOW);
+
+    if (allMgrNotifs.length === 0) {
+      container.innerHTML = '<div style="padding:28px;text-align:center;color:#94a3b8;font-size:13px;"><i class="fa fa-bell-slash" style="font-size:28px;margin-bottom:10px;display:block;"></i>Không có thông báo nào</div>';
+      return;
+    }
+
+    let html = displayList.map(n => `
+      <div id="notif-item-${n.id}" style="border-bottom:1px solid #f0f2f5;">
+        <div style="padding:10px 16px;display:flex;align-items:center;gap:8px;background:${n.isRead ? '#fff' : '#f0fafa'};" id="notif-header-${n.id}">
+          <input type="checkbox" id="notif-check-${n.id}" value="${n.id}" onchange="onNotifCheckChange()" onclick="event.stopPropagation()" style="width:14px;height:14px;cursor:pointer;flex-shrink:0;accent-color:#159aa3;" />
+          <div onclick="toggleNotifItem(${n.id})" style="width:30px;height:30px;border-radius:50%;flex-shrink:0;background:${n.iconColor}20;display:flex;align-items:center;justify-content:center;cursor:pointer;"><i class="fa fa-${n.icon}" style="color:${n.iconColor};font-size:12px;"></i></div>
+          <div onclick="toggleNotifItem(${n.id})" style="flex:1;min-width:0;cursor:pointer;">
+            <div id="notif-title-${n.id}" style="font-weight:${n.isRead ? '500' : '700'};font-size:13px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.title}</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:1px;">${n.createdAt}</div>
+          </div>
+          <div id="notif-dot-${n.id}" style="display:${n.isRead ? 'none' : 'block'};width:8px;height:8px;background:#dc2626;border-radius:50%;flex-shrink:0;"></div>
+          <i id="notif-arrow-${n.id}" onclick="toggleNotifItem(${n.id})" class="fa fa-chevron-down" style="font-size:10px;color:#94a3b8;transition:transform .2s;flex-shrink:0;cursor:pointer;"></i>
+          <button onclick="deleteSingleNotif(${n.id})" title="Xóa thông báo này" style="background:none;border:none;color:#cbd5e1;cursor:pointer;padding:2px 4px;flex-shrink:0;font-size:12px;transition:color .2s;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#cbd5e1'"><i class="fa fa-xmark"></i></button>
+        </div>
+        <div id="notif-body-${n.id}" style="display:none;padding:8px 16px 12px 68px;background:#f8fafc;border-top:1px solid #f0f2f5;">
+          <p style="font-size:13px;color:#374151;margin:0 0 6px;line-height:1.6;">${n.content}</p>
+          ${n.violationContent ? `<div style="padding:7px 10px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:12px;color:#92400e;margin-top:6px;"><i class="fa fa-triangle-exclamation" style="margin-right:4px;"></i><strong>Nội dung vi phạm:</strong> ${n.violationContent}</div>` : ''}
+          ${n.violationReason ? `<div style="padding:7px 10px;background:#fee2e2;border-left:3px solid #dc2626;border-radius:4px;font-size:12px;color:#991b1b;margin-top:6px;"><i class="fa fa-ban" style="margin-right:4px;"></i><strong>Lý do từ chối:</strong> ${n.violationReason}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+
+    if (allMgrNotifs.length > NOTIF_DEFAULT_SHOW) {
+      const remaining = allMgrNotifs.length - NOTIF_DEFAULT_SHOW;
+      html += notifShowAll
+        ? `<div onclick="toggleShowAllNotifs()" style="padding:10px;text-align:center;cursor:pointer;font-size:12px;color:#94a3b8;background:#f8fafc;border-top:1px solid #f0f2f5;"><i class="fa fa-chevron-up"></i> Thu gọn</div>`
+        : `<div onclick="toggleShowAllNotifs()" style="padding:10px;text-align:center;cursor:pointer;font-size:12px;color:#159aa3;font-weight:600;background:#f8fafc;border-top:1px solid #f0f2f5;"><i class="fa fa-chevron-down"></i> Xem thêm ${remaining} thông báo</div>`;
+    }
+
+    container.innerHTML = html;
+  }
+
+  function toggleShowAllNotifs() {
+    notifShowAll = !notifShowAll;
+    renderMgrNotifs();
+  }
+
+  async function deleteSingleNotif(id) {
+    const item = document.getElementById(`notif-item-${id}`);
+    if (!item) return;
+    item.style.transition = 'opacity .2s, max-height .3s';
+    item.style.opacity = '0';
+    item.style.overflow = 'hidden';
+    setTimeout(async () => {
+      await fetch('/nhan-vien/DeleteNotification/' + id, { method: 'POST' });
+      allMgrNotifs = allMgrNotifs.filter(n => n.id !== id);
+      renderMgrNotifs();
+      updateBadge();
+    }, 200);
+  }
+
+  async function deleteSelectedNotifs() {
+    const checked = [...document.querySelectorAll('[id^="notif-check-"]:checked')].map(cb => parseInt(cb.value));
+    if (checked.length === 0) return;
+    if (!confirm(`Xóa ${checked.length} thông báo đã chọn?`)) return;
+    await fetch('/nhan-vien/DeleteNotifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(checked) });
+    allMgrNotifs = allMgrNotifs.filter(n => !checked.includes(n.id));
+    renderMgrNotifs();
+    updateDeleteSelectedBtn();
+    updateBadge();
+  }
+
+  async function deleteAllRead() {
+    const readCount = allMgrNotifs.filter(n => n.isRead).length;
+    if (readCount === 0) { alert('Không có thông báo đã đọc nào để xóa.'); return; }
+    if (!confirm(`Xóa ${readCount} thông báo đã đọc?`)) return;
+    await fetch('/nhan-vien/DeleteAllReadNotifications', { method: 'POST' });
+    allMgrNotifs = allMgrNotifs.filter(n => !n.isRead);
+    renderMgrNotifs();
+    updateBadge();
+  }
+
+  function onNotifCheckChange() {
+    updateDeleteSelectedBtn();
+  }
+
+  function updateDeleteSelectedBtn() {
+    const checked = document.querySelectorAll('[id^="notif-check-"]:checked').length;
+    const btn = document.getElementById('btn-delete-selected');
+    const countEl = document.getElementById('notif-selected-count');
+    if (btn) btn.style.display = checked > 0 ? 'inline-block' : 'none';
+    if (countEl) countEl.textContent = checked > 0 ? `Đang chọn: ${checked}` : '';
+  }
+
+  async function markAllRead() {
+    await fetch('/nhan-vien/MarkAllNotificationsRead', { method: 'POST' });
+    updateBadge();
+    document.querySelectorAll('[id^="notif-dot-"]').forEach(dot => { dot.style.display = 'none'; });
+    document.querySelectorAll('[id^="notif-title-"]').forEach(title => { title.style.fontWeight = '500'; });
+    document.querySelectorAll('[id^="notif-body-"]').forEach(body => { if (body.previousElementSibling) body.previousElementSibling.style.background = '#fff'; });
+  }
+
+  const notifOpenState = {};
+
+  async function toggleNotifItem(id) {
+    const body = document.getElementById(`notif-body-${id}`);
+    const arrow = document.getElementById(`notif-arrow-${id}`);
+    const dot = document.getElementById(`notif-dot-${id}`);
+    const title = document.getElementById(`notif-title-${id}`);
+    const header = body?.previousElementSibling;
+
+    const isOpen = notifOpenState[id] || false;
+
+    if (!isOpen) {
+      body.style.display = 'block';
+      arrow.style.transform = 'rotate(180deg)';
+      notifOpenState[id] = true;
+
+      if (dot && dot.style.display !== 'none') {
+        await fetch('/nhan-vien/MarkNotificationRead/' + id, { method: 'POST' });
+        dot.style.display = 'none';
+        if (title) title.style.fontWeight = '500';
+        if (header) header.style.background = '#fff';
+        updateBadge();
+      }
+    } else {
+      body.style.display = 'none';
+      arrow.style.transform = 'rotate(0deg)';
+      notifOpenState[id] = false;
+    }
+  }
+
+  function toggleNotifDropdown() {
+    const d = document.getElementById('notif-dropdown');
+    d.style.display = d.style.display === 'none' ? 'block' : 'none';
+    if (d.style.display === 'block') loadRecentNotifications();
+  }
+
+  updateBadge();
+  setInterval(updateBadge, 30000);
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#notif-dropdown') && !e.target.closest('.fa-bell'))
+      document.getElementById('notif-dropdown').style.display = 'none';
+  });
 </script>
 @{
     var __ok = (TempData["Ok"] ?? TempData["NewsletterSuccess"])?.ToString();

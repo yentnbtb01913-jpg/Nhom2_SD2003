@@ -700,5 +700,232 @@ public class AccountController : Controller
         return Json(new { success = true, following });
     }
 
-    
+    // ===== NOTIFICATIONS =====
+    [HttpGet]
+    public async Task<IActionResult> GetUserUnreadCount()
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return Json(new { count = 0 });
+
+        var count = await _db.Notifications.CountAsync(n =>
+            !n.IsRead && !n.IsDeleted &&
+            (
+                n.TargetType == "all" ||
+                (n.TargetType == "user" && n.TargetUserId == userId) ||
+                (n.TargetType == "journalist" && HttpContext.Session.GetString("UserRole") == "Journalist") ||
+                (n.TargetType == "email" && n.TargetEmail == HttpContext.Session.GetString("UserEmail"))
+            )
+        );
+        return Json(new { count });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetUserNotifications()
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return Json(new List<object>());
+
+        var role = HttpContext.Session.GetString("UserRole") ?? "";
+        var email = HttpContext.Session.GetString("UserEmail") ?? "";
+
+        var list = await _db.Notifications
+            .Where(n => !n.IsDeleted &&
+                (
+                    n.TargetType == "all" ||
+                    (n.TargetType == "user" && n.TargetUserId == userId) ||
+                    (n.TargetType == "journalist" && role == "Journalist") ||
+                    (n.TargetType == "email" && n.TargetEmail == email)
+                )
+            )
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(10)
+            .Select(n => new {
+                n.Id,
+                n.Title,
+                n.Content,
+                n.Icon,
+                n.IconColor,
+                n.IsRead,
+                n.Type,
+                n.ViolationContent,
+                n.ViolationReason,
+                CreatedAt = n.CreatedAt.ToString("dd/MM/yyyy HH:mm")
+            })
+            .ToListAsync();
+
+        return Json(list);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> MarkUserNotificationRead(int id)
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return Json(new { success = false });
+
+        var n = await _db.Notifications.FindAsync(id);
+        if (n == null) return Json(new { success = false });
+
+        n.IsRead = true;
+        n.ReadAt = DateTime.Now;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> MarkAllUserNotificationsRead()
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return Json(new { success = false });
+
+        var role = HttpContext.Session.GetString("UserRole") ?? "";
+        var email = HttpContext.Session.GetString("UserEmail") ?? "";
+
+        var list = await _db.Notifications.Where(n =>
+            !n.IsRead && !n.IsDeleted &&
+            (
+                n.TargetType == "all" ||
+                (n.TargetType == "user" && n.TargetUserId == userId) ||
+                (n.TargetType == "journalist" && role == "Journalist") ||
+                (n.TargetType == "email" && n.TargetEmail == email)
+            )
+        ).ToListAsync();
+
+        foreach (var n in list) { n.IsRead = true; n.ReadAt = DateTime.Now; }
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteUserNotification(int id)
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return Json(new { success = false });
+
+        var n = await _db.Notifications.FindAsync(id);
+        if (n == null) return Json(new { success = false });
+
+        n.IsDeleted = true;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteUserNotifications([FromBody] List<int> ids)
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return Json(new { success = false });
+
+        var list = await _db.Notifications
+            .Where(n => ids.Contains(n.Id))
+            .ToListAsync();
+
+        foreach (var n in list) n.IsDeleted = true;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, deleted = list.Count });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAllReadNotifications()
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return Json(new { success = false });
+
+        var role = HttpContext.Session.GetString("UserRole") ?? "";
+        var email = HttpContext.Session.GetString("UserEmail") ?? "";
+
+        var list = await _db.Notifications.Where(n =>
+            n.IsRead && !n.IsDeleted &&
+            (
+                n.TargetType == "all" ||
+                (n.TargetType == "user" && n.TargetUserId == userId) ||
+                (n.TargetType == "journalist" && role == "Journalist") ||
+                (n.TargetType == "email" && n.TargetEmail == email)
+            )
+        ).ToListAsync();
+
+        foreach (var n in list) n.IsDeleted = true;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, deleted = list.Count });
+    }
+
+    // ===== HỘP THƯ =====
+    [HttpGet]
+    public async Task<IActionResult> Inbox(
+        string? keyword, string? type,
+        string? status, // "unread" / "read" / "" = tất cả
+        DateTime? fromDate, DateTime? toDate,
+        int page = 1)
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return RedirectToAction("Login");
+
+        var role = HttpContext.Session.GetString("UserRole") ?? "";
+        var email = HttpContext.Session.GetString("UserEmail") ?? "";
+
+        const int pageSize = 15;
+
+        var query = _db.Notifications.Where(n =>
+            !n.IsDeleted &&
+            (
+                n.TargetType == "all" ||
+                (n.TargetType == "user" && n.TargetUserId == userId) ||
+                (n.TargetType == "journalist" && role == "Journalist") ||
+                (n.TargetType == "email" && n.TargetEmail == email)
+            )
+        ).AsQueryable();
+
+        // Lọc theo từ khóa
+        if (!string.IsNullOrWhiteSpace(keyword))
+            query = query.Where(n =>
+                n.Title.Contains(keyword) ||
+                n.Content.Contains(keyword));
+
+        // Lọc theo loại
+        if (!string.IsNullOrWhiteSpace(type))
+            query = query.Where(n => n.Type == type);
+
+        // Lọc theo trạng thái đọc
+        if (status == "unread")
+            query = query.Where(n => !n.IsRead);
+        else if (status == "read")
+            query = query.Where(n => n.IsRead);
+
+        // Lọc theo ngày
+        if (fromDate.HasValue)
+            query = query.Where(n => n.CreatedAt >= fromDate.Value);
+        if (toDate.HasValue)
+            query = query.Where(n => n.CreatedAt < toDate.Value.AddDays(1));
+
+        var total = await query.CountAsync();
+        var unreadCount = await _db.Notifications.CountAsync(n =>
+            !n.IsRead && !n.IsDeleted &&
+            (
+                n.TargetType == "all" ||
+                (n.TargetType == "user" && n.TargetUserId == userId) ||
+                (n.TargetType == "journalist" && role == "Journalist") ||
+                (n.TargetType == "email" && n.TargetEmail == email)
+            ));
+
+        var list = await query
+            .OrderByDescending(n => n.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        ViewBag.Keyword = keyword;
+        ViewBag.Type = type;
+        ViewBag.Status = status;
+        ViewBag.FromDate = fromDate?.ToString("yyyy-MM-dd");
+        ViewBag.ToDate = toDate?.ToString("yyyy-MM-dd");
+        ViewBag.Page = page;
+        ViewBag.TotalPages = (int)Math.Ceiling((double)total / pageSize);
+        ViewBag.TotalCount = total;
+        ViewBag.UnreadCount = unreadCount;
+        ViewBag.ReadCount = total - unreadCount;
+
+        return View(list);
+    }
 }

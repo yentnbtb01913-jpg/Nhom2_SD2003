@@ -393,6 +393,14 @@
             <a href="/Journalist/Profile" class="@(currentAction == "Profile" ? "active" : "")">
                 <i class="fa fa-user-circle"></i> <span>Hồ sơ cá nhân</span>
             </a>
+            <a href="/Journalist/Inbox" class="@(currentAction == "Inbox" ? "active" : "")" style="position:relative;">
+                <i class="fa fa-inbox"></i> <span>Hộp Thư</span>
+                <span id="journalist-inbox-badge"
+                    style="display:none;background:#dc2626;color:#fff;
+                    border-radius:10px;padding:1px 6px;
+                    font-size:11px;margin-left:4px;">
+                </span>
+            </a>
             <div class="j-nav-divider"></div>
             <a href="/" target="_blank">
                 <i class="fa fa-globe"></i> <span>Xem website</span>
@@ -412,6 +420,20 @@
 <script>
   window.confirmSwal=function(msg,title){return Swal.fire({title:title||'Xác nhận?',text:msg,icon:'warning',showCancelButton:true,confirmButtonColor:'#d33',cancelButtonColor:'#6c757d',confirmButtonText:'Đồng ý',cancelButtonText:'Huỷ'}).then(function(r){return r.isConfirmed;});};
   window.swalToast=function(icon,msg){if(window.Swal)Swal.fire({toast:true,position:'top-end',icon:icon,title:msg,showConfirmButton:false,timer:3000,timerProgressBar:true});};
+
+  async function checkJournalistInbox() {
+    try {
+        const res = await fetch('/Journalist/GetUnreadCount');
+        const data = await res.json();
+        const badge = document.getElementById('journalist-inbox-badge');
+        if (badge) {
+            badge.style.display = data.count > 0 ? 'inline' : 'none';
+            badge.textContent = data.count;
+        }
+    } catch(e) {}
+  }
+  checkJournalistInbox();
+  setInterval(checkJournalistInbox, 60000);
 </script>
 @{
     var __ok = (TempData["Ok"] ?? TempData["NewsletterSuccess"])?.ToString();

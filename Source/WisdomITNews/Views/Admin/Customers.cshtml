@@ -10,6 +10,7 @@
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
     <h1 style="font-size:22px;font-weight:700;">👥 Quản lý Khách Hàng</h1>
+    <span style="font-size:13px;color:#6c757d;">Tổng subscribers: <strong>@Model.Count</strong></span>
 </div>
 
 <!-- Thống kê -->
@@ -28,10 +29,12 @@
     </div>
 </div>
 
-<!-- Tìm kiếm -->
-<div style="background:#fff;padding:16px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);">
-    <input type="text" id="searchInput" placeholder="🔍 Tìm kiếm theo email..." 
-           style="width:100%;padding:10px 14px;border:1px solid #d1d5db;font-size:14px;border-radius:6px;" />
+<!-- Bộ lọc trạng thái -->
+@{ var nlFilter = (string)(ViewBag.Filter ?? "all"); }
+<div style="display:flex;gap:8px;margin-bottom:12px;">
+    <a href="/admin/Customers?filter=all" style="padding:7px 16px;font-size:13px;text-decoration:none;border-radius:6px;@(nlFilter=="all" ? "background:#0e7d85;color:#fff;" : "background:#f0f2f5;color:#374151;")">Tất cả</a>
+    <a href="/admin/Customers?filter=active" style="padding:7px 16px;font-size:13px;text-decoration:none;border-radius:6px;@(nlFilter=="active" ? "background:#16a34a;color:#fff;" : "background:#f0f2f5;color:#374151;")">Đang nhận (active)</a>
+    <a href="/admin/Customers?filter=inactive" style="padding:7px 16px;font-size:13px;text-decoration:none;border-radius:6px;@(nlFilter=="inactive" ? "background:#dc2626;color:#fff;" : "background:#f0f2f5;color:#374151;")">Đã huỷ (inactive)</a>
 </div>
 
 <!-- Danh sách khách hàng -->
@@ -46,36 +49,49 @@
         <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
             <thead style="background:#f8fafc;color:#6c757d;text-align:left;">
                 <tr>
-                    <th style="padding:10px;">STT</th>
                     <th style="padding:10px;">Email</th>
+                    <th style="padding:10px;">Họ tên</th>
+                    <th style="padding:10px;">Số điện thoại</th>
+                    <th style="padding:10px;">Nguồn đăng ký</th>
                     <th style="padding:10px;">Trạng thái</th>
                     <th style="padding:10px;">Ngày đăng ký</th>
                     <th style="padding:10px;text-align:right;">Hành động</th>
                 </tr>
             </thead>
-            <tbody id="customerTable">
-                @for (int i = 0; i < Model.Count; i++)
+            <tbody>
+                @foreach (var s in Model)
                 {
-                    var item = Model[i];
-                    <tr data-id="@item.Id" data-email="@item.Email.ToLower()">
-                        <td style="padding:10px;">@(i + 1)</td>
-                        <td style="padding:10px;">@item.Email</td>
+                    <tr id="sub-@s.Id" style="border-bottom:1px solid #f0f2f5;">
+                        <td style="padding:10px;">@s.Email</td>
+                        <td style="padding:10px;">@(string.IsNullOrWhiteSpace(s.FullName) ? "—" : s.FullName)</td>
+                        <td style="padding:10px;">@(string.IsNullOrWhiteSpace(s.Phone) ? "—" : s.Phone)</td>
+                        <td style="padding:10px;color:#6c757d;">@(string.IsNullOrWhiteSpace(s.Source) ? "—" : s.Source)</td>
                         <td style="padding:10px;">
-                            @if (item.Status == "active")
-                            {
-                                <span style="background:#dcfce7;color:#166534;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;">Active</span>
-                            }
-                            else
-                            {
-                                <span style="background:#fee2e2;color:#991b1b;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;">Inactive</span>
-                            }
+                            <span style="padding:2px 10px;border-radius:20px;background:@(s.Status == "active" ? "#dcfce7" : "#fee2e2");color:@(s.Status == "active" ? "#166534" : "#991b1b");font-weight:600;font-size:11px;">@(s.Status == "active" ? "Đang nhận" : "Đã huỷ")</span>
                         </td>
-                        <td style="padding:10px;">@item.SubscribedAt.ToString("dd/MM/yyyy HH:mm")</td>
-                        <td style="padding:10px;text-align:right;">
-                            <button onclick="deleteCustomer(@item.Id)" 
-                                    style="padding:6px 14px;background:#dc2626;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;border-radius:4px;">
-                                Xóa
-                            </button>
+                        <td style="padding:10px;color:#6c757d;font-size:12px;">@s.SubscribedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td style="padding:10px;text-align:right;white-space:nowrap;">
+                            <button type="button" onclick="toggleEdit(@s.Id)" style="padding:5px 12px;background:#e6f4f5;color:#0e7d85;border:none;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-pen"></i> Sửa</button>
+                            <button type="button" onclick="deleteSubscriber(@s.Id)" style="padding:5px 12px;background:#fee2e2;color:#991b1b;border:none;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i> Xoá</button>
+                        </td>
+                    </tr>
+                    <tr id="edit-@s.Id" style="display:none;background:#f8fafc;border-bottom:1px solid #f0f2f5;">
+                        <td colspan="7" style="padding:14px;">
+                            <form method="post" action="/admin/EditSubscriber/@s.Id" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                                @Html.AntiForgeryToken()
+                                <div><label style="display:block;font-size:11px;color:#6c757d;">Email</label><input name="email" value="@s.Email" type="email" required style="padding:7px 10px;border:1px solid #d1d5db;border-radius:5px;" /></div>
+                                <div><label style="display:block;font-size:11px;color:#6c757d;">Họ tên</label><input name="fullName" value="@s.FullName" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:5px;" /></div>
+                                <div><label style="display:block;font-size:11px;color:#6c757d;">SĐT</label><input name="phone" value="@s.Phone" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:5px;width:130px;" /></div>
+                                <div><label style="display:block;font-size:11px;color:#6c757d;">Nguồn</label><input name="source" value="@s.Source" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:5px;width:140px;" /></div>
+                                <div><label style="display:block;font-size:11px;color:#6c757d;">Trạng thái</label>
+                                    <select name="status" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:5px;">
+                                        <option value="active" selected="@(s.Status == "active")">Đang nhận</option>
+                                        <option value="inactive" selected="@(s.Status != "active")">Đã huỷ</option>
+                                    </select>
+                                </div>
+                                <button type="submit" style="padding:8px 16px;background:#0e7d85;color:#fff;border:none;border-radius:5px;font-weight:600;cursor:pointer;"><i class="fa fa-save"></i> Lưu</button>
+                                <button type="button" onclick="toggleEdit(@s.Id)" style="padding:8px 14px;background:#f0f2f5;color:#374151;border:none;border-radius:5px;cursor:pointer;">Huỷ</button>
+                            </form>
                         </td>
                     </tr>
                 }
@@ -84,87 +100,25 @@
     }
 </div>
 
-<script>
-    // Realtime search filter
-    document.getElementById('searchInput').addEventListener('input', function(e) {
-        const search = e.target.value.toLowerCase().trim();
-        const rows = document.querySelectorAll('#customerTable tr');
-        
-        rows.forEach(row => {
-            const email = row.getAttribute('data-email') || '';
-            if (email.includes(search)) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-    });
-
-    // Delete customer with SweetAlert2
-    async function deleteCustomer(id) {
-        const result = await Swal.fire({
-            title: 'Xóa khách hàng?',
-            text: 'Hành động này không thể hoàn tác!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Xóa',
-            cancelButtonText: 'Huỷ'
-        });
-
-        if (result.isConfirmed) {
-            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-            const row = document.querySelector(`tr[data-id="${id}"]`);
-            
-            try {
-                const response = await fetch('/admin/DeleteSubscriber/' + id, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'RequestVerificationToken': token
-                    },
-                    body: ''
-                });
-
-                const data = await response.json();
-                
-                if (data.success) {
-                    if (row) {
-                        row.remove();
-                        swalToast('success', 'Đã xóa khách hàng thành công');
-                        // Update statistics
-                        updateStats();
-                    }
-                } else {
-                    swalToast('error', data.message || 'Xóa thất bại');
-                }
-            } catch (error) {
-                swalToast('error', 'Lỗi kết nối');
-            }
+@section Scripts {
+    <script>
+        function toggleEdit(id){
+            var r = document.getElementById('edit-' + id);
+            r.style.display = (r.style.display === 'none' || !r.style.display) ? 'table-row' : 'none';
         }
-    }
-
-    function updateStats() {
-        const rows = document.querySelectorAll('#customerTable tr');
-        let activeCount = 0;
-        
-        rows.forEach(row => {
-            const statusSpan = row.querySelector('span');
-            if (statusSpan && statusSpan.textContent.trim() === 'Active') {
-                activeCount++;
+        async function deleteSubscriber(id) {
+            if (!await confirmSwal('Xoá khách hàng này?')) return;
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            const fd = new FormData();
+            fd.append('__RequestVerificationToken', token);
+            const r = await fetch('/admin/DeleteSubscriber/' + id, { method: 'POST', body: fd });
+            const data = await r.json();
+            if (data.success) { 
+                document.getElementById('sub-' + id).remove(); 
+                document.getElementById('edit-' + id).remove();
+                location.reload();
             }
-        });
-
-        const total = rows.length;
-        const inactive = total - activeCount;
-
-        // Update stats in the DOM
-        const stats = document.querySelectorAll('.grid > div');
-        if (stats.length >= 3) {
-            stats[0].querySelector('div:last-child').textContent = total;
-            stats[1].querySelector('div:last-child').textContent = activeCount;
-            stats[2].querySelector('div:last-child').textContent = inactive;
+            else Swal.fire(data.message || 'Xoá thất bại');
         }
-    }
-</script>
+    </script>
+}

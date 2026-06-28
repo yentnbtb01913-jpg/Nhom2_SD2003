@@ -19,6 +19,7 @@ builder.Services.AddScoped<WeatherService>();
 builder.Services.AddScoped<ImageUploadService>();
 builder.Services.AddScoped<VideoUploadService>();
 builder.Services.AddScoped<NewsImportService>();
+builder.Services.AddScoped<NotificationService>();
 builder.Services.AddSignalR();
 builder.Services.AddSession(opt =>
 {
@@ -82,6 +83,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHub<WisdomITNews.Hubs.ChatHub>("/chatHub");
+app.MapHub<WisdomITNews.Hubs.NotificationHub>("/hubs/notification");
 app.MapControllerRoute(name: "article",   pattern: "bai-viet/{slug}",    defaults: new { controller = "Article",  action = "Detail" });
 app.MapControllerRoute(name: "category",  pattern: "danh-muc/{slug?}",   defaults: new { controller = "Home",     action = "Category" });
 app.MapControllerRoute(name: "search",    pattern: "tim-kiem",            defaults: new { controller = "Home",     action = "Search" });
