@@ -1,57 +1,108 @@
+@using WisdomITNews.Models
 @model List<WisdomITNews.Models.User>
 @{
-    ViewData["Title"] = "Đối tác (Nhà Báo)";
+    ViewData["Title"] = "Quản lý Nhà báo";
     Layout = "_AdminLayout";
     var counts = ViewBag.ArticleCounts as Dictionary<int, int> ?? new Dictionary<int, int>();
+    var profiles = ViewBag.Profiles as Dictionary<int, JournalistProfile> ?? new Dictionary<int, JournalistProfile>();
+    var filter = (string)(ViewBag.Filter ?? "all");
+    var q = (string)(ViewBag.Q ?? "");
 }
 
-<h1 style="font-size:22px;font-weight:800;margin-bottom:8px;"><i class="fa fa-handshake" style="color:#159aa3;"></i> Đối tác — Nhà Báo</h1>
-<p style="color:#6c757d;font-size:13px;margin-bottom:18px;">Quản lý tài khoản Nhà Báo và duyệt đơn đăng ký. Đơn mới ở trạng thái <b>Chờ duyệt</b>.</p>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-handshake" style="color:#159aa3;"></i> Quản lý Nhà báo (Đối tác)</h1>
+    <a href="/admin/CreateJournalist" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Thêm đối tác</a>
+</div>
+<p style="color:#6c757d;font-size:13px;margin-bottom:16px;">Quản lý hồ sơ nhà báo, duyệt đơn đăng ký (đơn mới ở trạng thái <b>Chờ duyệt</b>), khoá/mở và xóa mềm.</p>
 
-<div style="background:#fff;border-radius:6px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+<!-- Tìm + lọc -->
+<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+    <form method="get" action="/admin/Partners" style="display:flex;gap:6px;">
+        <input type="hidden" name="filter" value="@filter" />
+        <input type="text" name="q" value="@q" placeholder="Tìm tên / email / username..." style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:240px;" />
+        <button type="submit" style="background:#0e7d85;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;"><i class="fa fa-search"></i></button>
+    </form>
+    @{
+        (string,string)[] tabs = new[] { ("all","Tất cả"), ("active","Đang hoạt động"), ("inactive","Chờ duyệt/Khoá"), ("deleted","Đã xóa") };
+    }
+    <div style="display:flex;gap:6px;">
+        @foreach (var (key, label) in tabs)
+        {
+            <a href="/admin/Partners?filter=@key&q=@Uri.EscapeDataString(q)" style="padding:7px 14px;border-radius:6px;font-size:13px;text-decoration:none;@(filter==key ? "background:#0e7d85;color:#fff;" : "background:#f0f2f5;color:#374151;")">@label</a>
+        }
+    </div>
+</div>
+
+<div style="background:#fff;border-radius:6px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
         <thead>
-            <tr style="border-bottom:2px solid #f0f2f5;color:#6c757d;">
-                <th style="text-align:left;padding:10px 8px;">Nhà báo</th>
-                <th style="text-align:left;padding:10px 8px;">Email</th>
-                <th style="text-align:left;padding:10px 8px;">Số bài</th>
-                <th style="text-align:left;padding:10px 8px;">Trạng thái</th>
-                <th style="text-align:left;padding:10px 8px;">Đăng ký</th>
+            <tr style="border-bottom:2px solid #f0f2f5;color:#6c757d;text-align:left;">
+                <th style="padding:10px 8px;">Mã</th>
+                <th style="padding:10px 8px;">Nhà báo</th>
+                <th style="padding:10px 8px;">Email</th>
+                <th style="padding:10px 8px;">Chức danh</th>
+                <th style="padding:10px 8px;">Số bài</th>
+                <th style="padding:10px 8px;">Trạng thái</th>
                 <th style="padding:10px 8px;"></th>
             </tr>
         </thead>
         <tbody>
             @foreach (var u in Model)
             {
-                <tr style="border-bottom:1px solid #f0f2f5;">
+                profiles.TryGetValue(u.Id, out var pf);
+                <tr id="jr-@u.Id" style="border-bottom:1px solid #f0f2f5;">
+                    <td style="padding:10px 8px;font-weight:700;color:#0e7d85;">JP@(u.Id.ToString("D4"))</td>
                     <td style="padding:10px 8px;">
-                        <div style="font-weight:600;">@u.FullName</div>
-                        <div style="font-size:12px;color:#94a3b8;">@@@u.Username</div>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <img src="@(string.IsNullOrEmpty(u.AvatarUrl) ? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(u.FullName)}&background=159aa3&color=fff" : u.AvatarUrl)" style="width:38px;height:38px;border-radius:50%;object-fit:cover;" />
+                            <div>
+                                <div style="font-weight:600;">@u.FullName</div>
+                                <div style="font-size:12px;color:#94a3b8;">@(string.IsNullOrWhiteSpace(pf?.PenName) ? "@" + u.Username : "Bút danh: " + pf.PenName)</div>
+                            </div>
+                        </div>
                     </td>
                     <td style="padding:10px 8px;color:#6c757d;">@u.Email</td>
+                    <td style="padding:10px 8px;color:#374151;">@(pf?.JobTitle ?? "—")</td>
                     <td style="padding:10px 8px;">@(counts.ContainsKey(u.Id) ? counts[u.Id] : 0)</td>
                     <td style="padding:10px 8px;">
-                        <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(u.IsActive?"#dcfce7":"#fef9c3");color:@(u.IsActive?"#16a34a":"#ca8a04");">
-                            @(u.IsActive ? "Đang hoạt động" : "Chờ duyệt")
-                        </span>
-                    </td>
-                    <td style="padding:10px 8px;color:#6c757d;">@u.CreatedAt.ToString("dd/MM/yyyy")</td>
-                    <td style="padding:10px 8px;white-space:nowrap;">
-                        @if (!u.IsActive)
+                        @if (u.IsDeleted)
                         {
-                            <button onclick="approveJ(@u.Id)" style="background:#16a34a;color:#fff;border:none;padding:6px 12px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-check"></i> Duyệt</button>
+                            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b;">Đã xóa</span>
+                        }
+                        else if (u.IsActive)
+                        {
+                            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#dcfce7;color:#16a34a;">Đang hoạt động</span>
                         }
                         else
                         {
-                            <button onclick="lockJ(@u.Id)" style="background:#f3f4f6;color:#b91c1c;border:1px solid #fecaca;padding:6px 12px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-ban"></i> Khoá</button>
+                            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fef9c3;color:#ca8a04;">Chờ duyệt</span>
                         }
-                        <a href="/u/@u.Username" target="_blank" style="color:#159aa3;font-size:12px;margin-left:6px;text-decoration:none;">Hồ sơ</a>
+                    </td>
+                    <td style="padding:10px 8px;white-space:nowrap;">
+                        @if (u.IsDeleted)
+                        {
+                            <button onclick="restoreJ(@u.Id)" style="background:#dcfce7;color:#16a34a;border:none;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-rotate-left"></i> Khôi phục</button>
+                        }
+                        else
+                        {
+                            <a href="/admin/JournalistDetail/@u.Id" title="Xem" style="background:#f0f2f5;color:#374151;padding:6px 9px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-eye"></i></a>
+                            <a href="/admin/EditJournalist/@u.Id" title="Sửa" style="background:#159aa3;color:#fff;padding:6px 9px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
+                            @if (!u.IsActive)
+                            {
+                                <button onclick="approveJ(@u.Id)" title="Duyệt" style="background:#16a34a;color:#fff;border:none;padding:6px 9px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-check"></i></button>
+                            }
+                            else
+                            {
+                                <button onclick="lockJ(@u.Id)" title="Khoá" style="background:#fef9c3;color:#ca8a04;border:none;padding:6px 9px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-ban"></i></button>
+                            }
+                            <button onclick="softDelJ(@u.Id)" title="Xóa" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 9px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i></button>
+                        }
                     </td>
                 </tr>
             }
             @if (!Model.Any())
             {
-                <tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8;">Chưa có nhà báo nào.</td></tr>
+                <tr><td colspan="7" style="padding:24px;text-align:center;color:#94a3b8;">Không có nhà báo nào.</td></tr>
             }
         </tbody>
     </table>
@@ -59,15 +110,10 @@
 
 @section Scripts {
 <script>
-    async function approveJ(id){
-        if(!await confirmSwal('Duyệt nhà báo này?')) return;
-        const r = await fetch('/admin/ApproveJournalist/'+id,{method:'POST'});
-        const d = await r.json(); if(d.success) location.reload(); else Swal.fire(d.message||'Lỗi');
-    }
-    async function lockJ(id){
-        if(!await confirmSwal('Khoá nhà báo này?')) return;
-        const r = await fetch('/admin/LockJournalist/'+id,{method:'POST'});
-        const d = await r.json(); if(d.success) location.reload(); else Swal.fire(d.message||'Lỗi');
-    }
+    async function postJ(url, id){ const r=await fetch(url+id,{method:'POST'}); return (await r.json()); }
+    async function approveJ(id){ if(!await confirmSwal('Duyệt nhà báo này?')) return; const d=await postJ('/admin/ApproveJournalist/',id); if(d.success){swalToast('success','Đã duyệt');setTimeout(()=>location.reload(),600);} else Swal.fire(d.message||'Lỗi'); }
+    async function lockJ(id){ if(!await confirmSwal('Khoá nhà báo này?')) return; const d=await postJ('/admin/LockJournalist/',id); if(d.success){swalToast('success','Đã khoá');setTimeout(()=>location.reload(),600);} else Swal.fire(d.message||'Lỗi'); }
+    async function softDelJ(id){ if(!await confirmSwal('Xóa (mềm) nhà báo này? Có thể khôi phục lại.')) return; const d=await postJ('/admin/SoftDeleteJournalist/',id); if(d.success){document.getElementById('jr-'+id).remove();swalToast('success','Đã xóa');} else Swal.fire('Lỗi'); }
+    async function restoreJ(id){ if(!await confirmSwal('Khôi phục nhà báo này?')) return; const d=await postJ('/admin/RestoreJournalist/',id); if(d.success){swalToast('success','Đã khôi phục');setTimeout(()=>location.reload(),600);} else Swal.fire('Lỗi'); }
 </script>
 }

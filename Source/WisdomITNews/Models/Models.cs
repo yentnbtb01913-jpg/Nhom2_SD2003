@@ -191,6 +191,7 @@ public class User
     public string Role { get; set; } = "Reader";
     public bool IsActive { get; set; } = true;
     public bool IsEmailConfirmed { get; set; } = false;
+    public bool IsDeleted { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     
     public ICollection<Article> Articles { get; set; } = new List<Article>();

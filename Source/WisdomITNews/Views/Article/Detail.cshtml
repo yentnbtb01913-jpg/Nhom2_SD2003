@@ -87,6 +87,35 @@
                 </div>
             </div>
 
+            @{ var _ap = ViewBag.AuthorProfile as WisdomITNews.Models.JournalistProfile; }
+            @if (article.IsExternal && !string.IsNullOrWhiteSpace(article.SourceUrl))
+            {
+                string _host = ""; try { _host = new Uri(article.SourceUrl).Host; } catch { }
+                <div style="display:flex;align-items:center;gap:14px;background:#f3fafb;border:1px solid #e6f4f5;border-radius:12px;padding:14px 16px;margin:16px 0;">
+                    <img src="@(string.IsNullOrEmpty(_host) ? "" : $"https://www.google.com/s2/favicons?domain={_host}&sz=64")" alt="@article.SourceName" style="width:48px;height:48px;border-radius:50%;object-fit:cover;background:#fff;border:1px solid #e5e7eb;" onerror="this.style.visibility='hidden'" />
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:15px;color:#0e7d85;">@article.SourceName</div>
+                        <div style="font-size:12.5px;color:#6b7280;">Bài tổng hợp · Nguồn ngoài</div>
+                    </div>
+                    <a href="@article.SourceUrl" target="_blank" rel="noopener noreferrer" style="background:#0e7d85;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;"><i class="fa fa-up-right-from-square"></i> Đọc bài gốc</a>
+                </div>
+            }
+            else if (article.AuthorUser != null)
+            {
+                <div style="display:flex;align-items:center;gap:14px;background:#f3fafb;border:1px solid #e6f4f5;border-radius:12px;padding:14px 16px;margin:16px 0;">
+                    <img src="@(string.IsNullOrEmpty(article.AuthorUser.AvatarUrl) ? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(article.AuthorUser.FullName)}&background=0e7d85&color=fff" : article.AuthorUser.AvatarUrl)" alt="@article.AuthorUser.FullName" style="width:52px;height:52px;border-radius:50%;object-fit:cover;" />
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:15px;color:#0e7d85;">@(string.IsNullOrWhiteSpace(_ap?.PenName) ? article.AuthorUser.FullName : _ap.PenName)</div>
+                        <div style="font-size:12.5px;color:#6b7280;">@(_ap?.JobTitle ?? "Nhà báo")@(string.IsNullOrWhiteSpace(_ap?.Organization) ? "" : " · " + _ap.Organization)</div>
+                    </div>
+                    <div style="display:flex;gap:12px;font-size:18px;">
+                        @if (!string.IsNullOrWhiteSpace(_ap?.Facebook)) { <a href="@_ap.Facebook" target="_blank" style="color:#1877f2;"><i class="fa-brands fa-facebook"></i></a> }
+                        @if (!string.IsNullOrWhiteSpace(_ap?.LinkedIn)) { <a href="@_ap.LinkedIn" target="_blank" style="color:#0a66c2;"><i class="fa-brands fa-linkedin"></i></a> }
+                        @if (!string.IsNullOrWhiteSpace(_ap?.Twitter)) { <a href="@_ap.Twitter" target="_blank" style="color:#111;"><i class="fa-brands fa-x-twitter"></i></a> }
+                    </div>
+                </div>
+            }
+
             <!-- AI Tools Bar -->
             <div style="display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap;">
                 <span style="font-size:12px;font-weight:700;color:var(--ai-color);text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px;">

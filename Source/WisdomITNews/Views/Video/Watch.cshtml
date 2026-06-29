@@ -5,6 +5,10 @@
     Layout = "_Layout";
     ViewData["Title"] = Model.Title;
     var others = ViewBag.Others as List<VideoItem> ?? new List<VideoItem>();
+    var comments = ViewBag.Comments as List<VideoComment> ?? new List<VideoComment>();
+    var roots = comments.Where(c => c.ParentId == null).OrderBy(c => c.CreatedAt).ToList();
+    var sessionUserId = Context.Session.GetInt32("UserId");
+    var sessionUserName = Context.Session.GetString("UserName") ?? "";
 }
 
 <div class="bm-home container">
@@ -44,6 +48,87 @@
                     }
                 </p>
             </div>
+            <!-- ===== Bình luận video (PHẲNG, trả lời 1 cấp - KHÔNG đệ quy) ===== -->
+            <div class="comments-section" style="margin-top:16px;">
+                <h2 class="comments-title">
+                    <i class="fa fa-comments"></i> Bình luận
+                    <span class="comment-count" id="vcCount">@comments.Count</span>
+                </h2>
+
+                <div class="comment-form">
+                    @if (sessionUserId.HasValue)
+                    {
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                            <div class="comment-avatar">@(string.IsNullOrWhiteSpace(sessionUserName) ? "?" : sessionUserName.Substring(0, 1).ToUpper())</div>
+                            <span style="font-weight:600;font-size:14px;">Bình luận với tên: <strong>@sessionUserName</strong></span>
+                        </div>
+                        <input type="hidden" id="vcName" value="@sessionUserName" />
+                        <input type="hidden" id="vcEmail" value="" />
+                    }
+                    else
+                    {
+                        <div class="comment-form-row">
+                            <input type="text" id="vcName" placeholder="Họ và tên *" maxlength="80" />
+                            <input type="email" id="vcEmail" placeholder="Email (tuỳ chọn)" maxlength="120" />
+                        </div>
+                    }
+                    <textarea id="vcText" placeholder="Viết bình luận của bạn..." maxlength="1000"></textarea>
+                    <button class="btn-comment" type="button" onclick="submitVideoComment()">
+                        <i class="fa fa-paper-plane"></i> Gửi bình luận
+                    </button>
+                </div>
+
+                <div id="vcList" class="comment-tree">
+                    @if (!roots.Any())
+                    {
+                        <p id="vcEmpty" style="text-align:center;color:var(--text-muted,#9ca3af);padding:22px 0;font-size:14px;">
+                            Chưa có bình luận nào. Hãy là người đầu tiên!
+                        </p>
+                    }
+                    @foreach (var c in roots)
+                    {
+                        var replies = comments.Where(r => r.ParentId == c.Id).OrderBy(r => r.CreatedAt).ToList();
+                        <div class="comment-node" data-cid="@c.Id">
+                            <div class="comment-row">
+                                <div class="comment-avatar">@(string.IsNullOrWhiteSpace(c.AuthorName) ? "?" : c.AuthorName.Substring(0, 1).ToUpper())</div>
+                                <div class="comment-body">
+                                    <div class="comment-meta">
+                                        <strong>@c.AuthorName</strong>
+                                        <span class="comment-time">@SlugHelper.FormatDate(c.CreatedAt)</span>
+                                    </div>
+                                    <p class="comment-text">@c.Content</p>
+                                    <div class="comment-actions">
+                                        <button type="button" onclick="toggleReply(@c.Id)"><i class="fa fa-reply"></i> Trả lời</button>
+                                    </div>
+                                    <div class="reply-form" id="rf-@c.Id">
+                                        <textarea id="rt-@c.Id" rows="2" placeholder="Trả lời @c.AuthorName..." maxlength="1000"></textarea>
+                                        <div class="reply-form-actions">
+                                            <button type="submit" onclick="submitVideoReply(@c.Id);return false;"><i class="fa fa-paper-plane"></i> Gửi</button>
+                                            <button type="button" class="js-reply-cancel" onclick="toggleReply(@c.Id)">Huỷ</button>
+                                        </div>
+                                    </div>
+                                    <div class="comment-children" id="rc-@c.Id">
+                                        @foreach (var r in replies)
+                                        {
+                                            <div class="comment-row">
+                                                <div class="comment-avatar" style="width:30px;height:30px;font-size:12px;">@(string.IsNullOrWhiteSpace(r.AuthorName) ? "?" : r.AuthorName.Substring(0, 1).ToUpper())</div>
+                                                <div class="comment-body">
+                                                    <div class="comment-meta">
+                                                        <strong>@r.AuthorName</strong>
+                                                        <span class="comment-time">@SlugHelper.FormatDate(r.CreatedAt)</span>
+                                                    </div>
+                                                    <p class="comment-text">@r.Content</p>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
             <a class="bm-more" href="/video"><i class="fa fa-arrow-left"></i> Về trang Video</a>
         </main>
 
@@ -95,6 +180,100 @@
             });
             var empty = document.querySelector('.bm-vsearch-empty');
             if (empty) empty.style.display = any ? 'none' : 'block';
+        }
+
+        // ===== Bình luận video (KHÔNG đệ quy) =====
+        var VIDEO_ID = @Model.Id;
+        function vcEsc(t){ return (t||'').replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+        function vcInitial(n){ n=(n||'').trim(); return n ? n.charAt(0).toUpperCase() : '?'; }
+        function vcToast(type,msg){ if (typeof swalToast === 'function') swalToast(type,msg); else if (type==='error') alert(msg); }
+
+        function toggleReply(id){
+            var f=document.getElementById('rf-'+id);
+            if(f) f.classList.toggle('show');
+        }
+
+        async function vcPost(payload){
+            try{
+                var r = await fetch('/Video/PostVideoComment', {
+                    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+                });
+                return await r.json();
+            }catch(e){ return { success:false, message:'Lỗi kết nối, thử lại sau.' }; }
+        }
+
+        function vcBumpCount(n){
+            var el=document.getElementById('vcCount'); if(!el) return;
+            el.textContent = (parseInt(el.textContent||'0',10) + n);
+        }
+
+        function vcRootHtml(d){
+            var name=vcEsc(d.name), init=vcEsc(d.initial||vcInitial(d.name)), content=vcEsc(d.content);
+            return '<div class="comment-node" data-cid="'+d.id+'">'
+                + '<div class="comment-row">'
+                + '<div class="comment-avatar">'+init+'</div>'
+                + '<div class="comment-body">'
+                + '<div class="comment-meta"><strong>'+name+'</strong> <span class="comment-time">Vừa xong</span></div>'
+                + '<p class="comment-text">'+content+'</p>'
+                + '<div class="comment-actions"><button type="button" onclick="toggleReply('+d.id+')"><i class="fa fa-reply"></i> Trả lời</button></div>'
+                + '<div class="reply-form" id="rf-'+d.id+'"><textarea id="rt-'+d.id+'" rows="2" placeholder="Trả lời '+name+'..." maxlength="1000"></textarea>'
+                + '<div class="reply-form-actions"><button type="submit" onclick="submitVideoReply('+d.id+');return false;"><i class="fa fa-paper-plane"></i> Gửi</button>'
+                + '<button type="button" class="js-reply-cancel" onclick="toggleReply('+d.id+')">Huỷ</button></div></div>'
+                + '<div class="comment-children" id="rc-'+d.id+'"></div>'
+                + '</div></div></div>';
+        }
+
+        function vcReplyHtml(d){
+            var name=vcEsc(d.name), init=vcEsc(d.initial||vcInitial(d.name)), content=vcEsc(d.content);
+            return '<div class="comment-row">'
+                + '<div class="comment-avatar" style="width:30px;height:30px;font-size:12px;">'+init+'</div>'
+                + '<div class="comment-body">'
+                + '<div class="comment-meta"><strong>'+name+'</strong> <span class="comment-time">Vừa xong</span></div>'
+                + '<p class="comment-text">'+content+'</p></div></div>';
+        }
+
+        async function submitVideoComment(){
+            var nameEl=document.getElementById('vcName');
+            var name=(nameEl ? nameEl.value : '').trim();
+            var emailEl=document.getElementById('vcEmail');
+            var email=emailEl ? emailEl.value : '';
+            var ta=document.getElementById('vcText');
+            var text=(ta.value||'').trim();
+            if(!name){ vcToast('error','Vui lòng nhập tên'); return; }
+            if(!text){ vcToast('error','Vui lòng nhập nội dung bình luận'); return; }
+            var res = await vcPost({ videoId:VIDEO_ID, parentId:null, name:name, email:email, content:text });
+            if(res && res.success){
+                ta.value='';
+                var empty=document.getElementById('vcEmpty'); if(empty) empty.remove();
+                document.getElementById('vcList').insertAdjacentHTML('afterbegin', vcRootHtml(res));
+                vcBumpCount(1);
+                vcToast('success','Đã gửi bình luận');
+            } else if (typeof Swal !== 'undefined'){
+                Swal.fire(res && res.message ? res.message : 'Không gửi được bình luận');
+            } else {
+                alert(res && res.message ? res.message : 'Lỗi');
+            }
+        }
+
+        async function submitVideoReply(parentId){
+            var ta=document.getElementById('rt-'+parentId);
+            var text=(ta.value||'').trim();
+            if(!text){ vcToast('error','Vui lòng nhập nội dung trả lời'); return; }
+            var nameEl=document.getElementById('vcName');
+            var name=(nameEl ? nameEl.value : '').trim() || 'Khách';
+            var res = await vcPost({ videoId:VIDEO_ID, parentId:parentId, name:name, email:'', content:text });
+            if(res && res.success){
+                ta.value='';
+                var box=document.getElementById('rc-'+parentId);
+                if(box) box.insertAdjacentHTML('beforeend', vcReplyHtml(res));
+                toggleReply(parentId);
+                vcBumpCount(1);
+                vcToast('success','Đã gửi trả lời');
+            } else if (typeof Swal !== 'undefined'){
+                Swal.fire(res && res.message ? res.message : 'Không gửi được trả lời');
+            } else {
+                alert(res && res.message ? res.message : 'Lỗi');
+            }
         }
     </script>
 }

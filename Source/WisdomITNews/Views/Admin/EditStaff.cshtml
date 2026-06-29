@@ -1,7 +1,7 @@
 @model WisdomITNews.Models.Admin
 @{ ViewData["Title"] = "Sửa nhân viên"; Layout = "_AdminLayout"; }
 
-<h1 style="font-size:22px;font-weight:800;margin-bottom:18px;"><i class="fa fa-user-pen" style="color:#159aa3;"></i> Sửa nhân viên: @Model.FullName <span style="font-size:14px;color:#0e7d85;">(NV@Model.Id.ToString("D3"))</span></h1>
+<h1 style="font-size:22px;font-weight:800;margin-bottom:18px;"><i class="fa fa-user-pen" style="color:#159aa3;"></i> Sửa nhân viên: @Model.FullName <span style="font-size:14px;color:#0e7d85;">(NV@(Model.Id.ToString("D3")))</span></h1>
 
 @if (TempData["Ok"] != null)
 { <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }

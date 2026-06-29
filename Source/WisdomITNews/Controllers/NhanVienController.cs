@@ -364,10 +364,17 @@ public class NhanVienController : Controller
     }
 
 // ===== ĐĂNG VIDEO (YouTube / Upload) =====
-    public async Task<IActionResult> Videos()
+    public async Task<IActionResult> Videos(string q = "")
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
-        var list = await _db.Videos.OrderByDescending(v => v.CreatedAt).ToListAsync();
+        var query = _db.Videos.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var k = q.Trim().ToLower();
+            query = query.Where(v => v.Title.ToLower().Contains(k) || (v.Source != null && v.Source.ToLower().Contains(k)));
+        }
+        var list = await query.OrderByDescending(v => v.CreatedAt).ToListAsync();
+        ViewBag.Q = q;
         return View(list);
     }
 

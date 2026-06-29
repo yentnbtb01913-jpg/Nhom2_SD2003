@@ -29,8 +29,10 @@ public class AppDbContext : DbContext
     public DbSet<SavedArticle> SavedArticles { get; set; }
     public DbSet<UserCategoryFollow> UserCategoryFollows { get; set; }
     public DbSet<Video> Videos { get; set; }
+    public DbSet<JournalistProfile> JournalistProfiles { get; set; }
     public DbSet<RssSource> RssSources { get; set; }
     public DbSet<Notification> Notifications { get; set; }
+    public DbSet<VideoComment> VideoComments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -135,5 +137,11 @@ public class AppDbContext : DbContext
         // Khu cá nhân
         mb.Entity<SavedArticle>().HasIndex(x => new { x.UserId, x.ArticleId }).IsUnique();
         mb.Entity<UserCategoryFollow>().HasIndex(x => new { x.UserId, x.CategoryId }).IsUnique();
+        mb.Entity<JournalistProfile>().HasIndex(x => x.UserId).IsUnique();
+
+        // Bình luận video — FK tới Video (xóa video -> xóa bình luận). KHÔNG cấu hình self-FK cho ParentId (giữ phẳng, tránh đệ quy).
+        mb.Entity<VideoComment>()
+            .HasOne(c => c.Video).WithMany().HasForeignKey(c => c.VideoId).OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<VideoComment>().HasIndex(c => c.VideoId);
     }
 }

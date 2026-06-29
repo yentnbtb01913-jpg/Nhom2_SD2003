@@ -227,3 +227,11 @@ public class JournalistLoginViewModel
     public string Password { get; set; } = "";
     public string Error { get; set; } = "";
 }
+public class VideoCommentRequest
+{
+    public int VideoId { get; set; }
+    public int? ParentId { get; set; }
+    public string Name { get; set; } = "";
+    public string? Email { get; set; }
+    public string Content { get; set; } = "";
+}

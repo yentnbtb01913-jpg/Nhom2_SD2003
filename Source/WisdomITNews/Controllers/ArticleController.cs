@@ -39,7 +39,7 @@ public class ArticleController : Controller
         if (string.IsNullOrEmpty(slug)) return RedirectToAction("Index", "Home");
 
         var article = await _db.Articles
-            .Include(a => a.Category).Include(a => a.Author)
+            .Include(a => a.Category).Include(a => a.Author).Include(a => a.AuthorUser)
             .FirstOrDefaultAsync(a => a.Slug == slug && a.Status == "published");
 
         if (article == null) return NotFound();
@@ -116,6 +116,9 @@ public class ArticleController : Controller
         var hubUserId = HttpContext.Session.GetInt32("UserId");
         ViewBag.CanSave = hubUserId != null;
         ViewBag.IsSaved = hubUserId != null && await _db.SavedArticles.AnyAsync(s => s.UserId == hubUserId.Value && s.ArticleId == article.Id);
+        ViewBag.AuthorProfile = article.AuthorUserId != null
+            ? await _db.JournalistProfiles.FirstOrDefaultAsync(jp => jp.UserId == article.AuthorUserId.Value)
+            : null;
 
         return View(new ArticleViewModel
         {

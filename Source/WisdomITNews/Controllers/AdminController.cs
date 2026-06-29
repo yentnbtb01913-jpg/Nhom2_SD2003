@@ -957,20 +957,156 @@ public class AdminController : Controller
     }
 
     // ===================== ĐỐI TÁC: QUẢN LÝ NHÀ BÁO (admin + quản lý) =====================
-    public async Task<IActionResult> Partners()
+    public async Task<IActionResult> Partners(string filter = "all", string q = "")
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
-        var journalists = await _db.Users
-            .Where(u => u.Role == "Journalist")
-            .OrderByDescending(u => u.CreatedAt)
-            .ToListAsync();
+        var query = _db.Users.Where(u => u.Role == "Journalist");
+        if (filter == "deleted") query = query.Where(u => u.IsDeleted);
+        else
+        {
+            query = query.Where(u => !u.IsDeleted);
+            if (filter == "active") query = query.Where(u => u.IsActive);
+            else if (filter == "inactive") query = query.Where(u => !u.IsActive);
+        }
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var k = q.Trim().ToLower();
+            query = query.Where(u => u.FullName.ToLower().Contains(k) || u.Email.ToLower().Contains(k) || u.Username.ToLower().Contains(k));
+        }
+        var journalists = await query.OrderByDescending(u => u.CreatedAt).ToListAsync();
         var ids = journalists.Select(u => u.Id).ToList();
         ViewBag.ArticleCounts = await _db.Articles
             .Where(a => a.AuthorUserId != null && ids.Contains(a.AuthorUserId.Value))
             .GroupBy(a => a.AuthorUserId!.Value)
             .Select(g => new { Id = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Id, x => x.Count);
+        ViewBag.Profiles = await _db.JournalistProfiles.Where(pr => ids.Contains(pr.UserId)).ToDictionaryAsync(pr => pr.UserId, pr => pr);
+        ViewBag.Filter = filter; ViewBag.Q = q;
         return View(journalists);
+    }
+
+    // ====== THÊM / SỬA / XEM / XÓA MỀM / KHÔI PHỤC NHÀ BÁO ======
+    [HttpGet]
+    public async Task<IActionResult> CreateJournalist()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        ViewBag.Categories = await _db.Categories.OrderBy(c => c.SortOrder).ToListAsync();
+        ViewBag.Profile = new JournalistProfile();
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateJournalist(string fullName, string username, string email, string password, string? bio, IFormFile? avatarFile, JournalistProfile profile)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        ViewBag.Categories = await _db.Categories.OrderBy(c => c.SortOrder).ToListAsync();
+        ViewBag.Profile = profile;
+        ViewBag.FullName = fullName; ViewBag.Username = username; ViewBag.Email = email;
+        if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        { ViewBag.Error = "Vui lòng điền họ tên, tên đăng nhập, email và mật khẩu."; return View(); }
+        var uname = username.Trim().ToLowerInvariant(); var mail = email.Trim().ToLowerInvariant();
+        if (await _db.Users.AnyAsync(u => u.Username == uname)) { ViewBag.Error = "Tên đăng nhập đã tồn tại."; return View(); }
+        if (await _db.Users.AnyAsync(u => u.Email == mail)) { ViewBag.Error = "Email đã được dùng."; return View(); }
+
+        var user = new User
+        {
+            Username = uname, Email = mail, FullName = fullName.Trim(),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            Role = "Journalist", IsActive = true, IsEmailConfirmed = true, IsDeleted = false, CreatedAt = DateTime.Now,
+            Bio = string.IsNullOrWhiteSpace(bio) ? null : bio.Trim()
+        };
+        if (avatarFile != null && avatarFile.Length > 0)
+        {
+            var up = await _imageUpload.SaveAsync(avatarFile);
+            if (up.Success) user.AvatarUrl = up.RelativePath;
+        }
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+
+        profile.UserId = user.Id; profile.CreatedAt = DateTime.Now; profile.UpdatedAt = DateTime.Now;
+        _db.JournalistProfiles.Add(profile);
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã thêm nhà báo mới.";
+        return RedirectToAction("Partners");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> EditJournalist(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id && u.Role == "Journalist");
+        if (user == null) return RedirectToAction("Partners");
+        ViewBag.Profile = await _db.JournalistProfiles.FirstOrDefaultAsync(p => p.UserId == id) ?? new JournalistProfile { UserId = id };
+        ViewBag.Categories = await _db.Categories.OrderBy(c => c.SortOrder).ToListAsync();
+        ViewBag.ArticleCount = await _db.Articles.CountAsync(a => a.AuthorUserId == id);
+        ViewBag.TotalViews = await _db.Articles.Where(a => a.AuthorUserId == id).SumAsync(a => (int?)a.Views) ?? 0;
+        return View(user);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditJournalist(int id, string fullName, string email, string? bio, IFormFile? avatarFile, JournalistProfile profile)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id && u.Role == "Journalist");
+        if (user == null) return RedirectToAction("Partners");
+        if (!string.IsNullOrWhiteSpace(fullName)) user.FullName = fullName.Trim();
+        if (!string.IsNullOrWhiteSpace(email)) user.Email = email.Trim().ToLowerInvariant();
+        user.Bio = string.IsNullOrWhiteSpace(bio) ? null : bio.Trim();
+        if (avatarFile != null && avatarFile.Length > 0)
+        {
+            var up = await _imageUpload.SaveAsync(avatarFile);
+            if (up.Success) user.AvatarUrl = up.RelativePath;
+        }
+        var ex = await _db.JournalistProfiles.FirstOrDefaultAsync(pr => pr.UserId == id);
+        if (ex == null) { profile.UserId = id; profile.CreatedAt = DateTime.Now; profile.UpdatedAt = DateTime.Now; _db.JournalistProfiles.Add(profile); }
+        else
+        {
+            ex.PenName = profile.PenName; ex.Gender = profile.Gender; ex.DateOfBirth = profile.DateOfBirth; ex.Nationality = profile.Nationality;
+            ex.Address = profile.Address; ex.City = profile.City; ex.Country = profile.Country; ex.Phone = profile.Phone;
+            ex.Facebook = profile.Facebook; ex.LinkedIn = profile.LinkedIn; ex.Twitter = profile.Twitter; ex.Website = profile.Website;
+            ex.Zalo = profile.Zalo; ex.Telegram = profile.Telegram; ex.JobTitle = profile.JobTitle; ex.Organization = profile.Organization;
+            ex.AssignedCategory = profile.AssignedCategory; ex.YearsExperience = profile.YearsExperience; ex.PressCardNo = profile.PressCardNo;
+            ex.PressCardIssued = profile.PressCardIssued; ex.PressCardExpiry = profile.PressCardExpiry; ex.Expertise = profile.Expertise;
+            ex.InternalNote = profile.InternalNote; ex.UpdatedAt = DateTime.Now;
+        }
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã cập nhật hồ sơ nhà báo.";
+        return RedirectToAction("Partners");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> JournalistDetail(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id && u.Role == "Journalist");
+        if (user == null) return RedirectToAction("Partners");
+        ViewBag.Profile = await _db.JournalistProfiles.FirstOrDefaultAsync(p => p.UserId == id);
+        ViewBag.ArticleCount = await _db.Articles.CountAsync(a => a.AuthorUserId == id);
+        ViewBag.TotalViews = await _db.Articles.Where(a => a.AuthorUserId == id).SumAsync(a => (int?)a.Views) ?? 0;
+        ViewBag.RecentArticles = await _db.Articles.Include(a => a.Category).Where(a => a.AuthorUserId == id).OrderByDescending(a => a.CreatedAt).Take(10).ToListAsync();
+        return View(user);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SoftDeleteJournalist(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var u = await _db.Users.FindAsync(id);
+        if (u == null || u.Role != "Journalist") return Json(new { success = false });
+        u.IsDeleted = true; await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RestoreJournalist(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var u = await _db.Users.FindAsync(id);
+        if (u == null || u.Role != "Journalist") return Json(new { success = false });
+        u.IsDeleted = false; await _db.SaveChangesAsync();
+        return Json(new { success = true });
     }
 
     [HttpPost]
@@ -996,10 +1132,17 @@ public class AdminController : Controller
     }
 
 // ===== ĐĂNG VIDEO (YouTube / Upload) =====
-    public async Task<IActionResult> Videos()
+    public async Task<IActionResult> Videos(string q = "")
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
-        var list = await _db.Videos.OrderByDescending(v => v.CreatedAt).ToListAsync();
+        var query = _db.Videos.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var k = q.Trim().ToLower();
+            query = query.Where(v => v.Title.ToLower().Contains(k) || (v.Source != null && v.Source.ToLower().Contains(k)));
+        }
+        var list = await query.OrderByDescending(v => v.CreatedAt).ToListAsync();
+        ViewBag.Q = q;
         return View(list);
     }
 

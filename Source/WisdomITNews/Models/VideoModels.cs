@@ -78,3 +78,22 @@ public static class YouTubeHelper
         return m.Success ? m.Groups[1].Value : null;
     }
 }
+
+// ===== Bình luận video (PHẲNG — KHÔNG đệ quy; chỉ cho trả lời 1 cấp) =====
+// ParentId = null  -> bình luận gốc
+// ParentId có giá trị -> là 1 trả lời, luôn trỏ tới bình luận GỐC (controller ép về gốc nên không bao giờ quá 1 cấp)
+public class VideoComment
+{
+    public int Id { get; set; }
+    public int VideoId { get; set; }
+    public int? ParentId { get; set; }
+    public string AuthorName { get; set; } = "";
+    public string? AuthorEmail { get; set; }
+    public string Content { get; set; } = "";
+    public int? UserId { get; set; }
+    public string Status { get; set; } = "published"; // published / rejected (hiện ngay sau khi AI lọc)
+    public int Likes { get; set; } = 0;
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public Video? Video { get; set; }
+}

@@ -2,13 +2,21 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WisdomITNews.Data;
 using WisdomITNews.Models;
+using WisdomITNews.Services;
 
 namespace WisdomITNews.Controllers;
 
 public class VideoController : Controller
 {
     private readonly AppDbContext _db;
-    public VideoController(AppDbContext db) { _db = db; }
+    private readonly AIService _ai;
+    private readonly ILogger<VideoController> _logger;
+    public VideoController(AppDbContext db, AIService ai, ILogger<VideoController> logger)
+    {
+        _db = db;
+        _ai = ai;
+        _logger = logger;
+    }
 
     private static VideoItem Map(Video v) => new VideoItem
     {
@@ -49,6 +57,10 @@ public class VideoController : Controller
                 .Where(x => x.Status == "published" && x.Id != id)
                 .OrderByDescending(x => x.PublishedAt).ToListAsync())
                 .Select(Map).ToList();
+            ViewBag.Comments = await _db.VideoComments
+                .Where(c => c.VideoId == id && c.Status == "published")
+                .OrderBy(c => c.CreatedAt)
+                .ToListAsync();
             return View(Map(v));
         }
 
@@ -58,6 +70,78 @@ public class VideoController : Controller
         sample.Views++;
         ViewData["Title"] = sample.Title;
         ViewBag.Others = VideoSampleData.Items.Where(x => x.Id != id).ToList();
+        ViewBag.Comments = new List<VideoComment>(); // video mẫu không lưu bình luận
         return View(sample);
+    }
+
+    // Gửi bình luận video (PHẲNG — chỉ trả lời 1 cấp). Hiện ngay sau khi AI lọc.
+    [HttpPost]
+    public async Task<IActionResult> PostVideoComment([FromBody] VideoCommentRequest req)
+    {
+        if (req == null || req.VideoId <= 0 || string.IsNullOrWhiteSpace(req.Content))
+            return BadRequest(new { success = false, message = "Thiếu nội dung bình luận" });
+
+        // chỉ cho bình luận trên video CÓ THẬT trong DB
+        var exists = await _db.Videos.AnyAsync(x => x.Id == req.VideoId);
+        if (!exists) return BadRequest(new { success = false, message = "Video không tồn tại" });
+
+        // Tên: ưu tiên thành viên đăng nhập, sau đó tới tên khách nhập vào
+        int? userId = null; string? sessionName = null;
+        try
+        {
+            userId = HttpContext.Session.GetInt32("UserId");
+            sessionName = HttpContext.Session.GetString("UserName");
+        }
+        catch { /* ignore */ }
+
+        var name = !string.IsNullOrWhiteSpace(sessionName) ? sessionName!.Trim()
+                 : (req.Name ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name)) name = "Khách";
+
+        // Ép trả lời về tối đa 1 cấp: nếu parent vốn đã là 1 trả lời thì gắn vào GỐC của nó
+        int? parentId = null;
+        if (req.ParentId.HasValue && req.ParentId.Value > 0)
+        {
+            var parent = await _db.VideoComments
+                .FirstOrDefaultAsync(c => c.Id == req.ParentId.Value && c.VideoId == req.VideoId);
+            if (parent != null)
+                parentId = parent.ParentId ?? parent.Id;
+        }
+
+        var c = new VideoComment
+        {
+            VideoId = req.VideoId,
+            ParentId = parentId,
+            AuthorName = name,
+            AuthorEmail = req.Email,
+            Content = req.Content.Trim(),
+            UserId = userId,
+            Status = "published"
+        };
+
+        // AI lọc nội dung — hiện ngay, chỉ ẩn nếu vi phạm; AI lỗi thì vẫn cho hiện
+        try
+        {
+            var mod = await _ai.ModerateContentAsync(c.Content);
+            if (mod.Score > 70) c.Status = "rejected";
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Moderate video comment failed"); }
+
+        _db.VideoComments.Add(c);
+        await _db.SaveChangesAsync();
+
+        if (c.Status == "rejected")
+            return Ok(new { success = false, status = "rejected",
+                            message = "Bình luận vi phạm quy định cộng đồng và đã bị từ chối." });
+
+        return Ok(new
+        {
+            success = true,
+            id = c.Id,
+            parentId = c.ParentId,
+            name = c.AuthorName,
+            content = c.Content,
+            initial = string.IsNullOrWhiteSpace(c.AuthorName) ? "?" : c.AuthorName.Substring(0, 1).ToUpper()
+        });
     }
 }

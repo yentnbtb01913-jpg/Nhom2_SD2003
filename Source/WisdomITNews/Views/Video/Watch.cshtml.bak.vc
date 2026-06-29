@@ -1,0 +1,100 @@
+@using WisdomITNews.Models
+@using WisdomITNews.Services
+@model WisdomITNews.Models.VideoItem
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = Model.Title;
+    var others = ViewBag.Others as List<VideoItem> ?? new List<VideoItem>();
+}
+
+<div class="bm-home container">
+    <div class="bm-grid">
+
+        <main class="bm-main">
+            <div class="bm-section">
+                <div class="bm-video-player">
+                    @if (Model.IsUpload && !string.IsNullOrEmpty(Model.VideoUrl))
+                    {
+                        <video src="@Model.VideoUrl" controls playsinline
+                               style="width:100%;height:100%;background:#000;object-fit:contain;"></video>
+                    }
+                    else
+                    {
+                        <iframe src="@(Model.EmbedUrl)?rel=0" title="@Model.Title"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen></iframe>
+                    }
+                </div>
+                <h1 class="bm-video-title">@Model.Title</h1>
+                <div class="bm-meta">
+                    <span class="bm-cat">@Model.Source</span>
+                    <span class="sep">·</span>
+                    <span>@SlugHelper.FormatDate(Model.PublishedAt)</span>
+                    <span class="sep">·</span>
+                    <span>@SlugHelper.FormatViews(Model.Views) lượt xem</span>
+                </div>
+                <p class="bm-desc" style="margin-top:10px;">
+                    @if (Model.IsUpload)
+                    {
+                        <text>Video được tải lên trực tiếp trên Wisdom IT News.</text>
+                    }
+                    else
+                    {
+                        <text>Video được nhúng từ nguồn ngoài (YouTube). Nội dung thuộc về nguồn gốc.</text>
+                    }
+                </p>
+            </div>
+            <a class="bm-more" href="/video"><i class="fa fa-arrow-left"></i> Về trang Video</a>
+        </main>
+
+        <aside class="bm-aside">
+            <div class="bm-widget">
+                <div class="bm-widget-head">Video khác</div>
+                <div class="bm-vsearch">
+                    <i class="fa fa-search"></i>
+                    <input type="text" placeholder="Tìm video..." oninput="filterVideos(this.value)" />
+                </div>
+                <div class="bm-video-others" id="videoOthers">
+                    @foreach (var v in others)
+                    {
+                        <div class="bm-list-item" data-vtitle="@v.Title @v.Source" onclick="location.href='/Video/Watch/@v.Id'">
+                            <div class="bm-thumb" style="width:130px;">
+                                @if (v.IsUpload && !string.IsNullOrEmpty(v.VideoUrl))
+                                {
+                                    <video src="@v.VideoUrl" muted preload="metadata" style="width:100%;height:100%;object-fit:cover;background:#000;"></video>
+                                }
+                                else
+                                {
+                                    <img src="@v.Thumbnail" alt="@v.Title" loading="lazy" />
+                                }
+                            </div>
+                            <div class="bm-it-body">
+                                <h4><a href="/Video/Watch/@v.Id">@v.Title</a></h4>
+                                <div class="bm-meta"><span class="bm-cat">@v.Source</span></div>
+                            </div>
+                        </div>
+                    }
+                    <div class="bm-vsearch-empty" style="display:none;padding:14px;color:var(--bm-muted);font-size:13px;">Không tìm thấy video phù hợp.</div>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function filterVideos(q) {
+            q = (q || '').trim().toLowerCase();
+            var any = false;
+            document.querySelectorAll('#videoOthers [data-vtitle]').forEach(function (el) {
+                var t = (el.getAttribute('data-vtitle') || '').toLowerCase();
+                var show = (q === '' || t.indexOf(q) >= 0);
+                el.style.display = show ? '' : 'none';
+                if (show) any = true;
+            });
+            var empty = document.querySelector('.bm-vsearch-empty');
+            if (empty) empty.style.display = any ? 'none' : 'block';
+        }
+    </script>
+}
