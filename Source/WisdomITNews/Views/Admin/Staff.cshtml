@@ -11,6 +11,12 @@
 @if (TempData["Err"] != null)
 { <div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Err"]</div> }
 
+<!-- Tìm kiếm nhân viên -->
+<div style="background:#fff;padding:14px;margin-bottom:16px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
+    <input type="text" id="searchInput" placeholder="🔍 Tìm kiếm theo tên, tên đăng nhập, email..." 
+           style="width:100%;padding:10px 14px;border:1px solid #d1d5db;font-size:14px;border-radius:6px;" />
+</div>
+
 <div style="background:#fff;border-radius:6px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap;">
         <thead>
@@ -26,10 +32,10 @@
                 <th style="padding:10px 8px;"></th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="staffTable">
             @foreach (var a in Model)
             {
-                <tr style="border-bottom:1px solid #f0f2f5;">
+                <tr style="border-bottom:1px solid #f0f2f5;" data-name="@a.FullName.ToLower()" data-username="@a.Username.ToLower()" data-email="@a.Email.ToLower()">
                     <td style="padding:10px 8px;font-weight:700;color:#0e7d85;">NV@(a.Id.ToString("D3"))</td>
                     <td style="padding:10px 8px;font-weight:600;">@a.FullName</td>
                     <td style="padding:10px 8px;color:#6c757d;">@a.Username</td>
@@ -58,6 +64,24 @@
 
 @section Scripts {
 <script>
+    // Realtime search filter
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        const search = e.target.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#staffTable tr');
+        
+        rows.forEach(row => {
+            const name = row.getAttribute('data-name') || '';
+            const username = row.getAttribute('data-username') || '';
+            const email = row.getAttribute('data-email') || '';
+            
+            if (name.includes(search) || username.includes(search) || email.includes(search)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
     async function toggleStaff(id){
         if(!await confirmSwal('Đổi trạng thái khoá/mở nhân viên này?')) return;
         const r = await fetch('/admin/ToggleStaffActive/'+id, { method:'POST' });

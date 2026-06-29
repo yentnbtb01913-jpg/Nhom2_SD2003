@@ -1,4 +1,7 @@
 @{
+    var isEdit = ViewBag.IsEdit != null && (bool)ViewBag.IsEdit;
+    var video = ViewBag.Video as WisdomITNews.Models.Video;
+    
     var url = ViewBag.YoutubeUrl as string ?? "";
     var vtitle = ViewBag.VTitle as string ?? "";
     var src = ViewBag.Source as string ?? "";
@@ -6,10 +9,20 @@
     var videoType = ViewBag.VideoType as string ?? "youtube";
     var formAction = ViewBag.FormAction as string ?? "";
     var backUrl = ViewBag.BackUrl as string ?? "#";
+    
+    // If edit mode, populate from video object
+    if (isEdit && video != null)
+    {
+        url = video.VideoType == "youtube" ? $"https://youtu.be/{video.YouTubeId}" : "";
+        vtitle = video.Title ?? "";
+        src = video.Source ?? "";
+        desc = video.Description ?? "";
+        videoType = video.VideoType ?? "youtube";
+    }
 }
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
     <a href="@backUrl" style="background:#f0f2f5;color:#3d3d3d;padding:9px 16px;border-radius:6px;font-size:14px;text-decoration:none;"><i class="fa fa-arrow-left"></i> Quay lại</a>
-    <h1 style="font-size:22px;font-weight:700;">Đăng video</h1>
+    <h1 style="font-size:22px;font-weight:700;">@(isEdit ? "Sửa video" : "Đăng video")</h1>
 </div>
 @if (ViewBag.Error != null)
 {
@@ -38,7 +51,7 @@
         </div>
 
         <div id="sectionUpload" style="margin-bottom:14px;display:none;">
-            <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;">File video *</label>
+            <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;">File video @(isEdit ? "(để trống nếu không đổi)" : "*")</label>
             <input id="videoFile" name="videoFile" type="file" accept=".mp4,.webm,.mov" onchange="updateFilePreview()"
                    style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;" />
             <div style="font-size:12px;color:#9ca3af;margin-top:6px;">Chấp nhận .mp4, .webm, .mov — tối đa 500MB.</div>
@@ -55,11 +68,11 @@
 
         <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;">Trạng thái</label>
         <select name="status" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;margin-bottom:18px;">
-            <option value="published">Xuất bản</option>
-            <option value="draft">Nháp</option>
+            <option value="published" selected="@(isEdit && video != null && video.Status == "published")">Xuất bản</option>
+            <option value="draft" selected="@(isEdit && video != null && video.Status == "draft")">Nháp</option>
         </select>
 
-        <button type="submit" style="background:#0e7d85;color:#fff;border:none;padding:11px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;"><i class="fa fa-paper-plane"></i> Đăng video</button>
+        <button type="submit" style="background:#0e7d85;color:#fff;border:none;padding:11px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;"><i class="fa fa-paper-plane"></i> @(isEdit ? "Cập nhật video" : "Đăng video")</button>
     </div>
 
     <div style="background:#fff;border:1px solid #eef1f3;border-radius:10px;padding:18px;">
@@ -78,7 +91,7 @@
         document.getElementById('sectionYoutube').style.display = upload ? 'none' : 'block';
         document.getElementById('sectionUpload').style.display = upload ? 'block' : 'none';
         document.getElementById('ytUrl').required = !upload;
-        document.getElementById('videoFile').required = upload;
+        document.getElementById('videoFile').required = upload && !@isEdit.ToString().ToLower();
         if(upload){ document.getElementById('previewFrame').style.display='none'; updateFilePreview(); }
         else { document.getElementById('previewVideo').style.display='none'; updatePreview(); }
     }

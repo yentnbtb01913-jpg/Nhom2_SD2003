@@ -1,0 +1,8 @@
+@{
+    ViewData["Title"] = "Sửa video";
+    Layout = "_AdminLayout";
+    ViewBag.FormAction = "/admin/EditVideo/@ViewBag.Video.Id";
+    ViewBag.BackUrl = "/admin/Videos";
+    ViewBag.IsEdit = true;
+}
+@await Html.PartialAsync("_CreateVideoFormPartial")

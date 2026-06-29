@@ -1009,6 +1009,97 @@ public class AdminController : Controller
         return View();
     }
 
+    public async Task<IActionResult> EditVideo(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var video = await _db.Videos.FindAsync(id);
+        if (video == null) return RedirectToAction("Videos");
+        
+        ViewBag.Video = video;
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(VideoUploadService.MaxSize)]
+    [RequestFormLimits(MultipartBodyLengthLimit = VideoUploadService.MaxSize)]
+    public async Task<IActionResult> EditVideo(
+        int id,
+        string videoType,
+        string? youtubeUrl,
+        string title,
+        string? source,
+        string? description,
+        string status = "published",
+        IFormFile? videoFile = null)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+
+        var video = await _db.Videos.FindAsync(id);
+        if (video == null) return RedirectToAction("Videos");
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            ViewBag.Video = video;
+            ViewBag.Error = "Vui lòng nhập tiêu đề.";
+            return View();
+        }
+
+        var isUpload = videoType == "upload";
+
+        if (isUpload)
+        {
+            if (videoFile != null && videoFile.Length > 0)
+            {
+                // Delete old file if exists
+                if (video.VideoType == "upload" && !string.IsNullOrEmpty(video.VideoUrl))
+                {
+                    _videoUpload.DeletePhysicalFile(video.VideoUrl);
+                }
+                
+                var upload = await _videoUpload.SaveAsync(videoFile);
+                if (!upload.Success)
+                {
+                    ViewBag.Video = video;
+                    ViewBag.Error = upload.Error ?? "Lỗi upload video.";
+                    return View();
+                }
+                video.VideoUrl = upload.RelativePath;
+                video.FileSize = upload.FileSize;
+                video.VideoType = "upload";
+                video.YouTubeId = "";
+            }
+        }
+        else
+        {
+            var vid = YouTubeHelper.ExtractId(youtubeUrl);
+            if (string.IsNullOrEmpty(vid))
+            {
+                ViewBag.Video = video;
+                ViewBag.Error = "Vui lòng nhập link YouTube hợp lệ.";
+                return View();
+            }
+            video.YouTubeId = vid;
+            video.VideoType = "youtube";
+            // Delete old file if switching from upload to youtube
+            if (video.VideoType == "upload" && !string.IsNullOrEmpty(video.VideoUrl))
+            {
+                _videoUpload.DeletePhysicalFile(video.VideoUrl);
+                video.VideoUrl = null;
+                video.FileSize = null;
+            }
+        }
+
+        video.Title = title.Trim();
+        video.Source = string.IsNullOrWhiteSpace(source) ? null : source.Trim();
+        video.Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        video.Status = status == "draft" ? "draft" : "published";
+
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã cập nhật video.";
+        return RedirectToAction("Videos");
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(VideoUploadService.MaxSize)]
