@@ -878,6 +878,7 @@ public class AdminController : Controller
             Gender = string.IsNullOrWhiteSpace(gender) ? null : gender.Trim(),
             Address = string.IsNullOrWhiteSpace(address) ? null : address.Trim(),
             IsActive = true,
+            EmploymentStatus = "working",
             CreatedAt = DateTime.Now
         });
         await _db.SaveChangesAsync();
@@ -922,22 +923,33 @@ public class AdminController : Controller
         return RedirectToAction("Staff");
     }
 
+    // Đổi trạng thái nhân viên (4 mã) — thay cho khoá/mở cũ.
+    // IsActive tự đồng bộ: chỉ "working" (Đang làm việc) mới đăng nhập được.
     [HttpPost]
-    public async Task<IActionResult> ToggleStaffActive(int id)
+    public async Task<IActionResult> SetStaffStatus(int id, string status)
     {
         if (!IsLoggedIn) return Json(new { success = false });
         if (!IsSuperAdmin) return Json(new { success = false, message = "Không đủ quyền." });
+
+        var valid = new[] { "working", "on_leave", "resigned", "terminated" };
+        if (string.IsNullOrWhiteSpace(status) || !valid.Contains(status))
+            return Json(new { success = false, message = "Trạng thái không hợp lệ." });
+
         var staff = await _db.Admins.FindAsync(id);
         if (staff == null) return Json(new { success = false });
-        if (staff.Id == AdminId) return Json(new { success = false, message = "Không thể tự khoá chính mình." });
-        if (staff.IsActive && staff.Role == "superadmin")
+        if (staff.Id == AdminId) return Json(new { success = false, message = "Không thể tự đổi trạng thái của chính mình." });
+
+        // Không cho Super Admin đang làm việc cuối cùng chuyển sang trạng thái nghỉ
+        if (staff.Role == "superadmin" && status != "working")
         {
-            var superCount = await _db.Admins.CountAsync(a => a.Role == "superadmin" && a.IsActive);
-            if (superCount <= 1) return Json(new { success = false, message = "Không thể khoá Super Admin cuối cùng." });
+            var superWorking = await _db.Admins.CountAsync(a => a.Role == "superadmin" && a.IsActive);
+            if (superWorking <= 1) return Json(new { success = false, message = "Không thể cho Super Admin cuối cùng nghỉ." });
         }
-        staff.IsActive = !staff.IsActive;
+
+        staff.EmploymentStatus = status;
+        staff.IsActive = (status == "working"); // đồng bộ cổng đăng nhập
         await _db.SaveChangesAsync();
-        return Json(new { success = true, active = staff.IsActive });
+        return Json(new { success = true, status = staff.EmploymentStatus, active = staff.IsActive });
     }
 
     [HttpPost]

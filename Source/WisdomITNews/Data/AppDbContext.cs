@@ -77,6 +77,7 @@ public class AppDbContext : DbContext
         mb.Entity<Category>().HasIndex(c => c.Slug).IsUnique();
         mb.Entity<Tag>().HasIndex(t => t.Slug).IsUnique();
         mb.Entity<Admin>().HasIndex(a => a.Username).IsUnique();
+        mb.Entity<Admin>().Property(a => a.EmploymentStatus).HasDefaultValue("working");
         mb.Entity<NewsletterSubscriber>().HasIndex(n => n.Email).IsUnique();
         mb.Entity<User>().HasIndex(u => u.Username).IsUnique();
         mb.Entity<User>().HasIndex(u => u.Email).IsUnique();

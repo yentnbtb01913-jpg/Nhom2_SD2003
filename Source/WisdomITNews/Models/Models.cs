@@ -14,6 +14,7 @@ public class Admin
     public string? Address { get; set; }
     public string Role { get; set; } = "editor";
     public bool IsActive { get; set; } = true;
+    public string EmploymentStatus { get; set; } = "working"; // working / on_leave / resigned / terminated
     public DateTime? LastLogin { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 

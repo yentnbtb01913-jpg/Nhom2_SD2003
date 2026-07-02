@@ -1,5 +1,19 @@
 @model List<WisdomITNews.Models.Admin>
-@{ ViewData["Title"] = "Quản lý nhân viên"; Layout = "_AdminLayout"; }
+@{
+    ViewData["Title"] = "Quản lý nhân viên";
+    Layout = "_AdminLayout";
+    var stLabel = new Dictionary<string, string> { ["working"] = "Đang làm việc", ["on_leave"] = "Tạm nghỉ", ["resigned"] = "Đã nghỉ", ["terminated"] = "Thôi việc" };
+    var stBg    = new Dictionary<string, string> { ["working"] = "#dcfce7", ["on_leave"] = "#fef9c3", ["resigned"] = "#f3f4f6", ["terminated"] = "#fee2e2" };
+    var stFg    = new Dictionary<string, string> { ["working"] = "#16a34a", ["on_leave"] = "#ca8a04", ["resigned"] = "#6b7280", ["terminated"] = "#dc2626" };
+    var stOrder = new[] { "working", "on_leave", "resigned", "terminated" };
+}
+@functions {
+    string Norm(string? s)
+    {
+        var v = (s ?? "").Trim();
+        return (v == "working" || v == "on_leave" || v == "resigned" || v == "terminated") ? v : "working";
+    }
+}
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
     <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-user-shield" style="color:#159aa3;"></i> Quản lý nhân viên</h1>
@@ -48,13 +62,18 @@
                     <td style="padding:10px 8px;color:#6c757d;">@a.Email</td>
                     <td style="padding:10px 8px;color:#6c757d;max-width:200px;overflow:hidden;text-overflow:ellipsis;">@(string.IsNullOrWhiteSpace(a.Address) ? "—" : a.Address)</td>
                     <td style="padding:10px 8px;">
-                        <span id="st-@a.Id" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(a.IsActive?"#dcfce7":"#fee2e2");color:@(a.IsActive?"#16a34a":"#dc2626");">
-                            @(a.IsActive ? "Đang hoạt động" : "Đã khoá")
+                        <span id="st-@a.Id" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@stBg[Norm(a.EmploymentStatus)];color:@stFg[Norm(a.EmploymentStatus)];">
+                            @stLabel[Norm(a.EmploymentStatus)]
                         </span>
                     </td>
-                    <td style="padding:10px 8px;">
-                        <a href="/admin/EditStaff/@a.Id" style="background:#159aa3;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
-                        <button onclick="toggleStaff(@a.Id)" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;padding:5px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-lock"></i></button>
+                    <td style="padding:10px 8px;white-space:nowrap;">
+                        <a href="/admin/EditStaff/@a.Id" title="Sửa thông tin" style="background:#159aa3;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
+                        <select onchange="changeStatus(@a.Id, this)" data-prev="@Norm(a.EmploymentStatus)" title="Đổi trạng thái làm việc" style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:5px;font-size:12px;cursor:pointer;">
+                            @foreach (var code in stOrder)
+                            {
+                                <option value="@code" selected="@(Norm(a.EmploymentStatus) == code)">@stLabel[code]</option>
+                            }
+                        </select>
                     </td>
                 </tr>
             }
@@ -82,11 +101,27 @@
         });
     });
 
-    async function toggleStaff(id){
-        if(!await confirmSwal('Đổi trạng thái khoá/mở nhân viên này?')) return;
-        const r = await fetch('/admin/ToggleStaffActive/'+id, { method:'POST' });
+    const ST_LABEL = { working:'Đang làm việc', on_leave:'Tạm nghỉ', resigned:'Đã nghỉ', terminated:'Thôi việc' };
+    const ST_BG    = { working:'#dcfce7', on_leave:'#fef9c3', resigned:'#f3f4f6', terminated:'#fee2e2' };
+    const ST_FG    = { working:'#16a34a', on_leave:'#ca8a04', resigned:'#6b7280', terminated:'#dc2626' };
+
+    async function changeStatus(id, sel){
+        const status = sel.value;
+        const prev = sel.getAttribute('data-prev');
+        if(status === prev) return;
+        if(!await confirmSwal('Đổi trạng thái nhân viên thành "' + ST_LABEL[status] + '"?')){ sel.value = prev; return; }
+        const fd = new FormData(); fd.append('id', id); fd.append('status', status);
+        const r = await fetch('/admin/SetStaffStatus', { method:'POST', body: fd });
         const d = await r.json();
-        if(d.success){ location.reload(); } else { Swal.fire(d.message || 'Không thực hiện được'); }
+        if(d.success){
+            sel.setAttribute('data-prev', status);
+            const badge = document.getElementById('st-' + id);
+            if(badge){ badge.textContent = ST_LABEL[status]; badge.style.background = ST_BG[status]; badge.style.color = ST_FG[status]; }
+            swalToast('success','Đã cập nhật trạng thái');
+        } else {
+            sel.value = prev;
+            Swal.fire(d.message || 'Không cập nhật được');
+        }
     }
 </script>
 }
