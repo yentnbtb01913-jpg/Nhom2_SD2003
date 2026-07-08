@@ -54,6 +54,7 @@
         }
         <form method="post" action="/Account/Login" autocomplete="off">
             @Html.AntiForgeryToken()
+            <input type="hidden" name="returnUrl" value="@(ViewBag.ReturnUrl as string)" />
             <label>Tên đăng nhập hoặc email</label>
             <input type="text" name="UsernameOrEmail" value="@Model.UsernameOrEmail" placeholder="username hoặc email" required />
             <label>Mật khẩu</label>

@@ -1,0 +1,56 @@
+@using WisdomITNews.Models
+@model NewsletterSubscriber
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Chi tiết khách hàng";
+    var emails = ViewBag.Emails as List<NewsletterEmailLog> ?? new List<NewsletterEmailLog>();
+}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <a href="/admin/Customers" style="color:#6c757d;text-decoration:none;"><i class="fa fa-arrow-left"></i></a>
+        <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-user" style="color:#159aa3;"></i> Chi tiết khách hàng</h1>
+    </div>
+    <a href="/admin/EditCustomer/@Model.Id" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-pen"></i> Sửa</a>
+</div>
+
+@if (TempData["Ok"] != null)
+{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+
+<div style="background:#fff;border-radius:8px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:16px;">
+    <div style="display:grid;grid-template-columns:160px 1fr;gap:10px 14px;font-size:14px;">
+        <div style="color:#6c757d;">Họ tên</div><div style="font-weight:600;">@(string.IsNullOrWhiteSpace(Model.FullName) ? "—" : Model.FullName)</div>
+        <div style="color:#6c757d;">Email</div><div>@Model.Email</div>
+        <div style="color:#6c757d;">Số điện thoại</div><div>@(string.IsNullOrWhiteSpace(Model.Phone) ? "—" : Model.Phone)</div>
+        <div style="color:#6c757d;">Danh mục quan tâm</div><div>@(string.IsNullOrWhiteSpace(Model.InterestedCategory) ? "—" : Model.InterestedCategory)</div>
+        <div style="color:#6c757d;">Nguồn đăng ký</div><div>@(string.IsNullOrWhiteSpace(Model.Source) ? "—" : Model.Source)</div>
+        <div style="color:#6c757d;">Trạng thái</div><div>@(Model.Status == "active" ? "Đang nhận email" : "Đã hủy")</div>
+        <div style="color:#6c757d;">Ngày đăng ký</div><div>@Model.SubscribedAt.ToString("dd/MM/yyyy HH:mm")</div>
+    </div>
+</div>
+
+<div style="background:#fff;border-radius:8px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:14px;color:#0e7d85;"><i class="fa fa-envelope"></i> Lịch sử email đã gửi (@emails.Count)</h3>
+    @if (!emails.Any())
+    {
+        <p style="color:#94a3b8;font-size:13px;">Chưa gửi email nào cho khách hàng này.</p>
+    }
+    else
+    {
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="border-bottom:2px solid #f0f2f5;color:#6c757d;text-align:left;">
+                <th style="padding:8px;">Tiêu đề</th><th style="padding:8px;">Nhóm gửi</th><th style="padding:8px;">Kết quả</th><th style="padding:8px;">Thời gian</th>
+            </tr></thead>
+            <tbody>
+                @foreach (var e in emails)
+                {
+                    <tr style="border-bottom:1px solid #f0f2f5;">
+                        <td style="padding:8px;font-weight:600;">@e.Subject</td>
+                        <td style="padding:8px;color:#6c757d;">@e.Segment</td>
+                        <td style="padding:8px;">@if (e.IsSuccess) {<span style="color:#16a34a;font-weight:700;">Thành công</span>} else {<span style="color:#dc2626;font-weight:700;" title="@e.Error">Thất bại</span>}</td>
+                        <td style="padding:8px;color:#6c757d;">@e.SentAt.ToString("HH:mm dd/MM/yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

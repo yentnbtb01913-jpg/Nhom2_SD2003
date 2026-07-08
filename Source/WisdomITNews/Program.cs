@@ -13,6 +13,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<AIService>();
+builder.Services.Configure<WisdomITNews.Models.AiOptions>(builder.Configuration.GetSection("AI"));
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<WeatherService>();
@@ -20,6 +21,10 @@ builder.Services.AddScoped<ImageUploadService>();
 builder.Services.AddScoped<VideoUploadService>();
 builder.Services.AddScoped<NewsImportService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<PodcastService>();
+builder.Services.AddScoped<EmailConfirmationService>();
+builder.Services.AddHostedService<WisdomITNews.Services.SubscriptionBackgroundService>();
+builder.Services.AddHostedService<WisdomITNews.Services.AutoImportBackgroundService>();
 builder.Services.AddSignalR();
 builder.Services.AddSession(opt =>
 {
@@ -83,6 +88,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHub<WisdomITNews.Hubs.ChatHub>("/chatHub");
+app.MapHub<WisdomITNews.Hubs.AdChatHub>("/adChatHub");
+app.MapHub<WisdomITNews.Hubs.TeamChatHub>("/teamChatHub");
 app.MapHub<WisdomITNews.Hubs.NotificationHub>("/hubs/notification");
 app.MapControllerRoute(name: "article",   pattern: "bai-viet/{slug}",    defaults: new { controller = "Article",  action = "Detail" });
 app.MapControllerRoute(name: "category",  pattern: "danh-muc/{slug?}",   defaults: new { controller = "Home",     action = "Category" });

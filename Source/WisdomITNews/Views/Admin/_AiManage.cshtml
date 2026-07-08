@@ -1,0 +1,85 @@
+@using WisdomITNews.Models
+@{
+    var categories  = ViewBag.Categories  as List<Category> ?? new();
+    var mappings    = ViewBag.Mappings     as List<CategoryMapping> ?? new();
+    var recentArts  = ViewBag.RecentArts   as List<Article> ?? new();
+    var corrections = ViewBag.Corrections  as List<AiCategoryCorrectionLog> ?? new();
+    string CatOptions(int? selected) => string.Join("", categories.Select(c =>
+        $"<option value=\"{c.Id}\"{(c.Id == selected ? " selected" : "")}>{System.Net.WebUtility.HtmlEncode(c.Name)}</option>"));
+}
+
+<!-- 1. ÁNH XẠ DANH MỤC -->
+<div style="margin-bottom:20px;">
+  <div style="font-size:13px;font-weight:800;color:#159aa3;text-transform:uppercase;margin-bottom:10px;"><i class="fa fa-diagram-project"></i> Ánh xạ danh mục (AI → hệ thống)</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;">
+    <input type="text" id="mapLabel" placeholder="Nhãn AI nhận diện (vd: Công nghệ)" style="flex:1;min-width:200px;padding:8px 11px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
+    <span style="align-self:center;color:#94a3b8;"><i class="fa fa-arrow-right"></i></span>
+    <select id="mapCategory" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:180px;">
+      @foreach (var c in categories) { <option value="@c.Id">@c.Name</option> }
+    </select>
+    <button type="button" onclick="addMapping()" style="background:#16a34a;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;"><i class="fa fa-plus"></i> Thêm</button>
+  </div>
+  <div style="overflow-x:auto;border:1px solid #eef0f2;border-radius:8px;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="background:#f5f6f8;color:#6c757d;text-align:left;"><th style="padding:8px 12px;">Nhãn AI nhận diện</th><th style="padding:8px 12px;">Danh mục hệ thống</th><th style="padding:8px 12px;"></th></tr></thead>
+      <tbody>
+        @if (!mappings.Any()) { <tr><td colspan="3" style="padding:16px;text-align:center;color:#94a3b8;">Chưa có ánh xạ nào.</td></tr> }
+        @foreach (var m in mappings)
+        {
+          <tr style="border-top:1px solid #f0f2f5;">
+            <td style="padding:8px 12px;font-weight:600;">@m.AiLabel</td>
+            <td style="padding:8px 12px;"><span style="background:#e0f2fe;color:#0369a1;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;">@(m.Category?.Name ?? "—")</span></td>
+            <td style="padding:8px 12px;text-align:right;"><button type="button" onclick="deleteMapping(@m.Id)" style="background:#dc2626;color:#fff;border:none;padding:4px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i></button></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 2. SỬA PHÂN LOẠI BÀI (AI đã gán) -->
+<div style="margin-bottom:20px;">
+  <div style="font-size:13px;font-weight:800;color:#159aa3;text-transform:uppercase;margin-bottom:10px;"><i class="fa fa-wand-magic-sparkles"></i> Danh mục AI đã gán — sửa nếu sai</div>
+  <div style="overflow-x:auto;border:1px solid #eef0f2;border-radius:8px;max-height:300px;overflow-y:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+      <thead><tr style="background:#f5f6f8;color:#6c757d;text-align:left;"><th style="padding:8px 12px;">Tiêu đề</th><th style="padding:8px 12px;">Danh mục hiện tại</th><th style="padding:8px 12px;">Chọn lại</th></tr></thead>
+      <tbody>
+        @foreach (var a in recentArts)
+        {
+          <tr style="border-top:1px solid #f0f2f5;">
+            <td style="padding:8px 12px;max-width:340px;white-space:normal;"><a href="/bai-viet/@a.Slug" target="_blank" style="color:#1f2937;text-decoration:none;font-weight:600;">@a.Title</a></td>
+            <td style="padding:8px 12px;"><span style="background:#f0f2f5;color:#475569;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;">@(a.Category?.Name ?? "Chưa phân loại")</span></td>
+            <td style="padding:8px 12px;">
+              <select onchange="correctCategory(@a.Id, this.value)" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;min-width:160px;">
+                @Html.Raw(CatOptions(a.CategoryId))
+              </select>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 3. NHẬT KÝ CHỈNH SỬA -->
+<div>
+  <div style="font-size:13px;font-weight:800;color:#159aa3;text-transform:uppercase;margin-bottom:10px;"><i class="fa fa-list-check"></i> Nhật ký chỉnh sửa phân loại</div>
+  <div style="overflow-x:auto;border:1px solid #eef0f2;border-radius:8px;max-height:220px;overflow-y:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+      <thead><tr style="background:#f5f6f8;color:#6c757d;text-align:left;"><th style="padding:8px 12px;">Thời gian</th><th style="padding:8px 12px;">Người sửa</th><th style="padding:8px 12px;">Danh mục AI</th><th style="padding:8px 12px;"></th><th style="padding:8px 12px;">Sửa thành</th></tr></thead>
+      <tbody>
+        @if (!corrections.Any()) { <tr><td colspan="5" style="padding:16px;text-align:center;color:#94a3b8;">Chưa có chỉnh sửa nào.</td></tr> }
+        @foreach (var l in corrections)
+        {
+          <tr style="border-top:1px solid #f0f2f5;">
+            <td style="padding:8px 12px;color:#64748b;">@l.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+            <td style="padding:8px 12px;">@l.EditorName</td>
+            <td style="padding:8px 12px;color:#94a3b8;">@l.OldCategory</td>
+            <td style="padding:8px 12px;color:#159aa3;"><i class="fa fa-arrow-right"></i></td>
+            <td style="padding:8px 12px;font-weight:600;color:#16a34a;">@l.NewCategory</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

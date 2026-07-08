@@ -1,0 +1,132 @@
+@using WisdomITNews.Models
+@model WisdomITNews.Models.Admin
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Sửa hồ sơ nhân viên";
+    var p = ViewBag.Profile as StaffProfile ?? new StaffProfile();
+    var managers = ViewBag.Managers as List<Admin> ?? new List<Admin>();
+    string lbl = "display:block;font-weight:600;font-size:12.5px;margin-bottom:5px;color:#374151;";
+    string inp = "width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;";
+    string card = "background:#fff;border-radius:8px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:16px;";
+    string h3 = "font-size:15px;font-weight:800;margin-bottom:14px;color:#0e7d85;padding-bottom:8px;border-bottom:1px solid #f0f2f5;";
+    string col2 = "display:grid;grid-template-columns:1fr 1fr;gap:14px;";
+    string D(DateTime? d) => d.HasValue ? d.Value.ToString("yyyy-MM-dd") : "";
+}
+
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+    <a href="/admin/StaffDetail/@Model.Id" style="color:#6c757d;text-decoration:none;"><i class="fa fa-arrow-left"></i></a>
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-user-pen" style="color:#159aa3;"></i> Sửa hồ sơ nhân viên</h1>
+</div>
+
+<!-- Lưu ý -->
+<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#9a3412;">
+    <i class="fa fa-circle-info"></i> <b>Lưu ý:</b> CCCD/CMND/Hộ chiếu và thông tin liên hệ khẩn cấp là <b>dữ liệu nhạy cảm</b> — chỉ nhập khi cần và đảm bảo chính xác. Bấm <b>Lưu</b> để cập nhật, <b>Hủy</b> để bỏ qua thay đổi.
+</div>
+
+<!-- Ảnh đại diện (upload riêng) -->
+<div style="@card;display:flex;align-items:center;gap:18px;">
+    @if (!string.IsNullOrEmpty(p.Avatar))
+    {
+        <img id="staffAvatarPreview" src="@p.Avatar" style="width:80px;height:80px;border-radius:50%;object-fit:cover;" />
+    }
+    else
+    {
+        <div id="staffAvatarPreview" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#0e7d85,#159aa3);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:30px;">
+            @(string.IsNullOrWhiteSpace(Model.FullName) ? "?" : Model.FullName.Substring(0, 1).ToUpper())
+        </div>
+    }
+    <div>
+        <div style="font-weight:700;margin-bottom:6px;">Ảnh đại diện</div>
+        <input type="file" id="staffAvatarFile" accept="image/*" style="display:none;" onchange="uploadStaffAvatar(this)" />
+        <label for="staffAvatarFile" style="background:#159aa3;color:#fff;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;"><i class="fa fa-camera"></i> Đổi ảnh</label>
+        <div style="font-size:11px;color:#94a3b8;margin-top:5px;">jpg, png, webp — tối đa 5MB. Ảnh lưu ngay khi chọn.</div>
+    </div>
+</div>
+
+<form method="post" action="/admin/EditStaffProfile/@Model.Id">
+    <!-- 👤 Cá nhân -->
+    <div style="@card">
+        <div style="@h3">👤 Thông tin cá nhân</div>
+        <div style="@col2">
+            <div><label style="@lbl">Họ và tên *</label><input style="@inp" name="fullName" value="@Model.FullName" required /></div>
+            <div><label style="@lbl">Giới tính</label>
+                <select style="@inp" name="gender">
+                    <option value="">—</option>
+                    <option value="Nam" selected="@(Model.Gender == "Nam")">Nam</option>
+                    <option value="Nữ" selected="@(Model.Gender == "Nữ")">Nữ</option>
+                    <option value="Khác" selected="@(Model.Gender == "Khác")">Khác</option>
+                </select>
+            </div>
+            <div><label style="@lbl">Ngày sinh</label><input type="date" style="@inp" name="form.DateOfBirth" value="@D(p.DateOfBirth)" /></div>
+            <div><label style="@lbl">Nơi sinh</label><input style="@inp" name="form.PlaceOfBirth" value="@p.PlaceOfBirth" /></div>
+            <div><label style="@lbl">Quốc tịch</label><input style="@inp" name="form.Nationality" value="@p.Nationality" /></div>
+            <div><label style="@lbl">Tình trạng hôn nhân</label><input style="@inp" name="form.MaritalStatus" value="@p.MaritalStatus" placeholder="Độc thân / Đã kết hôn..." /></div>
+            <div><label style="@lbl">CCCD/CMND/Hộ chiếu</label><input style="@inp" name="form.IdNumber" value="@p.IdNumber" /></div>
+            <div><label style="@lbl">Ngày cấp</label><input type="date" style="@inp" name="form.IdIssueDate" value="@D(p.IdIssueDate)" /></div>
+            <div><label style="@lbl">Nơi cấp</label><input style="@inp" name="form.IdIssuePlace" value="@p.IdIssuePlace" /></div>
+        </div>
+    </div>
+
+    <!-- 📞 Liên hệ -->
+    <div style="@card">
+        <div style="@h3">📞 Thông tin liên hệ</div>
+        <div style="@col2">
+            <div><label style="@lbl">Email công ty</label><input type="email" style="@inp" name="email" value="@Model.Email" /></div>
+            <div><label style="@lbl">Email cá nhân</label><input type="email" style="@inp" name="form.PersonalEmail" value="@p.PersonalEmail" /></div>
+            <div><label style="@lbl">Số điện thoại</label><input style="@inp" name="form.Phone" value="@p.Phone" /></div>
+            <div><label style="@lbl">Địa chỉ thường trú</label><input style="@inp" name="form.PermanentAddress" value="@p.PermanentAddress" /></div>
+            <div><label style="@lbl">Địa chỉ hiện tại</label><input style="@inp" name="form.CurrentAddress" value="@p.CurrentAddress" /></div>
+            <div><label style="@lbl">Người liên hệ khẩn cấp</label><input style="@inp" name="form.EmergencyContactName" value="@p.EmergencyContactName" /></div>
+            <div><label style="@lbl">SĐT người liên hệ</label><input style="@inp" name="form.EmergencyContactPhone" value="@p.EmergencyContactPhone" /></div>
+        </div>
+    </div>
+
+    <!-- 💼 Công việc -->
+    <div style="@card">
+        <div style="@h3">💼 Thông tin công việc</div>
+        <div style="@col2">
+            <div><label style="@lbl">Phòng ban</label><input style="@inp" name="form.Department" value="@p.Department" /></div>
+            <div><label style="@lbl">Chức vụ</label><input style="@inp" name="form.JobTitle" value="@p.JobTitle" /></div>
+            <div><label style="@lbl">Cấp bậc</label><input style="@inp" name="form.Level" value="@p.Level" /></div>
+            <div><label style="@lbl">Người quản lý trực tiếp (Super Admin)</label>
+                <select style="@inp" name="form.ManagerId">
+                    <option value="">— Không —</option>
+                    @foreach (var m in managers)
+                    {
+                        <option value="@m.Id" selected="@(p.ManagerId == m.Id)">@m.FullName (NV@(m.Id.ToString("D3")))</option>
+                    }
+                </select>
+            </div>
+            <div><label style="@lbl">Ngày vào làm</label><input type="date" style="@inp" name="form.JoinDate" value="@D(p.JoinDate)" /></div>
+            <div><label style="@lbl">Loại hợp đồng</label><input style="@inp" name="form.ContractType" value="@p.ContractType" placeholder="Thử việc / Chính thức / Thời vụ..." /></div>
+            <div><label style="@lbl">Thời hạn hợp đồng</label><input style="@inp" name="form.ContractTerm" value="@p.ContractTerm" placeholder="12 tháng / Không thời hạn..." /></div>
+            <div><label style="@lbl">Dự kiến trở lại (nếu đang nghỉ)</label><input type="date" style="@inp" name="form.ReturnDate" value="@D(p.ReturnDate)" /></div>
+            <div style="grid-column:1 / -1;"><label style="@lbl">Ghi chú trạng thái (lý do nghỉ...)</label><input style="@inp" name="form.StatusNote" value="@p.StatusNote" placeholder="VD: Nghỉ thai sản, nghỉ ốm..." /></div>
+        </div>
+        <p style="font-size:11px;color:#94a3b8;margin-top:8px;">Trạng thái làm việc (Đang làm/Tạm nghỉ...) đổi ở trang <a href="/admin/Staff" style="color:#159aa3;">Quản lý nhân viên</a>. Đây chỉ là ghi chú kèm theo.</p>
+    </div>
+
+    <button type="submit" style="background:#159aa3;color:#fff;border:none;padding:11px 24px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;"><i class="fa fa-check"></i> Lưu</button>
+    <a href="/admin/StaffDetail/@Model.Id" style="margin-left:8px;background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;padding:11px 22px;border-radius:8px;font-weight:600;font-size:14px;text-decoration:none;">Hủy</a>
+</form>
+
+@section Scripts {
+<script>
+    async function uploadStaffAvatar(input){
+        var file = input.files[0];
+        if(!file) return;
+        var fd = new FormData();
+        fd.append('id', @Model.Id);
+        fd.append('avatarFile', file);
+        try{
+            var r = await fetch('/admin/StaffUploadAvatar', { method:'POST', body: fd });
+            var d = await r.json();
+            if(d.success){
+                var el = document.getElementById('staffAvatarPreview');
+                el.outerHTML = '<img id="staffAvatarPreview" src="' + d.avatarUrl + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;" />';
+                swalToast('success','Đã cập nhật ảnh đại diện');
+            } else { Swal.fire(d.message || 'Không tải được ảnh'); }
+        }catch(e){ Swal.fire('Lỗi kết nối'); }
+    }
+</script>
+}

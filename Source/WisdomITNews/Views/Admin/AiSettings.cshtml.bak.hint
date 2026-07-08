@@ -1,0 +1,114 @@
+@model WisdomITNews.Models.AiSetting
+@{
+    ViewData["Title"] = "Quản lý AI";
+    Layout = "_AdminLayout";
+    var hasKey = (bool)(ViewBag.HasApiKey ?? false);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    string lbl = "display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#374151;";
+    string inp = "width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;";
+    string card = "background:#fff;border-radius:8px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:16px;";
+    string ta = inp + "font-family:ui-monospace,Consolas,monospace;line-height:1.5;resize:vertical;";
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-robot" style="color:#159aa3;"></i> Quản lý AI</h1>
+    <span style="padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;background:@(hasKey ? "#dcfce7" : "#fee2e2");color:@(hasKey ? "#16a34a" : "#dc2626");">
+        <i class="fa @(hasKey ? "fa-circle-check" : "fa-circle-xmark")"></i> API Key: @(hasKey ? "đã cấu hình" : "CHƯA cấu hình (Gemini:ApiKey)")
+    </span>
+</div>
+<p style="color:#6c757d;font-size:13px;margin-bottom:16px;">Chỉnh cách AI tóm tắt / gợi ý tiêu đề / kiểm duyệt / trò chuyện. Lưu là áp dụng ngay (không cần khởi động lại). Placeholder: <code>{Title}</code> <code>{Content}</code> <code>{Length}</code> <code>{MaxSentences}</code> <code>{Question}</code>.</p>
+
+@if (TempData["Ok"] != null)
+{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+
+<form method="post" action="/admin/AiSettings">
+    <!-- Tham số chung -->
+    <div style="@card">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:14px;color:#0e7d85;"><i class="fa fa-sliders"></i> Tham số chung</h3>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:12px;">
+            <div><label style="@lbl">Model</label><input style="@inp" name="Model" value="@Model.Model" /></div>
+            <div><label style="@lbl">API Version</label><input style="@inp" name="ApiVersion" value="@Model.ApiVersion" /></div>
+            <div><label style="@lbl">Temperature</label><input style="@inp" type="number" step="0.1" min="0" max="2" name="Temperature" value="@Model.Temperature.ToString(inv)" /></div>
+            <div><label style="@lbl">Max Output Tokens</label><input style="@inp" type="number" min="1" name="MaxOutputTokens" value="@Model.MaxOutputTokens" /></div>
+            <div><label style="@lbl">Thinking Budget</label><input style="@inp" type="number" min="0" name="ThinkingBudget" value="@Model.ThinkingBudget" /></div>
+        </div>
+        <p style="color:#94a3b8;font-size:12px;margin-top:8px;">Gemini 2.5-flash bật "thinking" mặc định và token suy nghĩ tính chung vào Max Output Tokens → để <b>Thinking Budget = 0</b> cho tóm tắt/chat khỏi bị rỗng.</p>
+    </div>
+
+    <!-- System Instruction -->
+    <div style="@card">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:6px;color:#0e7d85;"><i class="fa fa-user-gear"></i> Chỉ dẫn hệ thống (persona chatbot)</h3>
+        <p style="color:#94a3b8;font-size:12px;margin-bottom:10px;">Đây là "danh tính" của chatbot. Ví dụ đổi từ <i>"Bạn là AI của Wisdom"</i> thành <i>"Bạn là AI của Google"</i> rồi Lưu và Thử bên dưới.</p>
+        <textarea style="@ta" name="SystemInstruction" rows="3">@Model.SystemInstruction</textarea>
+    </div>
+
+    <!-- Prompt các tác vụ -->
+    <div style="@card">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:14px;color:#0e7d85;"><i class="fa fa-wand-magic-sparkles"></i> Prompt các tác vụ</h3>
+
+        <div style="margin-bottom:16px;">
+            <label style="@lbl">Tóm tắt — độ dài</label>
+            <input style="@inp" name="SummarizeLength" value="@Model.SummarizeLength" />
+            <label style="@lbl;margin-top:8px;">Tóm tắt — prompt</label>
+            <textarea style="@ta" name="SummarizeTemplate" rows="4">@Model.SummarizeTemplate</textarea>
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <label style="@lbl">Gợi ý tiêu đề — prompt</label>
+            <textarea style="@ta" name="SuggestTitleTemplate" rows="4">@Model.SuggestTitleTemplate</textarea>
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <label style="@lbl">Kiểm duyệt — prompt</label>
+            <textarea style="@ta" name="ModerateTemplate" rows="6">@Model.ModerateTemplate</textarea>
+            <p style="color:#b45309;font-size:12px;margin-top:6px;"><i class="fa fa-triangle-exclamation"></i> Prompt kiểm duyệt phải yêu cầu trả JSON <code>{"score":..,"issues":[..]}</code> — sửa sai định dạng sẽ làm hỏng kiểm duyệt tự động.</p>
+        </div>
+
+        <div>
+            <label style="@lbl">Chat — số câu tối đa</label>
+            <input style="@inp;max-width:160px;" type="number" min="1" name="ChatMaxSentences" value="@Model.ChatMaxSentences" />
+            <label style="@lbl;margin-top:8px;">Chat — prompt</label>
+            <textarea style="@ta" name="ChatTemplate" rows="4">@Model.ChatTemplate</textarea>
+        </div>
+    </div>
+
+    <button type="submit" style="background:#159aa3;color:#fff;border:none;padding:11px 22px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">
+        <i class="fa fa-check"></i> Áp dụng (Lưu)
+    </button>
+    <span style="color:#94a3b8;font-size:12px;margin-left:10px;">Cập nhật lần cuối: @Model.UpdatedAt.ToString("HH:mm dd/MM/yyyy")</span>
+</form>
+
+<!-- Thử chatbot -->
+<div style="@card;margin-top:20px;border:1px dashed #159aa3;">
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:6px;color:#0e7d85;"><i class="fa fa-comment-dots"></i> Thử chatbot</h3>
+    <p style="color:#94a3b8;font-size:12px;margin-bottom:10px;">Lưu cấu hình trước, rồi gõ câu hỏi để kiểm tra persona/giọng điệu hiện tại.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="tcMsg" placeholder="Ví dụ: Bạn là ai? / Cách bảo mật máy tính?" style="@inp;flex:1;min-width:240px;" onkeydown="if(event.key==='Enter'){event.preventDefault();testChat();}" />
+        <button type="button" onclick="testChat()" style="background:#0e7d85;color:#fff;border:none;padding:9px 18px;border-radius:6px;font-weight:600;cursor:pointer;"><i class="fa fa-paper-plane"></i> Thử</button>
+        <button type="button" onclick="resetChat()" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;padding:9px 16px;border-radius:6px;font-weight:600;cursor:pointer;"><i class="fa fa-rotate-left"></i> Reset</button>
+    </div>
+    <div id="tcOut" style="margin-top:12px;padding:12px 14px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;line-height:1.6;color:#6b7280;min-height:40px;white-space:pre-wrap;">Chưa có phản hồi.</div>
+</div>
+
+@section Scripts {
+<script>
+    async function testChat(){
+        var msg = document.getElementById('tcMsg').value.trim();
+        var out = document.getElementById('tcOut');
+        if(!msg){ out.textContent='Nhập câu hỏi để thử.'; out.style.color='#dc2626'; return; }
+        out.textContent='Đang hỏi AI...'; out.style.color='#6b7280';
+        var fd = new FormData(); fd.append('message', msg);
+        try{
+            var r = await fetch('/admin/TestAiChat', { method:'POST', body: fd });
+            var d = await r.json();
+            out.textContent = d.reply || (d.success ? '(rỗng)' : 'Không có phản hồi.');
+            out.style.color = d.success ? '#111827' : '#dc2626';
+        }catch(e){ out.textContent='Lỗi kết nối.'; out.style.color='#dc2626'; }
+    }
+    function resetChat(){
+        document.getElementById('tcMsg').value='';
+        var out=document.getElementById('tcOut');
+        out.textContent='Chưa có phản hồi.'; out.style.color='#6b7280';
+    }
+</script>
+}

@@ -1,0 +1,162 @@
+@using WisdomITNews.Models
+@model User
+@{ Layout = "_AdminLayout"; ViewData["Title"] = "Chi tiet tai khoan"; var articles = ViewBag.UserArticles as List<Article> ?? new List<Article>(); }
+
+<div style="margin-bottom:20px;">
+    <a href="/admin/Users" style="color:#476083;font-size:14px;font-weight:600;"><i class="fa fa-arrow-left"></i> Quay lai danh sach</a>
+</div>
+
+<div style="background:#fff;border-radius:0px;padding:28px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:24px;">
+    <div style="display:flex;gap:24px;align-items:center;">
+        <div id="detailAvatar" style="width:100px;height:100px;border-radius:50%;overflow:hidden;flex-shrink:0;position:relative;">
+            @if (!string.IsNullOrEmpty(Model.AvatarUrl))
+            {
+                <img src="@Model.AvatarUrl" alt="@Model.FullName" style="width:100%;height:100%;object-fit:cover;" />
+            }
+            else
+            {
+                <div style="width:100%;height:100%;background:linear-gradient(135deg,#0a2540,#476083);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:40px;">
+                    @(string.IsNullOrWhiteSpace(Model.FullName) ? "?" : Model.FullName.Substring(0, 1).ToUpper())
+                </div>
+            }
+        </div>
+        <div>
+            <h1 style="font-family:'Playfair Display',serif;font-size:28px;margin:0 0 6px;">@Model.FullName</h1>
+            <p style="color:#6c757d;font-size:14px;">@@@Model.Username &middot; @Model.Email</p>
+            <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+                <select id="roleSelect" onchange="changeRole(@Model.Id, this.value)"
+                        style="background:#f0eeff;color:#476083;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid #ddd;cursor:pointer;">
+                    @if (Model.Role == "Reader")
+                    {
+                        <option value="Reader" selected>Reader</option>
+                    }
+                    else
+                    {
+                        <option value="Reader">Reader</option>
+                    }
+                    @if (Model.Role == "Journalist")
+                    {
+                        <option value="Journalist" selected>Journalist</option>
+                    }
+                    else
+                    {
+                        <option value="Journalist">Journalist</option>
+                    }
+                    @if (Model.Role == "Admin")
+                    {
+                        <option value="Admin" selected>Admin</option>
+                    }
+                    else
+                    {
+                        <option value="Admin">Admin</option>
+                    }
+                </select>
+                @if (Model.IsEmailConfirmed)
+                {
+                    <span style="background:#dcfce7;color:#16a34a;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;">Da xac nhan</span>
+                }
+                else
+                {
+                    <span style="background:#fef9c3;color:#854d0e;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;">Chua xac nhan</span>
+                }
+            </div>
+            <p style="font-size:13px;color:#6c757d;margin-top:8px;">
+                Tham gia: @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm") &middot;
+                @ViewBag.CommentCount binh luan &middot;
+                @articles.Count bai viet
+            </p>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                <label for="detailAvatarFile" style="background:#476083;color:#fff;padding:8px 16px;border-radius:0px;font-size:13px;font-weight:600;cursor:pointer;">
+                    <i class="fa fa-camera"></i> Doi avatar
+                </label>
+                <input type="file" id="detailAvatarFile" accept="image/*" style="display:none;" />
+                @if (Model.IsActive)
+                {
+                    <button onclick="lockUser(@Model.Id)" style="background:#ba1a1a;color:#fff;padding:8px 16px;border-radius:0px;font-size:13px;font-weight:600;border:none;cursor:pointer;">
+                        <i class="fa fa-lock"></i> Khoa tai khoan
+                    </button>
+                }
+                else
+                {
+                    <span style="color:#ba1a1a;font-weight:700;font-size:13px;padding:8px 0;">DA BI KHOA</span>
+                    <button onclick="unlockUser(@Model.Id)" style="background:#16a34a;color:#fff;padding:8px 16px;border-radius:0px;font-size:13px;font-weight:600;border:none;cursor:pointer;">
+                        <i class="fa fa-unlock"></i> Mo khoa
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (articles.Any())
+{
+    <div style="background:#fff;border-radius:0px;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid #e0e4e8;">
+            <h2 style="font-size:16px;font-weight:700;">Bai viet cua @Model.FullName</h2>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f5f6f8;">
+                    <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:#6c757d;">Tieu de</th>
+                    <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:#6c757d;">Danh muc</th>
+                    <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:#6c757d;">Trang thai</th>
+                    <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:#6c757d;">Luot xem</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in articles)
+                {
+                    <tr style="border-bottom:1px solid #e0e4e8;">
+                        <td style="padding:10px 16px;font-weight:600;">@a.Title</td>
+                        <td style="padding:10px 16px;font-size:13px;">@(a.Category?.Name ?? "-")</td>
+                        <td style="padding:10px 16px;">
+                            <span class="status-@a.Status.ToLower()" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">@a.Status</span>
+                        </td>
+                        <td style="padding:10px 16px;font-size:13px;">@a.Views</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        document.getElementById('detailAvatarFile').addEventListener('change', async function () {
+            const file = this.files[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('userId', @Model.Id);
+            fd.append('avatarFile', file);
+            try {
+                const res = await fetch('/admin/AdminUploadUserAvatar', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('detailAvatar').innerHTML = `<img src="${data.avatarUrl}" style="width:100%;height:100%;object-fit:cover;" />`;
+                    Swal.fire('Cập nhật avatar thành công!');
+                } else { Swal.fire(data.message || 'Lỗi'); }
+            } catch { Swal.fire('Lỗi kết nối'); }
+        });
+
+        async function lockUser(id) {
+            if (!await confirmSwal('Khóa tài khoản này?')) return;
+            const res = await fetch(`/Admin/LockUser?id=${id}`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else Swal.fire(data.message || 'Lỗi');
+        }
+        async function unlockUser(id) {
+            if (!await confirmSwal('Mở khóa tài khoản này?')) return;
+            const res = await fetch(`/Admin/UnlockUser?id=${id}`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else Swal.fire(data.message || 'Lỗi');
+        }
+        async function changeRole(id, role) {
+            const res = await fetch(`/Admin/ChangeUserRole?id=${id}&role=${role}`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) Swal.fire('Da doi role thanh cong!');
+            else Swal.fire(data.message || 'Loi');
+        }
+    </script>
+}

@@ -1,0 +1,86 @@
+@using WisdomITNews.Models
+@model List<Transaction>
+@{
+    ViewData["Title"] = "Giao dịch"; Layout = "_AdminLayout";
+    var names = ViewBag.UserNames as Dictionary<int,string> ?? new();
+    var emails = ViewBag.UserEmails as Dictionary<int,string> ?? new();
+    string status = ViewBag.Status as string ?? "";
+    string method = ViewBag.Method as string ?? "";
+    string from = ViewBag.From as string ?? "";
+    string to = ViewBag.To as string ?? "";
+    decimal totalSuccess = (decimal)(ViewBag.TotalSuccess ?? 0m);
+    string TxText(TransactionStatus st) => st switch { TransactionStatus.Pending=>"Chờ xác nhận", TransactionStatus.Success=>"Thành công", TransactionStatus.Failed=>"Thất bại", _=>"Đã hủy" };
+    (string bg,string fg) TxClr(TransactionStatus st) => st switch {
+        TransactionStatus.Pending=>("#fef9c3","#854d0e"), TransactionStatus.Success=>("#dcfce7","#16a34a"),
+        TransactionStatus.Failed=>("#fee2e2","#991b1b"), _=>("#f0f2f5","#6c757d") };
+    string qs = $"status={status}&method={method}&from={from}&to={to}";
+}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-receipt" style="color:#159aa3;"></i> Giao dịch</h1>
+  <div style="display:flex;gap:8px;">
+    <a href="/admin/PremiumCustomers" style="background:#0e7d85;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-user-tie"></i> Khách hàng Premium</a>
+    <a href="/admin/ExportTransactionsCsv?@qs" style="background:#16a34a;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-file-csv"></i> Xuất CSV</a>
+  </div>
+</div>
+
+<div style="background:#e0f2f1;color:#0e7d85;padding:12px 16px;border-radius:6px;margin-bottom:16px;font-weight:700;">
+  Tổng doanh thu (giao dịch Thành công trong bộ lọc): @string.Format("{0:#,##0}", totalSuccess) đ
+</div>
+
+<form method="get" action="/admin/Transactions" style="background:#fff;padding:14px;margin-bottom:16px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
+  <div><label style="font-size:12px;color:#6c757d;">Trạng thái</label><br/>
+    <select name="status" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;">
+      <option value="">Tất cả</option>
+      <option value="Pending" selected="@(status=="Pending" ? "selected" : null)">Chờ xác nhận</option>
+      <option value="Success" selected="@(status=="Success" ? "selected" : null)">Thành công</option>
+      <option value="Failed" selected="@(status=="Failed" ? "selected" : null)">Thất bại</option>
+      <option value="Cancelled" selected="@(status=="Cancelled" ? "selected" : null)">Đã hủy</option>
+    </select>
+  </div>
+  <div><label style="font-size:12px;color:#6c757d;">Phương thức</label><br/>
+    <input type="text" name="method" value="@method" placeholder="VNPay / Momo" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;" />
+  </div>
+  <div><label style="font-size:12px;color:#6c757d;">Từ ngày</label><br/>
+    <input type="date" name="from" value="@from" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;" />
+  </div>
+  <div><label style="font-size:12px;color:#6c757d;">Đến ngày</label><br/>
+    <input type="date" name="to" value="@to" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;" />
+  </div>
+  <button type="submit" style="background:#159aa3;color:#fff;border:none;padding:10px 18px;border-radius:6px;font-weight:600;cursor:pointer;">Lọc</button>
+</form>
+
+<div style="background:#fff;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+    <thead>
+      <tr style="background:#f5f6f8;border-bottom:2px solid #e0e4e8;color:#6c757d;text-align:left;">
+        <th style="padding:12px 14px;">#</th>
+        <th style="padding:12px 14px;">Người dùng</th>
+        <th style="padding:12px 14px;">Gói</th>
+        <th style="padding:12px 14px;">Số tiền</th>
+        <th style="padding:12px 14px;">Phương thức</th>
+        <th style="padding:12px 14px;">Trạng thái</th>
+        <th style="padding:12px 14px;">Ngày</th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var t in Model)
+      {
+        var clr = TxClr(t.Status);
+        <tr style="border-bottom:1px solid #f0f2f5;">
+          <td style="padding:12px 14px;">@t.Id</td>
+          <td style="padding:12px 14px;">
+            <div style="font-weight:600;">@(names.ContainsKey(t.UserId) ? names[t.UserId] : ("User #" + t.UserId))</div>
+            <div style="font-size:12px;color:#94a3b8;">@(emails.ContainsKey(t.UserId) ? emails[t.UserId] : "")</div>
+          </td>
+          <td style="padding:12px 14px;">@(t.Plan?.Name ?? "—")</td>
+          <td style="padding:12px 14px;font-weight:700;color:#0e7d85;">@string.Format("{0:#,##0}", t.Amount) đ</td>
+          <td style="padding:12px 14px;">@t.PaymentMethodLabel</td>
+          <td style="padding:12px 14px;"><span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:@clr.bg;color:@clr.fg;">@TxText(t.Status)</span></td>
+          <td style="padding:12px 14px;color:#6c757d;">@t.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+        </tr>
+      }
+      @if (!Model.Any())
+      { <tr><td colspan="7" style="padding:24px;text-align:center;color:#94a3b8;">Không có giao dịch nào khớp bộ lọc.</td></tr> }
+    </tbody>
+  </table>
+</div>

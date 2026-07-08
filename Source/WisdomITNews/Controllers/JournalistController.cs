@@ -917,4 +917,171 @@ public class JournalistController : Controller
             ));
         return Json(new { count });
     }
+
+    // ===== QUẢNG CÁO (GĐ1) — nhà báo tạo, chờ Admin duyệt =====
+    public async Task<IActionResult> Ads()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var mine = await _db.Advertisements
+            .Where(a => a.CreatedByUserId == CurrentUserId)
+            .OrderByDescending(a => a.CreatedAt).ToListAsync();
+        return View(mine);
+    }
+
+    [HttpGet]
+    public IActionResult CreateAd()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        return View(new Advertisement());
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateAd(Advertisement form)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var user = await GetCurrentJournalist();
+        if (user == null) return RedirectToAction("Login");
+        if (string.IsNullOrWhiteSpace(form.Title) || string.IsNullOrWhiteSpace(form.TargetUrl) || string.IsNullOrWhiteSpace(form.ImageUrl))
+        {
+            ViewBag.Error = "Vui lòng nhập tiêu đề, link đích và link ảnh banner.";
+            return View(form);
+        }
+        var validPos = new[] { "header", "sidebar", "in_article" };
+        _db.Advertisements.Add(new Advertisement
+        {
+            Title = form.Title.Trim(),
+            ImageUrl = form.ImageUrl.Trim(),
+            TargetUrl = form.TargetUrl.Trim(),
+            Position = validPos.Contains(form.Position) ? form.Position : "sidebar",
+            StartDate = form.StartDate,
+            EndDate = form.EndDate,
+            IsActive = false,
+            Status = "pending",
+            CreatedByUserId = CurrentUserId,
+            CreatedByName = user.FullName,
+            CreatedAt = DateTime.Now
+        });
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã gửi quảng cáo, chờ Admin duyệt.";
+        return RedirectToAction("Ads");
+    }
+
+    // ===== GIA HẠN QUẢNG CÁO (chat với quản trị) =====
+    public async Task<IActionResult> RenewAds()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var now = DateTime.Now;
+        var expired = await _db.Advertisements
+            .Where(a => a.CreatedByUserId == CurrentUserId && a.EndDate != null && a.EndDate < now)
+            .OrderByDescending(a => a.EndDate).ToListAsync();
+        var ids = expired.Select(a => a.Id).ToList();
+        var unread = await _db.AdRenewalMessages
+            .Where(m => ids.Contains(m.AdvertisementId) && m.SenderRole != "journalist" && !m.IsReadByJournalist)
+            .GroupBy(m => m.AdvertisementId)
+            .Select(g => new { AdId = g.Key, C = g.Count() }).ToListAsync();
+        ViewBag.Unread = unread.ToDictionary(x => x.AdId, x => x.C);
+        return View(expired);
+    }
+
+    public async Task<IActionResult> AdChat(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var ad = await _db.Advertisements.FirstOrDefaultAsync(a => a.Id == id && a.CreatedByUserId == CurrentUserId);
+        if (ad == null) return RedirectToAction("RenewAds");
+        var msgs = await _db.AdRenewalMessages
+            .Where(m => m.AdvertisementId == id).OrderBy(m => m.Id).ToListAsync();
+        // đánh dấu tin từ quản trị là đã đọc
+        var unread = msgs.Where(m => m.SenderRole != "journalist" && !m.IsReadByJournalist).ToList();
+        if (unread.Count > 0)
+        {
+            foreach (var m in unread) m.IsReadByJournalist = true;
+            await _db.SaveChangesAsync();
+        }
+        ViewBag.Ad = ad;
+        ViewBag.Messages = msgs;
+        return View();
+    }
+
+    // ===== PODCAST / AUDIO (của tôi) =====
+    public async Task<IActionResult> Podcasts()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var list = await _db.Podcasts.Include(p => p.Article)
+            .Where(p => p.UploadedByType == "Journalist" && p.UploadedByUserId == CurrentUserId)
+            .OrderByDescending(p => p.CreatedAt).ToListAsync();
+        return View(list);
+    }
+
+    // API JSON: tìm bài viết cho modal chọn bài (phân trang)
+    public async Task<IActionResult> SearchArticlesForPicker(string? q, int page = 1, int pageSize = 8)
+    {
+        if (!IsLoggedIn) return Json(new { items = new object[0], hasMore = false });
+        if (page < 1) page = 1;
+        if (pageSize < 1 || pageSize > 30) pageSize = 8;
+
+        var query = _db.Articles.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var kw = q.Trim();
+            query = query.Where(a => a.Title.Contains(kw));
+        }
+        var raw = await query.OrderByDescending(a => a.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize + 1)
+            .Select(a => new { a.Id, a.Title, a.Thumbnail, a.Region, a.Views })
+            .ToListAsync();
+
+        var hasMore = raw.Count > pageSize;
+        var items = raw.Take(pageSize).Select(a => new
+        {
+            id = a.Id,
+            title = a.Title,
+            thumbnail = a.Thumbnail,
+            region = WisdomITNews.Services.SlugHelper.RegionName(a.Region),
+            views = a.Views
+        });
+        return Json(new { items, hasMore });
+    }
+
+
+    [HttpPost]
+    public async Task<IActionResult> UploadPodcast(IFormFile audioFile, string? title, string? description, int? articleId)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var svc = HttpContext.RequestServices.GetRequiredService<PodcastService>();
+        var res = await svc.SaveUploadAsync(audioFile, title, description, articleId, CurrentUserId, "Journalist");
+        TempData[res.Success ? "Ok" : "Err"] = res.Success ? "Đã tải lên audio." : ("Lỗi: " + res.Error);
+        return RedirectToAction("Podcasts");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeletePodcast(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var pod = await _db.Podcasts.FindAsync(id);
+        if (pod == null || pod.UploadedByType != "Journalist" || pod.UploadedByUserId != CurrentUserId) return Json(new { success = false });
+        _db.Podcasts.Remove(pod);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> GeneratePodcast(int articleId)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var svc = HttpContext.RequestServices.GetRequiredService<PodcastService>();
+        var res = await svc.GenerateFromArticleAsync(articleId, CurrentUserId, "Journalist");
+        return Json(new { success = res.Success, message = res.Success ? "Đã tạo audio từ bài viết." : res.Error, filePath = res.Podcast?.FilePath });
+    }
+
+    // ===== CHAT NỘI BỘ BAN QUẢN LÝ (phòng chung) =====
+    public async Task<IActionResult> TeamChat()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var msgs = await _db.TeamChatMessages.Where(m => m.ConversationKey == "team")
+            .OrderBy(m => m.Id).Take(200).ToListAsync();
+        ViewBag.Messages = msgs;
+        ViewBag.MeRole = "journalist";
+        ViewBag.MeId = CurrentUserId ?? 0;
+        return View();
+    }
 }

@@ -1,0 +1,59 @@
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Gửi email cho nhóm";
+    var cats = ViewBag.Categories as List<string> ?? new List<string>();
+    var sources = ViewBag.Sources as List<string> ?? new List<string>();
+    bool smtp = (bool)(ViewBag.SmtpConfigured ?? false);
+    string lbl = "display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#374151;";
+    string inp = "width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;";
+}
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <a href="/admin/Customers" style="color:#6c757d;text-decoration:none;"><i class="fa fa-arrow-left"></i></a>
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-paper-plane" style="color:#159aa3;"></i> Gửi email cho nhóm</h1>
+</div>
+
+@if (TempData["Err"] != null)
+{ <div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Err"]</div> }
+@if (!smtp)
+{ <div style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:13px;"><i class="fa fa-triangle-exclamation"></i> SMTP chưa cấu hình trong appsettings — email sẽ được ghi log nhưng KHÔNG gửi thật.</div> }
+
+<form method="post" action="/admin/SendCustomerEmail" style="background:#fff;border-radius:8px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.06);max-width:720px;">
+    <div style="margin-bottom:16px;">
+        <label style="@lbl">Gửi cho nhóm</label>
+        <select id="segment" name="segment" onchange="onSeg()" style="@inp;max-width:280px;">
+            <option value="all">Tất cả khách đang nhận (active)</option>
+            <option value="category">Theo danh mục quan tâm</option>
+            <option value="source">Theo nguồn đăng ký</option>
+        </select>
+    </div>
+    <div id="catBox" style="margin-bottom:16px;display:none;">
+        <label style="@lbl">Danh mục quan tâm</label>
+        <select name="category" style="@inp;max-width:280px;">
+            @foreach (var c in cats) { <option value="@c">@c</option> }
+        </select>
+    </div>
+    <div id="srcBox" style="margin-bottom:16px;display:none;">
+        <label style="@lbl">Nguồn đăng ký</label>
+        <select name="source" style="@inp;max-width:280px;">
+            @foreach (var sc in sources) { <option value="@sc">@sc</option> }
+        </select>
+    </div>
+    <div style="margin-bottom:16px;"><label style="@lbl">Tiêu đề email *</label><input style="@inp" name="subject" required maxlength="200" /></div>
+    <div style="margin-bottom:16px;"><label style="@lbl">Nội dung (HTML) *</label><textarea style="@inp;min-height:180px;font-family:ui-monospace,Consolas,monospace;" name="htmlBody" required placeholder="&lt;p&gt;Xin chào, ...&lt;/p&gt;"></textarea></div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:18px;font-size:13px;color:#374151;">
+        <input type="checkbox" name="insertAd" value="true" /> Chèn banner quảng cáo (đang chạy) vào cuối email
+    </label>
+    <button type="submit" onclick="return confirm('Xác nhận gửi email tới nhóm đã chọn?');" style="background:#159aa3;color:#fff;border:none;padding:11px 24px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;"><i class="fa fa-paper-plane"></i> Gửi email</button>
+    <a href="/admin/Customers" style="margin-left:8px;color:#6c757d;text-decoration:none;font-size:14px;">Hủy</a>
+</form>
+
+@section Scripts {
+<script>
+    function onSeg(){
+        var v = document.getElementById('segment').value;
+        document.getElementById('catBox').style.display = (v === 'category') ? 'block' : 'none';
+        document.getElementById('srcBox').style.display = (v === 'source') ? 'block' : 'none';
+    }
+    onSeg();
+</script>
+}

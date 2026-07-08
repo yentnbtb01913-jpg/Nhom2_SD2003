@@ -120,7 +120,15 @@ public class ArticleController : Controller
             ? await _db.JournalistProfiles.FirstOrDefaultAsync(jp => jp.UserId == article.AuthorUserId.Value)
             : null;
 
-        return View(new ArticleViewModel
+        ViewBag.Podcast = await _db.Podcasts
+            .Where(p => p.ArticleId == article.Id)
+            .OrderByDescending(p => p.CreatedAt).FirstOrDefaultAsync();
+
+        // Gating Premium: bài IsPremiumOnly chỉ mở đầy đủ cho người có gói hiệu lực.
+        bool hasPremium = await WisdomITNews.Services.PremiumAccess.HasAsync(_db, hubUserId);
+        ViewBag.HasPremiumAccess = hasPremium;
+        ViewBag.IsPremiumLocked = article.IsPremiumOnly && !hasPremium;
+                return View(new ArticleViewModel
         {
             Article = article,
             Comments = comments,
@@ -128,6 +136,36 @@ public class ArticleController : Controller
             RelatedArticles = related,
             PopularArticles = popular
         });
+    }
+
+    // Tự load thêm bài cùng thể loại (infinite scroll ở trang chi tiết)
+    public async Task<IActionResult> LoadRelated(int categoryId, int excludeId, int skip)
+    {
+        const int take = 6;
+        var arts = await _db.Articles
+            .Include(a => a.Category)
+            .Where(a => a.Status == "published" && a.CategoryId == categoryId && a.Id != excludeId)
+            .OrderByDescending(a => a.PublishedAt)
+            .Skip(skip).Take(take)
+            .ToListAsync();
+        ViewBag.Video = null;                 // không chèn video vào danh sách liên quan
+        ViewBag.InsertAt = arts.Count;
+        return PartialView("~/Views/Home/_FeedMore.cshtml", arts);
+    }
+
+    // "Bài báo bạn có thể thích" — liệt kê toàn bộ bài (trừ bài hiện tại), ưu tiên xem nhiều
+    public async Task<IActionResult> LoadSuggested(int excludeId, int skip)
+    {
+        const int take = 6;
+        var arts = await _db.Articles
+            .Include(a => a.Category)
+            .Where(a => a.Status == "published" && a.Id != excludeId)
+            .OrderByDescending(a => a.Views).ThenByDescending(a => a.PublishedAt)
+            .Skip(skip).Take(take)
+            .ToListAsync();
+        ViewBag.Video = null;
+        ViewBag.InsertAt = arts.Count;
+        return PartialView("~/Views/Home/_FeedMore.cshtml", arts);
     }
 
     // ====================== [F] Like / Dislike / Reply ======================
@@ -339,6 +377,14 @@ public class ArticleController : Controller
 
             int? userId = null;
             try { userId = HttpContext.Session.GetInt32("UserId"); } catch { /* ignore */ }
+
+            // Chặn bình luận nếu user đã đăng nhập nhưng CHƯA xác nhận email
+            if (userId.HasValue)
+            {
+                var currentUser = await _db.Users.FindAsync(userId.Value);
+                if (currentUser != null && !currentUser.EmailVerified)
+                    return BadRequest(new { success = false, message = "Vui lòng xác nhận email trước khi bình luận." });
+            }
 
             var comment = new Comment
             {

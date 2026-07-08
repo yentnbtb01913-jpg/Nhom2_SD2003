@@ -1,0 +1,131 @@
+@using WisdomITNews.Models
+@model List<User>
+@{ Layout = "_AdminLayout"; ViewData["Title"] = "Quan ly tai khoan"; }
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h1 style="font-family:'Playfair Display',serif;font-size:24px;margin:0;">
+        <i class="fa fa-users" style="color:#476083;"></i> Quản lý tài khoản người dùng
+    </h1>
+    <a href="/Admin/CreateUser" style="background:#476083;color:#fff;padding:9px 18px;border-radius:0px;font-size:13px;font-weight:600;text-decoration:none;">
+        <i class="fa fa-plus"></i> Tạo User Mới
+    </a>
+</div>
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;">
+    <div style="background:#fff;border-radius:0px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;background:#dcfce7;border-radius:0px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#16a34a;"><i class="fa fa-users"></i></div>
+        <div>
+            <div style="font-size:26px;font-weight:800;color:#0a2540;">@Model.Count</div>
+            <div style="font-size:13px;color:#6c757d;">Tong tai khoan</div>
+        </div>
+    </div>
+    <div style="background:#fff;border-radius:0px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;background:#dbeafe;border-radius:0px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#2563eb;"><i class="fa fa-user-check"></i></div>
+        <div>
+            <div style="font-size:26px;font-weight:800;color:#0a2540;">@Model.Count(u => u.IsEmailConfirmed)</div>
+            <div style="font-size:13px;color:#6c757d;">Da xac nhan email</div>
+        </div>
+    </div>
+    <div style="background:#fff;border-radius:0px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;background:#fef3c7;border-radius:0px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#d97706;"><i class="fa fa-clock"></i></div>
+        <div>
+            <div style="font-size:26px;font-weight:800;color:#0a2540;">@Model.Count(u => u.CreatedAt >= DateTime.Now.AddDays(-7))</div>
+            <div style="font-size:13px;color:#6c757d;">Moi trong 7 ngay</div>
+        </div>
+    </div>
+</div>
+
+<!-- Users Table -->
+<div style="background:#fff;border-radius:0px;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden;">
+    <div style="padding:16px 20px;border-bottom:1px solid #e0e4e8;display:flex;align-items:center;justify-content:space-between;">
+        <h2 style="font-size:16px;font-weight:700;">Danh sach nguoi dung (@Model.Count)</h2>
+    </div>
+    <table style="width:100%;border-collapse:collapse;">
+        <thead>
+            <tr style="background:#f5f6f8;">
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Avatar</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Ho ten</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Username</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Email</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Role</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Ngay tao</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Hanh dong</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in Model)
+            {
+                <tr style="border-bottom:1px solid #e0e4e8;" id="user-row-@u.Id">
+                    <td style="padding:12px 16px;">
+                        <div class="admin-user-avatar" id="avatar-@u.Id">
+                            @if (!string.IsNullOrEmpty(u.AvatarUrl))
+                            {
+                                <img src="@u.AvatarUrl" alt="@u.FullName" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" />
+                            }
+                            else
+                            {
+                                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#0a2540,#476083);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;">
+                                    @(string.IsNullOrWhiteSpace(u.FullName) ? "?" : u.FullName.Substring(0, 1).ToUpper())
+                                </div>
+                            }
+                        </div>
+                    </td>
+                    <td style="padding:12px 16px;font-weight:600;">@u.FullName</td>
+                    <td style="padding:12px 16px;color:#6c757d;">@@@u.Username</td>
+                    <td style="padding:12px 16px;font-size:13px;">@u.Email</td>
+                    <td style="padding:12px 16px;">
+                        <span style="background:#f0eeff;color:#476083;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">@u.Role</span>
+                    </td>
+                    <td style="padding:12px 16px;font-size:13px;color:#6c757d;">@u.CreatedAt.ToString("dd/MM/yyyy")</td>
+                    <td style="padding:12px 16px;">
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <!-- Upload avatar cho user -->
+                            <label for="adminAvatar-@u.Id" style="background:#476083;color:#fff;padding:5px 10px;border-radius:0px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                                <i class="fa fa-camera"></i> Avatar
+                            </label>
+                            <input type="file" id="adminAvatar-@u.Id" accept="image/*" style="display:none;" onchange="adminUploadAvatar(@u.Id, this)" />
+                            <a href="/admin/UserDetail/@u.Id" style="background:#0a2540;color:#fff;padding:5px 10px;border-radius:0px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                                <i class="fa fa-eye"></i> Xem
+                            </a>
+                            <button onclick="deleteUser(@u.Id)" style="background:#ba1a1a;color:#fff;border:none;padding:5px 10px;border-radius:0px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                                <i class="fa fa-trash"></i> Xoa
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+<script>
+async function adminUploadAvatar(userId, input) {
+    const file = input.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('userId', userId);
+    fd.append('avatarFile', file);
+    try {
+        const res = await fetch('/admin/AdminUploadUserAvatar', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success) {
+            const cell = document.getElementById('avatar-' + userId);
+            cell.innerHTML = `<img src="${data.avatarUrl}" alt="Avatar" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" />`;
+            Swal.fire('Cap nhat avatar thanh cong!');
+        } else { Swal.fire(data.message || 'Loi'); }
+    } catch { Swal.fire('Loi ket noi'); }
+}
+
+async function deleteUser(id) {
+    if (!await confirmSwal('Ban co chac muon xoa tai khoan nay?')) return;
+    try {
+        const res = await fetch('/admin/DeleteUser/' + id, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('user-row-' + id)?.remove();
+        } else { Swal.fire('Loi xoa'); }
+    } catch { Swal.fire('Loi ket noi'); }
+}
+</script>
+}

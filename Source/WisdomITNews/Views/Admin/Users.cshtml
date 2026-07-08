@@ -1,94 +1,133 @@
 @using WisdomITNews.Models
 @model List<User>
-@{ Layout = "_AdminLayout"; ViewData["Title"] = "Quan ly tai khoan"; }
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Quản lý tài khoản";
+    var roleLabel = new Dictionary<string, string> {
+        ["Reader"] = "Độc giả", ["Journalist"] = "Nhà báo", ["Admin"] = "Quản trị viên",
+        ["Editor"] = "Biên tập viên", ["User"] = "Người dùng"
+    };
+    string RoleVi(string? r) => roleLabel.TryGetValue(r ?? "", out var v) ? v : (string.IsNullOrWhiteSpace(r) ? "—" : r);
+    var roles = Model.Select(u => u.Role ?? "").Where(r => !string.IsNullOrWhiteSpace(r)).Distinct().OrderBy(r => r).ToList();
+}
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-    <h1 style="font-family:'Playfair Display',serif;font-size:24px;margin:0;">
+    <h1 style="font-size:22px;font-weight:800;margin:0;">
         <i class="fa fa-users" style="color:#476083;"></i> Quản lý tài khoản người dùng
     </h1>
-    <a href="/Admin/CreateUser" style="background:#476083;color:#fff;padding:9px 18px;border-radius:0px;font-size:13px;font-weight:600;text-decoration:none;">
-        <i class="fa fa-plus"></i> Tạo User Mới
+    <a href="/Admin/CreateUser" style="background:#476083;color:#fff;padding:9px 18px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;">
+        <i class="fa fa-plus"></i> Tạo tài khoản mới
     </a>
 </div>
-<!-- Stats -->
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;">
-    <div style="background:#fff;border-radius:0px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;align-items:center;gap:14px;">
-        <div style="width:48px;height:48px;background:#dcfce7;border-radius:0px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#16a34a;"><i class="fa fa-users"></i></div>
+
+@if (TempData["Ok"] != null)
+{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+
+<!-- Thống kê -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">
+    <div style="background:#fff;border-radius:8px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;background:#dcfce7;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#16a34a;"><i class="fa fa-users"></i></div>
         <div>
             <div style="font-size:26px;font-weight:800;color:#0a2540;">@Model.Count</div>
-            <div style="font-size:13px;color:#6c757d;">Tong tai khoan</div>
+            <div style="font-size:13px;color:#6c757d;">Tổng tài khoản</div>
         </div>
     </div>
-    <div style="background:#fff;border-radius:0px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;align-items:center;gap:14px;">
-        <div style="width:48px;height:48px;background:#dbeafe;border-radius:0px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#2563eb;"><i class="fa fa-user-check"></i></div>
+    <div style="background:#fff;border-radius:8px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;background:#dbeafe;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#2563eb;"><i class="fa fa-user-check"></i></div>
         <div>
             <div style="font-size:26px;font-weight:800;color:#0a2540;">@Model.Count(u => u.IsEmailConfirmed)</div>
-            <div style="font-size:13px;color:#6c757d;">Da xac nhan email</div>
+            <div style="font-size:13px;color:#6c757d;">Đã xác nhận email</div>
         </div>
     </div>
-    <div style="background:#fff;border-radius:0px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;align-items:center;gap:14px;">
-        <div style="width:48px;height:48px;background:#fef3c7;border-radius:0px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#d97706;"><i class="fa fa-clock"></i></div>
+    <div style="background:#fff;border-radius:8px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;background:#fef3c7;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#d97706;"><i class="fa fa-clock"></i></div>
         <div>
             <div style="font-size:26px;font-weight:800;color:#0a2540;">@Model.Count(u => u.CreatedAt >= DateTime.Now.AddDays(-7))</div>
-            <div style="font-size:13px;color:#6c757d;">Moi trong 7 ngay</div>
+            <div style="font-size:13px;color:#6c757d;">Mới trong 7 ngày</div>
         </div>
     </div>
 </div>
 
-<!-- Users Table -->
-<div style="background:#fff;border-radius:0px;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden;">
-    <div style="padding:16px 20px;border-bottom:1px solid #e0e4e8;display:flex;align-items:center;justify-content:space-between;">
-        <h2 style="font-size:16px;font-weight:700;">Danh sach nguoi dung (@Model.Count)</h2>
+<!-- Bộ lọc / tìm kiếm -->
+<div style="background:#fff;padding:14px 16px;margin-bottom:16px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px;align-items:end;">
+    <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:#6c757d;margin-bottom:4px;">Tìm theo tên / email</label>
+        <input type="text" id="fText" placeholder="🔍 Nhập tên hoặc email..." oninput="applyFilter()"
+               style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;" />
     </div>
+    <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:#6c757d;margin-bottom:4px;">Vai trò</label>
+        <select id="fRole" onchange="applyFilter()" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">
+            <option value="">Tất cả vai trò</option>
+            @foreach (var r in roles)
+            {
+                <option value="@r">@RoleVi(r)</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:#6c757d;margin-bottom:4px;">Tạo từ ngày</label>
+        <input type="date" id="fFrom" onchange="applyFilter()" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;" />
+    </div>
+    <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:#6c757d;margin-bottom:4px;">Đến ngày</label>
+        <input type="date" id="fTo" onchange="applyFilter()" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;" />
+    </div>
+    <button type="button" onclick="resetFilter()" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;padding:9px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
+        <i class="fa fa-rotate-left"></i> Xóa lọc
+    </button>
+</div>
+
+<!-- Bảng người dùng -->
+<div style="background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden;">
+    <div style="padding:14px 20px;border-bottom:1px solid #e0e4e8;">
+        <h2 style="font-size:15px;font-weight:700;">Danh sách người dùng — hiển thị <span id="shownCount">@Model.Count</span>/@Model.Count</h2>
+    </div>
+    <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;">
         <thead>
             <tr style="background:#f5f6f8;">
                 <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Avatar</th>
-                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Ho ten</th>
-                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Username</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Họ tên</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Tên đăng nhập</th>
                 <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Email</th>
-                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Role</th>
-                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Ngay tao</th>
-                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Hanh dong</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Vai trò</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Ngày tạo</th>
+                <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6c757d;">Hành động</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="userTable">
             @foreach (var u in Model)
             {
-                <tr style="border-bottom:1px solid #e0e4e8;" id="user-row-@u.Id">
+                <tr style="border-bottom:1px solid #e0e4e8;" id="user-row-@u.Id"
+                    data-name="@((u.FullName ?? "").ToLower())" data-email="@((u.Email ?? "").ToLower())"
+                    data-username="@((u.Username ?? "").ToLower())" data-role="@u.Role" data-created="@u.CreatedAt.ToString("yyyy-MM-dd")">
                     <td style="padding:12px 16px;">
-                        <div class="admin-user-avatar" id="avatar-@u.Id">
-                            @if (!string.IsNullOrEmpty(u.AvatarUrl))
-                            {
-                                <img src="@u.AvatarUrl" alt="@u.FullName" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" />
-                            }
-                            else
-                            {
-                                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#0a2540,#476083);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;">
-                                    @(string.IsNullOrWhiteSpace(u.FullName) ? "?" : u.FullName.Substring(0, 1).ToUpper())
-                                </div>
-                            }
-                        </div>
+                        @if (!string.IsNullOrEmpty(u.AvatarUrl))
+                        {
+                            <img src="@u.AvatarUrl" alt="@u.FullName" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" />
+                        }
+                        else
+                        {
+                            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#0a2540,#476083);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;">
+                                @(string.IsNullOrWhiteSpace(u.FullName) ? "?" : u.FullName.Substring(0, 1).ToUpper())
+                            </div>
+                        }
                     </td>
                     <td style="padding:12px 16px;font-weight:600;">@u.FullName</td>
                     <td style="padding:12px 16px;color:#6c757d;">@@@u.Username</td>
                     <td style="padding:12px 16px;font-size:13px;">@u.Email</td>
                     <td style="padding:12px 16px;">
-                        <span style="background:#f0eeff;color:#476083;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">@u.Role</span>
+                        <span style="background:#f0eeff;color:#476083;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">@RoleVi(u.Role)</span>
                     </td>
                     <td style="padding:12px 16px;font-size:13px;color:#6c757d;">@u.CreatedAt.ToString("dd/MM/yyyy")</td>
                     <td style="padding:12px 16px;">
                         <div style="display:flex;gap:6px;align-items:center;">
-                            <!-- Upload avatar cho user -->
-                            <label for="adminAvatar-@u.Id" style="background:#476083;color:#fff;padding:5px 10px;border-radius:0px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
-                                <i class="fa fa-camera"></i> Avatar
-                            </label>
-                            <input type="file" id="adminAvatar-@u.Id" accept="image/*" style="display:none;" onchange="adminUploadAvatar(@u.Id, this)" />
-                            <a href="/admin/UserDetail/@u.Id" style="background:#0a2540;color:#fff;padding:5px 10px;border-radius:0px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                            <a href="/admin/UserDetail/@u.Id" style="background:#0a2540;color:#fff;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;text-decoration:none;">
                                 <i class="fa fa-eye"></i> Xem
                             </a>
-                            <button onclick="deleteUser(@u.Id)" style="background:#ba1a1a;color:#fff;border:none;padding:5px 10px;border-radius:0px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
-                                <i class="fa fa-trash"></i> Xoa
+                            <button onclick="deleteUser(@u.Id)" style="background:#ba1a1a;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                                <i class="fa fa-trash"></i> Xóa
                             </button>
                         </div>
                     </td>
@@ -96,36 +135,58 @@
             }
         </tbody>
     </table>
+    </div>
+    <div id="noResult" style="display:none;padding:22px;text-align:center;color:#94a3b8;font-size:13px;">Không tìm thấy tài khoản phù hợp.</div>
 </div>
 
 @section Scripts {
 <script>
-async function adminUploadAvatar(userId, input) {
-    const file = input.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('userId', userId);
-    fd.append('avatarFile', file);
-    try {
-        const res = await fetch('/admin/AdminUploadUserAvatar', { method: 'POST', body: fd });
-        const data = await res.json();
-        if (data.success) {
-            const cell = document.getElementById('avatar-' + userId);
-            cell.innerHTML = `<img src="${data.avatarUrl}" alt="Avatar" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" />`;
-            Swal.fire('Cap nhat avatar thanh cong!');
-        } else { Swal.fire(data.message || 'Loi'); }
-    } catch { Swal.fire('Loi ket noi'); }
-}
+    var TOTAL_USERS = @Model.Count;
 
-async function deleteUser(id) {
-    if (!await confirmSwal('Ban co chac muon xoa tai khoan nay?')) return;
-    try {
-        const res = await fetch('/admin/DeleteUser/' + id, { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-            document.getElementById('user-row-' + id)?.remove();
-        } else { Swal.fire('Loi xoa'); }
-    } catch { Swal.fire('Loi ket noi'); }
-}
+    function applyFilter() {
+        var q = (document.getElementById('fText').value || '').trim().toLowerCase();
+        var role = document.getElementById('fRole').value;
+        var from = document.getElementById('fFrom').value; // yyyy-mm-dd hoặc ''
+        var to = document.getElementById('fTo').value;
+        var shown = 0;
+        document.querySelectorAll('#userTable tr').forEach(function (r) {
+            var name = r.getAttribute('data-name') || '';
+            var email = r.getAttribute('data-email') || '';
+            var uname = r.getAttribute('data-username') || '';
+            var rl = r.getAttribute('data-role') || '';
+            var cr = r.getAttribute('data-created') || '';
+            var okText = q === '' || name.indexOf(q) >= 0 || email.indexOf(q) >= 0 || uname.indexOf(q) >= 0;
+            var okRole = role === '' || rl === role;
+            var okFrom = from === '' || cr >= from;
+            var okTo = to === '' || cr <= to;
+            var show = okText && okRole && okFrom && okTo;
+            r.style.display = show ? '' : 'none';
+            if (show) shown++;
+        });
+        document.getElementById('shownCount').textContent = shown;
+        document.getElementById('noResult').style.display = shown === 0 ? 'block' : 'none';
+    }
+
+    function resetFilter() {
+        document.getElementById('fText').value = '';
+        document.getElementById('fRole').value = '';
+        document.getElementById('fFrom').value = '';
+        document.getElementById('fTo').value = '';
+        applyFilter();
+    }
+
+    async function deleteUser(id) {
+        if (!await confirmSwal('Bạn có chắc muốn xóa tài khoản này?')) return;
+        try {
+            const res = await fetch('/admin/DeleteUser/' + id, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('user-row-' + id)?.remove();
+                TOTAL_USERS--;
+                applyFilter();
+                swalToast('success', 'Đã xóa tài khoản');
+            } else { Swal.fire(data.message || 'Lỗi xóa'); }
+        } catch { Swal.fire('Lỗi kết nối'); }
+    }
 </script>
 }

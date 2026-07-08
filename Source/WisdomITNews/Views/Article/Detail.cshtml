@@ -173,9 +173,40 @@
             </div>
         }
         <div class="article-body">
-            <div class="article-content">
-                @Html.Raw(article.Content)
-            </div>
+            @if (article.IsPremiumOnly)
+            {
+                <div style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#0e7d85,#0ea5a0);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:800;margin-bottom:12px;"><i class="fa fa-crown"></i> PREMIUM</div>
+            }
+            @{ var _podcast = ViewBag.Podcast as WisdomITNews.Models.Podcast; }
+            @if (_podcast != null)
+            {
+                <div class="article-audio" style="background:#f0fdfa;border:1px solid #99e1cb;border-radius:8px;padding:12px 16px;margin:0 0 18px;">
+                    <div style="font-weight:700;color:#0e7d85;margin-bottom:8px;"><i class="fa fa-headphones"></i> Nghe bài viết @(_podcast.IsAiGenerated ? "(giọng đọc AI)" : "")</div>
+                    <audio controls preload="none" src="@_podcast.FilePath" style="width:100%;"></audio>
+                </div>
+            }
+            @{ var _premiumLocked = (bool)(ViewBag.IsPremiumLocked ?? false); }
+            @if (_premiumLocked)
+            {
+                <div class="article-content" style="position:relative;">
+                    <div style="max-height:220px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent);">
+                        <p>@WisdomITNews.Services.PremiumAccess.Preview(article.Content)</p>
+                    </div>
+                    <div style="text-align:center;border:1px solid #d7ece9;background:#f0fdfa;border-radius:12px;padding:26px 20px;margin-top:8px;">
+                        <div style="font-size:40px;color:#0e7d85;margin-bottom:8px;"><i class="fa fa-lock"></i></div>
+                        <h3 style="margin:0 0 6px;color:#0f172a;">Nội dung dành cho thành viên Premium</h3>
+                        <p style="color:#64748b;margin:0 0 16px;">Nâng cấp gói Premium để đọc trọn vẹn bài viết này và toàn bộ nội dung cao cấp khác.</p>
+                        <a href="/Subscription/Pricing" style="display:inline-block;background:#0e7d85;color:#fff;text-decoration:none;padding:12px 26px;border-radius:8px;font-weight:700;"><i class="fa fa-crown"></i> Nâng cấp Premium để đọc tiếp</a>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="article-content">
+                    @Html.Raw(article.Content)
+                    @await Component.InvokeAsync("AdSlot", new { position = "in_article" })
+                </div>
+            }
             @if (Model.Tags.Any())
             {
                 <div class="article-tags">
@@ -247,8 +278,30 @@
                 }
             </div>
         </div>
+
+        <!-- Bài cùng thể loại — tự load khi cuộn -->
+        @if (article.CategoryId != null)
+        {
+            <section class="bm-section" id="relatedFeed" style="margin-top:26px;">
+                <div class="bm-section-head"><h3 style="font-size:18px;font-weight:800;"><span class="hash" style="color:#e63946;">#</span> BÀI CÙNG THỂ LOẠI</h3></div>
+                <div id="relatedMore"></div>
+                <div id="relatedLoader" style="display:none;text-align:center;padding:16px;color:#94a3b8;font-size:14px;"><i class="fa fa-spinner fa-spin"></i> Đang tải bài cùng thể loại...</div>
+                <div id="relatedEnd" style="display:none;text-align:center;padding:16px;color:#cbd5e1;font-size:13px;">— Đã hết bài cùng thể loại —</div>
+                <div id="relatedSentinel" data-cat="@article.CategoryId" data-exclude="@article.Id" data-skip="0" style="height:1px;"></div>
+            </section>
+        }
+
+        <!-- Bài báo bạn có thể thích (toàn bộ) — hiện sau khi hết bài cùng thể loại -->
+        <section class="bm-section" id="suggestedFeed" style="margin-top:26px;display:none;">
+            <div class="bm-section-head"><h3 style="font-size:18px;font-weight:800;"><span class="hash" style="color:#0e7d85;">#</span> BÀI BÁO BẠN CÓ THỂ THÍCH</h3></div>
+            <div id="suggestedMore"></div>
+            <div id="suggestedLoader" style="display:none;text-align:center;padding:16px;color:#94a3b8;font-size:14px;"><i class="fa fa-spinner fa-spin"></i> Đang tải thêm bài...</div>
+            <div id="suggestedEnd" style="display:none;text-align:center;padding:16px;color:#cbd5e1;font-size:13px;">— Đã hiển thị hết bài viết —</div>
+            <div id="suggestedSentinel" data-exclude="@article.Id" data-skip="0" style="height:1px;"></div>
+        </section>
     </main>
     <aside class="sidebar">
+        @await Component.InvokeAsync("AdSlot", new { position = "sidebar" })
         @if (Model.RelatedArticles.Any())
         {
             <div class="sidebar-widget">
@@ -282,6 +335,9 @@
                 }
             </div>
         </div>
+
+        @* Cột Video — cố định (sticky) dưới "Xem nhiều nhất" *@
+        @await Component.InvokeAsync("VideoSidebar")
     </aside>
 </div>
 
@@ -307,6 +363,83 @@
     <script>
         var ARTICLE_ID = @article.Id;
         var summaryLoaded = false;
+
+        // ===== Tự load "bài cùng thể loại" -> hết thì "bài bạn có thể thích" (toàn bộ) =====
+        (function () {
+            // --- Gợi ý (toàn bộ bài, trừ bài hiện tại) ---
+            var sSen = document.getElementById('suggestedSentinel');
+            var sBox = document.getElementById('suggestedMore');
+            var sSec = document.getElementById('suggestedFeed');
+            var sLoader = document.getElementById('suggestedLoader');
+            var sEnd = document.getElementById('suggestedEnd');
+            var sExclude = sSen ? sSen.getAttribute('data-exclude') : '0';
+            var sSkip = 0, sLoading = false, sDone = false, sStarted = false;
+
+            function loadSuggested() {
+                if (sLoading || sDone) return;
+                sLoading = true; if (sLoader) sLoader.style.display = 'block';
+                fetch('/Article/LoadSuggested?excludeId=' + sExclude + '&skip=' + sSkip)
+                    .then(function (r) { return r.text(); })
+                    .then(function (html) {
+                        var t = (html || '').trim();
+                        if (!t) { sDone = true; if (sLoader) sLoader.style.display = 'none'; if (sEnd) sEnd.style.display = 'block'; return; }
+                        var tmp = document.createElement('div'); tmp.innerHTML = t;
+                        var n = tmp.querySelectorAll('.bm-list-item').length;
+                        while (tmp.firstChild) sBox.appendChild(tmp.firstChild);
+                        sSkip += n; sLoading = false; if (sLoader) sLoader.style.display = 'none';
+                        if (n === 0) { sDone = true; if (sEnd) sEnd.style.display = 'block'; }
+                    })
+                    .catch(function () { sLoading = false; if (sLoader) sLoader.style.display = 'none'; });
+            }
+            function startSuggested() {
+                if (sStarted || !sSen || !sBox) return; sStarted = true;
+                if (sSec) sSec.style.display = '';
+                if ('IntersectionObserver' in window) {
+                    var io2 = new IntersectionObserver(function (e) { if (e[0].isIntersecting) loadSuggested(); }, { rootMargin: '400px' });
+                    io2.observe(sSen);
+                } else {
+                    window.addEventListener('scroll', function () { if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 400) loadSuggested(); });
+                }
+                loadSuggested();
+            }
+
+            // --- Cùng thể loại ---
+            var sentinel = document.getElementById('relatedSentinel');
+            var box = document.getElementById('relatedMore');
+            if (!sentinel || !box) { startSuggested(); return; }   // không có mục cùng thể loại -> gợi ý luôn
+            var cat = sentinel.getAttribute('data-cat');
+            var exclude = sentinel.getAttribute('data-exclude');
+            var skip = parseInt(sentinel.getAttribute('data-skip') || '0', 10) || 0;
+            var loading = false, done = false;
+            var loader = document.getElementById('relatedLoader');
+            var endMsg = document.getElementById('relatedEnd');
+
+            function loadRelated() {
+                if (loading || done) return;
+                loading = true; if (loader) loader.style.display = 'block';
+                fetch('/Article/LoadRelated?categoryId=' + cat + '&excludeId=' + exclude + '&skip=' + skip)
+                    .then(function (r) { return r.text(); })
+                    .then(function (html) {
+                        var t = (html || '').trim();
+                        if (!t) { done = true; if (loader) loader.style.display = 'none'; if (endMsg) endMsg.style.display = 'block'; startSuggested(); return; }
+                        var tmp = document.createElement('div'); tmp.innerHTML = t;
+                        var n = tmp.querySelectorAll('.bm-list-item').length;
+                        while (tmp.firstChild) box.appendChild(tmp.firstChild);
+                        skip += n; loading = false; if (loader) loader.style.display = 'none';
+                        if (n === 0) { done = true; if (endMsg) endMsg.style.display = 'block'; startSuggested(); }
+                    })
+                    .catch(function () { loading = false; if (loader) loader.style.display = 'none'; });
+            }
+
+            if ('IntersectionObserver' in window) {
+                var io = new IntersectionObserver(function (e) { if (e[0].isIntersecting) loadRelated(); }, { rootMargin: '400px' });
+                io.observe(sentinel);
+            } else {
+                window.addEventListener('scroll', function () {
+                    if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) loadRelated();
+                });
+            }
+        })();
 
         function toggleSummary() {
             var box = document.getElementById('summaryBox');

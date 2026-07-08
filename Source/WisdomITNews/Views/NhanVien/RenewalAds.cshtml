@@ -1,0 +1,51 @@
+@using WisdomITNews.Models
+@model List<Advertisement>
+@{
+    Layout = "_ManagerLayout";
+    ViewData["Title"] = "Gia hạn quảng cáo";
+    var unread = ViewBag.Unread as Dictionary<int,int> ?? new();
+}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-clock-rotate-left" style="color:#159aa3;"></i> Gia hạn quảng cáo</h1>
+</div>
+<p style="color:#6c757d;font-size:13px;margin-bottom:16px;">Các quảng cáo đã hết hạn (tự ngừng chạy). Bấm "Chat" để trao đổi với nhà báo và gia hạn.</p>
+
+@if (TempData["Ok"] != null)
+{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+@if (TempData["Err"] != null)
+{ <div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Err"]</div> }
+
+<div style="background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead>
+      <tr style="background:#f5f6f8;color:#6c757d;text-align:left;">
+        <th style="padding:12px 14px;">Quảng cáo</th>
+        <th style="padding:12px 14px;">Nhà báo</th>
+        <th style="padding:12px 14px;">Vị trí</th>
+        <th style="padding:12px 14px;">Hết hạn</th>
+        <th style="padding:12px 14px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var a in Model)
+      {
+        var u = unread.ContainsKey(a.Id) ? unread[a.Id] : 0;
+        <tr style="border-bottom:1px solid #f0f2f5;">
+          <td style="padding:12px 14px;font-weight:600;">@a.Title</td>
+          <td style="padding:12px 14px;color:#374151;">@a.CreatedByName</td>
+          <td style="padding:12px 14px;color:#6c757d;">@a.Position</td>
+          <td style="padding:12px 14px;color:#dc2626;">@a.EndDate?.ToString("dd/MM/yyyy")</td>
+          <td style="padding:12px 14px;">
+            <a href="/nhan-vien/AdChat/@a.Id" style="position:relative;background:#159aa3;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;text-decoration:none;">
+              <i class="fa fa-comments"></i> Chat / Gia hạn
+              @if (u > 0)
+              { <span style="position:absolute;top:-7px;right:-7px;background:#dc2626;color:#fff;border-radius:20px;font-size:10px;padding:1px 6px;font-weight:700;">@u</span> }
+            </a>
+          </td>
+        </tr>
+      }
+      @if (!Model.Any())
+      { <tr><td colspan="5" style="padding:24px;text-align:center;color:#94a3b8;">Chưa có quảng cáo nào hết hạn.</td></tr> }
+    </tbody>
+  </table>
+</div>

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using WisdomITNews.Data;
 using WisdomITNews.Models;
 using WisdomITNews.Services;
@@ -31,6 +32,29 @@ public class NhanVienController : Controller
 
     private bool IsLoggedIn => HttpContext.Session.GetString("AdminId") != null;
     private int AdminId => int.Parse(HttpContext.Session.GetString("AdminId") ?? "0");
+
+    // Ghi nhật ký hoạt động (GĐ3) — BEST-EFFORT, lỗi log không làm hỏng thao tác chính. Gọi SAU SaveChanges.
+    private async Task TryLogStaffAsync(string action, string detail, int? targetId = null)
+    {
+        try
+        {
+            _db.StaffActivityLogs.Add(new StaffActivityLog
+            {
+                ActorAdminId = int.TryParse(HttpContext.Session.GetString("AdminId"), out var aid) ? aid : (int?)null,
+                ActorName = HttpContext.Session.GetString("AdminName") ?? "Hệ thống",
+                ActorRole = HttpContext.Session.GetString("AdminRole") ?? "",
+                Action = action,
+                Detail = detail,
+                TargetAdminId = targetId,
+                CreatedAt = DateTime.Now
+            });
+            await _db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "TryLogStaffAsync failed — có thể bảng StaffActivityLogs chưa được tạo (Rebuild + F5).");
+        }
+    }
 
     // ===== AUTH =====
     public IActionResult Login() => IsLoggedIn ? RedirectToAction("Dashboard") : View();
@@ -153,6 +177,7 @@ public class NhanVienController : Controller
         await ApplyAIModerationAsync(article);
         await _db.SaveChangesAsync();
         await SaveTagsAsync(article.Id, vm.Tags);
+        await TryLogStaffAsync("add_article", $"Nhân viên đăng bài: \"{article.Title}\"");
         return RedirectToAction("Articles");
     }
 
@@ -491,9 +516,22 @@ public class NhanVienController : Controller
         if (!IsLoggedIn) return Json(new { success = false });
         var article = await _db.Articles.FindAsync(id);
         if (article == null) return Json(new { success = false });
-        _db.Articles.Remove(article);
-        await _db.SaveChangesAsync();
-        return Json(new { success = true });
+        try
+        {
+            var logs = await _db.AILogs.Where(l => l.ArticleId == id).ToListAsync();
+            foreach (var l in logs) l.ArticleId = null;
+            var saved = await _db.SavedArticles.Where(x => x.ArticleId == id).ToListAsync();
+            _db.SavedArticles.RemoveRange(saved);
+
+            _db.Articles.Remove(article);
+            await _db.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "NhanVien DeleteArticle failed (id={Id})", id);
+            return Json(new { success = false, message = "Không xóa được — bài còn dữ liệu liên quan." });
+        }
     }
 
     // ===== QUẢN LÝ NGUỒN TIN =====
@@ -842,5 +880,422 @@ public class NhanVienController : Controller
         foreach (var n in list) n.IsDeleted = true;
         await _db.SaveChangesAsync();
         return Json(new { success = true, deleted = list.Count });
+    }
+
+    // ===== LỊCH SỬ LÀM VIỆC (GĐ3) — nhân viên chỉ XEM, không sửa/xóa =====
+    public async Task<IActionResult> ActivityLog(string? q, string? actionType)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var query = _db.StaffActivityLogs.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(actionType)) query = query.Where(l => l.Action == actionType);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var kw = q.Trim();
+            query = query.Where(l => l.Detail.Contains(kw) || l.ActorName.Contains(kw));
+        }
+        var logs = await query.OrderByDescending(l => l.CreatedAt).Take(500).ToListAsync();
+        ViewBag.Q = q; ViewBag.ActionFilter = actionType;
+        return View(logs);
+    }
+
+    // ===== PODCAST / AUDIO (của tôi) =====
+    public async Task<IActionResult> Podcasts()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var list = await _db.Podcasts.Include(p => p.Article)
+            .Where(p => p.UploadedByType == "NhanVien" && p.UploadedByUserId == AdminId)
+            .OrderByDescending(p => p.CreatedAt).ToListAsync();
+        return View(list);
+    }
+
+    // API JSON: tìm bài viết cho modal chọn bài (phân trang)
+    public async Task<IActionResult> SearchArticlesForPicker(string? q, int page = 1, int pageSize = 8)
+    {
+        if (!IsLoggedIn) return Json(new { items = new object[0], hasMore = false });
+        if (page < 1) page = 1;
+        if (pageSize < 1 || pageSize > 30) pageSize = 8;
+
+        var query = _db.Articles.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var kw = q.Trim();
+            query = query.Where(a => a.Title.Contains(kw));
+        }
+        var raw = await query.OrderByDescending(a => a.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize + 1)
+            .Select(a => new { a.Id, a.Title, a.Thumbnail, a.Region, a.Views })
+            .ToListAsync();
+
+        var hasMore = raw.Count > pageSize;
+        var items = raw.Take(pageSize).Select(a => new
+        {
+            id = a.Id,
+            title = a.Title,
+            thumbnail = a.Thumbnail,
+            region = WisdomITNews.Services.SlugHelper.RegionName(a.Region),
+            views = a.Views
+        });
+        return Json(new { items, hasMore });
+    }
+
+
+    [HttpPost]
+    public async Task<IActionResult> UploadPodcast(IFormFile audioFile, string? title, string? description, int? articleId)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var svc = HttpContext.RequestServices.GetRequiredService<PodcastService>();
+        var res = await svc.SaveUploadAsync(audioFile, title, description, articleId, AdminId, "NhanVien");
+        TempData[res.Success ? "Ok" : "Err"] = res.Success ? "Đã tải lên audio." : ("Lỗi: " + res.Error);
+        return RedirectToAction("Podcasts");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeletePodcast(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var pod = await _db.Podcasts.FindAsync(id);
+        if (pod == null || pod.UploadedByType != "NhanVien" || pod.UploadedByUserId != AdminId) return Json(new { success = false });
+        _db.Podcasts.Remove(pod);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> GeneratePodcast(int articleId)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var svc = HttpContext.RequestServices.GetRequiredService<PodcastService>();
+        var res = await svc.GenerateFromArticleAsync(articleId, AdminId, "NhanVien");
+        return Json(new { success = res.Success, message = res.Success ? "Đã tạo audio từ bài viết." : res.Error, filePath = res.Podcast?.FilePath });
+    }
+// ===== GIA HẠN QUẢNG CÁO (chat với nhà báo) =====
+    public async Task<IActionResult> RenewalAds()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var now = DateTime.Now;
+        var ads = await _db.Advertisements
+            .Where(a => a.EndDate != null && a.EndDate < now)
+            .OrderByDescending(a => a.EndDate).ToListAsync();
+        var ids = ads.Select(a => a.Id).ToList();
+        var unread = await _db.AdRenewalMessages
+            .Where(m => ids.Contains(m.AdvertisementId) && m.SenderRole == "journalist" && !m.IsReadByAdmin)
+            .GroupBy(m => m.AdvertisementId).Select(g => new { AdId = g.Key, C = g.Count() }).ToListAsync();
+        ViewBag.Unread = unread.ToDictionary(x => x.AdId, x => x.C);
+        return View(ads);
+    }
+
+    public async Task<IActionResult> AdChat(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var ad = await _db.Advertisements.FindAsync(id);
+        if (ad == null) return RedirectToAction("RenewalAds");
+        var msgs = await _db.AdRenewalMessages.Where(m => m.AdvertisementId == id).OrderBy(m => m.Id).ToListAsync();
+        var unread = msgs.Where(m => m.SenderRole == "journalist" && !m.IsReadByAdmin).ToList();
+        if (unread.Count > 0) { foreach (var m in unread) m.IsReadByAdmin = true; await _db.SaveChangesAsync(); }
+        ViewBag.Ad = ad; ViewBag.Messages = msgs;
+        return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ExtendAdRenewal(int id, DateTime? endDate)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var ad = await _db.Advertisements.FindAsync(id);
+        if (ad == null) { TempData["Err"] = "Không tìm thấy quảng cáo."; return RedirectToAction("RenewalAds"); }
+        if (endDate == null || endDate.Value.Date <= DateTime.Now.Date)
+        { TempData["Err"] = "Chọn ngày gia hạn trong tương lai."; return RedirectToAction("AdChat", new { id }); }
+
+        ad.EndDate = endDate.Value;
+        if (ad.StartDate == null || ad.StartDate > DateTime.Now) ad.StartDate = DateTime.Now;
+        ad.IsActive = true;
+        ad.Status = "approved";
+
+        var aRole = HttpContext.Session.GetString("AdminRole") ?? "";
+        var role = (aRole == "superadmin" || aRole == "admin") ? "admin" : "nhanvien";
+        var name = HttpContext.Session.GetString("AdminName") ?? "Quản trị";
+        var msg = new AdRenewalMessage
+        {
+            AdvertisementId = id, SenderRole = role, SenderId = AdminId, SenderName = name,
+            Content = $"✅ Đã gia hạn quảng cáo, chạy lại đến {endDate.Value:dd/MM/yyyy}.",
+            CreatedAt = DateTime.Now, IsReadByAdmin = true, IsReadByJournalist = false
+        };
+        _db.AdRenewalMessages.Add(msg);
+        await _db.SaveChangesAsync();
+
+        var hub = HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<WisdomITNews.Hubs.AdChatHub>>();
+        await hub.Clients.Group($"adchat_{id}").SendAsync("ReceiveAdMessage", new
+        {
+            adId = id, id = msg.Id, role = msg.SenderRole, senderName = msg.SenderName,
+            content = msg.Content, createdAt = msg.CreatedAt.ToString("HH:mm dd/MM/yyyy"), isJournalist = false
+        });
+        TempData["Ok"] = $"Đã gia hạn quảng cáo đến {endDate.Value:dd/MM/yyyy} và bật lại.";
+        return RedirectToAction("AdChat", new { id });
+    }
+
+    // ===== QUẢNG CÁO (Nhân viên quản lý + duyệt) =====
+    public async Task<IActionResult> Advertisements(string? filter)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var query = _db.Advertisements.AsQueryable();
+        if (filter == "pending") query = query.Where(a => a.Status == "pending");
+        else if (filter == "active") query = query.Where(a => a.Status == "approved" && a.IsActive);
+        else if (filter == "header" || filter == "sidebar" || filter == "in_article") query = query.Where(a => a.Position == filter);
+        var ads = await query.OrderByDescending(a => a.CreatedAt).ToListAsync();
+        ViewBag.Filter = filter ?? "all";
+        ViewBag.PendingCount = await _db.Advertisements.CountAsync(a => a.Status == "pending");
+        ViewBag.TotalImpressions = (await _db.Advertisements.SumAsync(a => (int?)a.Impressions)) ?? 0;
+        ViewBag.TotalClicks = (await _db.Advertisements.SumAsync(a => (int?)a.Clicks)) ?? 0;
+        return View(ads);
+    }
+
+    public IActionResult CreateAd()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        return View(new Advertisement());
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateAd(Advertisement form, IFormFile? imageFile)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        if (string.IsNullOrWhiteSpace(form.Title) || string.IsNullOrWhiteSpace(form.TargetUrl))
+        { ViewBag.Error = "Vui lòng nhập tiêu đề và link đích."; return View(form); }
+        string? img = form.ImageUrl;
+        if (imageFile != null && imageFile.Length > 0)
+        { var up = await _imageUpload.SaveAsync(imageFile); if (up.Success) img = up.RelativePath; }
+        var validPos = new[] { "header", "sidebar", "in_article" };
+        _db.Advertisements.Add(new Advertisement
+        {
+            Title = form.Title.Trim(), ImageUrl = img, TargetUrl = form.TargetUrl.Trim(),
+            Position = validPos.Contains(form.Position) ? form.Position : "sidebar",
+            StartDate = form.StartDate, EndDate = form.EndDate, IsActive = form.IsActive,
+            Status = "approved", CreatedByAdminId = AdminId,
+            CreatedByName = HttpContext.Session.GetString("AdminName") ?? "Nhân viên", CreatedAt = DateTime.Now
+        });
+        await _db.SaveChangesAsync();
+        await TryLogStaffAsync("ad_create", "Tạo quảng cáo: " + form.Title.Trim());
+        TempData["Ok"] = "Đã thêm quảng cáo.";
+        return RedirectToAction("Advertisements");
+    }
+
+    public async Task<IActionResult> EditAd(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var ad = await _db.Advertisements.FindAsync(id);
+        if (ad == null) return RedirectToAction("Advertisements");
+        return View(ad);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EditAd(int id, Advertisement form, IFormFile? imageFile)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var ad = await _db.Advertisements.FindAsync(id);
+        if (ad == null) return RedirectToAction("Advertisements");
+        if (imageFile != null && imageFile.Length > 0)
+        { var up = await _imageUpload.SaveAsync(imageFile); if (up.Success) ad.ImageUrl = up.RelativePath; }
+        else if (!string.IsNullOrWhiteSpace(form.ImageUrl)) ad.ImageUrl = form.ImageUrl.Trim();
+        ad.Title = (form.Title ?? "").Trim();
+        ad.TargetUrl = (form.TargetUrl ?? "").Trim();
+        var validPos = new[] { "header", "sidebar", "in_article" };
+        ad.Position = validPos.Contains(form.Position) ? form.Position : ad.Position;
+        ad.StartDate = form.StartDate; ad.EndDate = form.EndDate; ad.IsActive = form.IsActive;
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã cập nhật quảng cáo.";
+        return RedirectToAction("Advertisements");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ToggleAd(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var ad = await _db.Advertisements.FindAsync(id);
+        if (ad == null) return Json(new { success = false });
+        ad.IsActive = !ad.IsActive;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, isActive = ad.IsActive });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ApproveAd(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var ad = await _db.Advertisements.FindAsync(id);
+        if (ad == null) return Json(new { success = false });
+        ad.Status = "approved"; ad.IsActive = true;
+        await _db.SaveChangesAsync();
+        await TryLogStaffAsync("ad_approve", "Duyệt quảng cáo #" + id);
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RejectAd(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var ad = await _db.Advertisements.FindAsync(id);
+        if (ad == null) return Json(new { success = false });
+        ad.Status = "rejected"; ad.IsActive = false;
+        await _db.SaveChangesAsync();
+        await TryLogStaffAsync("ad_reject", "Từ chối quảng cáo #" + id);
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteAd(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var ad = await _db.Advertisements.FindAsync(id);
+        if (ad == null) return Json(new { success = false });
+        _db.Advertisements.Remove(ad);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // ===== CHAT NỘI BỘ BAN QUẢN LÝ (phòng chung) =====
+    public async Task<IActionResult> TeamChat()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var msgs = await _db.TeamChatMessages.Where(m => m.ConversationKey == "team")
+            .OrderBy(m => m.Id).Take(200).ToListAsync();
+        ViewBag.Messages = msgs;
+        var role = HttpContext.Session.GetString("AdminRole") ?? "";
+        ViewBag.MeRole = (role == "superadmin" || role == "admin") ? "admin" : "nhanvien";
+        ViewBag.MeId = AdminId;
+        return View();
+    }
+
+    // ===== NHÂN VIÊN: QUẢN LÝ KHÁCH HÀNG (Premium / Trial) =====
+    public async Task<IActionResult> PremiumCustomers(string? role, string? status, int? planId, string? q, bool? expiring, int page = 1)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        const int pageSize = 20;
+
+        var all = await CustomerHelper.BuildAllAsync(_db);
+        var filtered = CustomerHelper.ApplyFilter(all, role, status, planId, q);
+
+        var now = DateTime.Now;
+        if (expiring == true)
+            filtered = filtered.Where(i => i.SubStatus == SubscriptionStatus.Active && i.EndDate > now && i.EndDate <= now.AddDays(7)).ToList();
+
+        ViewBag.TotalCount    = filtered.Count;
+        ViewBag.TrialCount    = filtered.Count(i => i.SubStatus == SubscriptionStatus.Trial);
+        ViewBag.PremiumCount  = filtered.Count(i => i.SubStatus == SubscriptionStatus.Active);
+        ViewBag.ExpiringCount = filtered.Count(i => i.SubStatus == SubscriptionStatus.Active && i.EndDate > now && i.EndDate <= now.AddDays(7));
+
+        var ordered = filtered.OrderByDescending(i => i.EndDate).ToList();
+        int total = ordered.Count;
+        int totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+        var pageItems = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        ViewBag.Page = page; ViewBag.TotalPages = totalPages;
+        ViewBag.Role = role; ViewBag.Status = status; ViewBag.PlanId = planId; ViewBag.Q = q; ViewBag.Expiring = expiring;
+        ViewBag.Plans = await _db.SubscriptionPlans.OrderBy(p => p.Name).ToListAsync();
+        return View(pageItems);
+    }
+
+    // Chi tiết 1 khách hàng
+    public async Task<IActionResult> CustomerProfile(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var vm = await CustomerHelper.BuildDetailAsync(_db, id);
+        if (vm == null) { TempData["Err"] = "Không tìm thấy khách hàng Premium/Trial."; return RedirectToAction("PremiumCustomers"); }
+        ViewBag.Plans = await _db.SubscriptionPlans.Where(p => p.IsActive).OrderBy(p => p.Name).ToListAsync();
+        return View(vm);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ToggleCustomerAccount(int userId)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var u = await _db.Users.FindAsync(userId);
+        if (u == null || u.IsDeleted) { TempData["Err"] = "Không tìm thấy khách hàng."; return RedirectToAction("PremiumCustomers"); }
+        bool wasActive = u.IsActive;
+        u.IsActive = !u.IsActive;
+        CustomerHelper.AddLog(_db, userId, "NhanVien", HttpContext.Session.GetString("AdminName") ?? "Nhân viên",
+            u.IsActive ? "Mở khóa tài khoản" : "Khóa tài khoản",
+            wasActive ? "Hoạt động" : "Bị khóa", u.IsActive ? "Hoạt động" : "Bị khóa", null);
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = u.IsActive ? "Đã mở khóa tài khoản." : "Đã khóa tài khoản.";
+        return RedirectToAction("CustomerProfile", new { id = userId });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CancelCustomerSub(int subId, string? note)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var s = await _db.UserSubscriptions.FindAsync(subId);
+        if (s == null) { TempData["Err"] = "Không tìm thấy gói."; return RedirectToAction("PremiumCustomers"); }
+        var actor = HttpContext.Session.GetString("AdminName") ?? "Nhân viên";
+        var oldLbl = CustomerHelper.StatusLabel(s.Status);
+        s.Status = SubscriptionStatus.Cancelled;
+        s.Notes = (string.IsNullOrEmpty(s.Notes) ? "" : s.Notes + " | ")
+                + $"Hủy bởi {actor} ({DateTime.Now:dd/MM/yyyy HH:mm})"
+                + (string.IsNullOrWhiteSpace(note) ? "" : ": " + note.Trim());
+        CustomerHelper.AddLog(_db, s.UserId, "NhanVien", actor, "Hủy gói", oldLbl, "Đã hủy", note);
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã hủy gói của khách hàng.";
+        return RedirectToAction("CustomerProfile", new { id = s.UserId });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateCustomerPlan(int subId, int planId, DateTime endDate, string? note)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var s = await _db.UserSubscriptions.Include(x => x.Plan).FirstOrDefaultAsync(x => x.Id == subId);
+        if (s == null) { TempData["Err"] = "Không tìm thấy gói."; return RedirectToAction("PremiumCustomers"); }
+        var plan = await _db.SubscriptionPlans.FindAsync(planId);
+        if (plan == null) { TempData["Err"] = "Gói không hợp lệ."; return RedirectToAction("CustomerProfile", new { id = s.UserId }); }
+        var actor = HttpContext.Session.GetString("AdminName") ?? "Nhân viên";
+
+        if (s.PlanId != planId)
+        {
+            CustomerHelper.AddLog(_db, s.UserId, "NhanVien", actor, "Đổi gói", s.Plan?.Name ?? "", plan.Name, note);
+            s.PlanId = planId;
+        }
+        if (s.EndDate.Date != endDate.Date)
+        {
+            CustomerHelper.AddLog(_db, s.UserId, "NhanVien", actor, "Đổi ngày hết hạn",
+                s.EndDate.ToString("dd/MM/yyyy"), endDate.ToString("dd/MM/yyyy"), note);
+            s.EndDate = endDate;
+        }
+        if (endDate > DateTime.Now && (s.Status == SubscriptionStatus.Expired || s.Status == SubscriptionStatus.Cancelled))
+        {
+            s.Status = SubscriptionStatus.Active;
+            s.ConfirmedAt ??= DateTime.Now;
+        }
+        s.Notes = (string.IsNullOrEmpty(s.Notes) ? "" : s.Notes + " | ")
+                + $"Cập nhật gói bởi {actor} ({DateTime.Now:dd/MM/yyyy HH:mm})";
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã cập nhật gói khách hàng.";
+        return RedirectToAction("CustomerProfile", new { id = s.UserId });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RegisterPremium(int userId, int planId, int days)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var (ok, msg, uid) = await CustomerHelper.RegisterPremiumAsync(_db, userId, planId, days, "NhanVien", HttpContext.Session.GetString("AdminName") ?? "Nhân viên");
+        TempData[ok ? "Ok" : "Err"] = msg;
+        return uid > 0 ? RedirectToAction("CustomerProfile", new { id = uid }) : RedirectToAction("PremiumCustomers");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ExtendPremium(int subId, int days)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var (ok, msg, uid) = await CustomerHelper.ExtendPremiumAsync(_db, subId, days, "NhanVien", HttpContext.Session.GetString("AdminName") ?? "Nhân viên");
+        TempData[ok ? "Ok" : "Err"] = msg;
+        return uid > 0 ? RedirectToAction("CustomerProfile", new { id = uid }) : RedirectToAction("PremiumCustomers");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ConvertTrialToPremium(int subId, int planId, int days)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var (ok, msg, uid) = await CustomerHelper.ConvertTrialAsync(_db, subId, planId, days, "NhanVien", HttpContext.Session.GetString("AdminName") ?? "Nhân viên");
+        TempData[ok ? "Ok" : "Err"] = msg;
+        return uid > 0 ? RedirectToAction("CustomerProfile", new { id = uid }) : RedirectToAction("PremiumCustomers");
     }
 }

@@ -15,13 +15,158 @@
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
     <h1 style="font-size:22px;font-weight:700;">📡 Nhập Bài Báo</h1>
-    <form method="post" action="/admin/ImportAllSources" style="display:inline;">
-        @Html.AntiForgeryToken()
-        <button type="submit" onclick="return confirm('Nhập tin từ tất cả nguồn đang active?')" 
-                style="background:#16a34a;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;">
-            <i class="fa fa-download"></i> Nhập tất cả nguồn
+    <div style="display:flex;gap:8px;">
+        <button type="button" onclick="openImportHistory()"
+                style="background:#475569;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;">
+            <i class="fa fa-clock-rotate-left"></i> Lịch sử nhập
         </button>
+        <button type="button" onclick="openAiManage()"
+                style="background:#7c3aed;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;">
+            <i class="fa fa-robot"></i> Quản lý AI
+        </button>
+        <button type="button" onclick="document.getElementById('autoCfgModal').style.display='flex'"
+                style="background:#159aa3;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;">
+            <i class="fa fa-gear"></i> Cài đặt tự động
+        </button>
+        <form method="post" action="/admin/FixArticleEntities" style="display:inline;">
+            @Html.AntiForgeryToken()
+            <button type="submit" onclick="return confirm('Sửa lỗi ký tự (&amp;uacute; &amp;#039;...) trong tiêu đề các bài đã nhập?')"
+                    style="background:#0e7d85;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;">
+                <i class="fa fa-wand-magic-sparkles"></i> Sửa lỗi ký tự
+            </button>
+        </form>
+        <form method="post" action="/admin/ImportAllSources" style="display:inline;">
+            @Html.AntiForgeryToken()
+            <button type="submit" onclick="return confirm('Nhập tin từ tất cả nguồn đang active?')"
+                    style="background:#16a34a;color:#fff;padding:9px 18px;border:none;border-radius:0px;font-weight:600;font-size:14px;cursor:pointer;">
+                <i class="fa fa-download"></i> Nhập tất cả nguồn
+            </button>
+        </form>
+    </div>
+</div>
+
+@{ var cfg = ViewBag.AutoCfg as WisdomITNews.Models.AutoImportSettings ?? new WisdomITNews.Models.AutoImportSettings(); }
+<!-- MODAL CÀI ĐẶT TỰ ĐỘNG NHẬP -->
+<div id="autoCfgModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 12px;">
+  <form method="post" action="/admin/SaveAutoImportSettings" onsubmit="return validateAutoCfg()"
+        style="background:#fff;border-radius:8px;padding:22px 24px;width:640px;max-width:96%;box-shadow:0 10px 40px rgba(0,0,0,.25);">
+    @Html.AntiForgeryToken()
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h2 style="font-size:19px;font-weight:800;"><i class="fa fa-gear" style="color:#159aa3;"></i> Cài đặt tự động nhập bài</h2>
+      <span onclick="document.getElementById('autoCfgModal').style.display='none'" style="cursor:pointer;font-size:22px;color:#94a3b8;">&times;</span>
+    </div>
+    <p style="color:#64748b;font-size:13px;margin-bottom:16px;">Cấu hình được lưu vào CSDL và áp dụng ngay ở chu kỳ quét kế tiếp.</p>
+
+    <!-- 1. Bật/tắt -->
+    <label style="display:flex;align-items:center;gap:10px;background:#f0fdfa;border:1px solid #99f6e4;padding:12px 14px;border-radius:8px;margin-bottom:16px;cursor:pointer;">
+      <input type="checkbox" name="Enabled" value="true" @(cfg.Enabled ? "checked" : "") style="width:18px;height:18px;" />
+      <span style="font-weight:700;">Bật tự động nhập bài</span>
+      <span style="font-size:12px;color:#64748b;">(tắt = hệ thống không tự quét nguồn)</span>
+    </label>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <!-- 2. Chu kỳ quét -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#475569;">Chu kỳ quét (giây)</label>
+        <input type="number" id="ScanIntervalSeconds" name="ScanIntervalSeconds" value="@cfg.ScanIntervalSeconds" min="5" max="86400" style="width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+        <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap;">
+          @foreach (var v in new[]{5,10,30,120}) { <button type="button" onclick="setCfg('ScanIntervalSeconds',@v)" style="padding:3px 9px;font-size:11px;border:1px solid #cbd5e1;background:#f8fafc;border-radius:12px;cursor:pointer;">@v s</button> }
+        </div>
+      </div>
+      <!-- 3. Số bài tối đa mỗi nguồn -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#475569;">Số bài tối đa / nguồn / lần</label>
+        <input type="number" id="MaxPerSource" name="MaxPerSource" value="@cfg.MaxPerSource" min="1" max="500" style="width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+        <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap;">
+          @foreach (var v in new[]{10,20,50,100}) { <button type="button" onclick="setCfg('MaxPerSource',@v)" style="padding:3px 9px;font-size:11px;border:1px solid #cbd5e1;background:#f8fafc;border-radius:12px;cursor:pointer;">@v</button> }
+        </div>
+      </div>
+      <!-- 4. Nghỉ giữa mỗi bài -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#475569;">Nghỉ giữa mỗi bài (giây)</label>
+        <input type="number" id="DelayBetweenArticlesSeconds" name="DelayBetweenArticlesSeconds" value="@cfg.DelayBetweenArticlesSeconds" min="0" max="600" style="width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+      </div>
+      <!-- 5. Nghỉ giữa mỗi nguồn -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#475569;">Nghỉ giữa mỗi nguồn (giây)</label>
+        <input type="number" id="DelayBetweenSourcesSeconds" name="DelayBetweenSourcesSeconds" value="@cfg.DelayBetweenSourcesSeconds" min="0" max="600" style="width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+      </div>
+      <!-- 6. Số nguồn đồng thời -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#475569;">Số nguồn xử lý đồng thời</label>
+        <input type="number" id="Concurrency" name="Concurrency" value="@cfg.Concurrency" min="1" max="10" style="width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+        <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap;">
+          @foreach (var v in new[]{1,2,3,5,10}) { <button type="button" onclick="setCfg('Concurrency',@v)" style="padding:3px 9px;font-size:11px;border:1px solid #cbd5e1;background:#f8fafc;border-radius:12px;cursor:pointer;">@v</button> }
+        </div>
+      </div>
+      <!-- 7. Tổng số bài mỗi lần -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#475569;">Tổng số bài tối đa / lần chạy</label>
+        <input type="number" id="MaxTotalPerRun" name="MaxTotalPerRun" value="@cfg.MaxTotalPerRun" min="1" max="100000" style="width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+        <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap;">
+          @foreach (var v in new[]{100,500,1000}) { <button type="button" onclick="setCfg('MaxTotalPerRun',@v)" style="padding:3px 9px;font-size:11px;border:1px solid #cbd5e1;background:#f8fafc;border-radius:12px;cursor:pointer;">@v</button> }
+        </div>
+      </div>
+      <!-- 8. Thử lại khi lỗi -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#475569;">Thử lại khi nguồn lỗi (giây)</label>
+        <input type="number" id="RetrySeconds" name="RetrySeconds" value="@cfg.RetrySeconds" min="5" max="86400" style="width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+      </div>
+    </div>
+
+    <!-- 9. Chỉ nhập bài mới -->
+    <label style="display:flex;align-items:center;gap:10px;margin-top:16px;cursor:pointer;">
+      <input type="checkbox" name="OnlyNew" value="true" @(cfg.OnlyNew ? "checked" : "") style="width:17px;height:17px;" />
+      <span style="font-weight:600;">Chỉ nhập bài mới</span>
+      <span style="font-size:12px;color:#64748b;">(bỏ qua bài đã có trong hệ thống)</span>
+    </label>
+
+    <!-- 10. Ghi log -->
+    <div style="margin-top:14px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#475569;"><i class="fa fa-list-check"></i> Ghi nhật ký hoạt động</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" name="LogSuccess" value="true" @(cfg.LogSuccess ? "checked" : "") /> Nhập thành công</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" name="LogSkipDuplicate" value="true" @(cfg.LogSkipDuplicate ? "checked" : "") /> Bỏ qua do trùng</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" name="LogError" value="true" @(cfg.LogError ? "checked" : "") /> Lỗi khi nhập</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" name="LogConnectionError" value="true" @(cfg.LogConnectionError ? "checked" : "") /> Lỗi kết nối nguồn</label>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+      <button type="button" onclick="document.getElementById('autoCfgModal').style.display='none'" style="background:#f0f2f5;color:#475569;border:none;padding:10px 18px;border-radius:6px;font-weight:600;cursor:pointer;">Hủy</button>
+      <button type="submit" style="background:#159aa3;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:700;cursor:pointer;"><i class="fa fa-floppy-disk"></i> Lưu</button>
+    </div>
+  </form>
+</div>
+
+<!-- MODAL LỊCH SỬ NHẬP -->
+<div id="importHistoryModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:26px 12px;">
+  <div style="background:#fff;border-radius:8px;padding:20px 22px;width:1000px;max-width:97%;box-shadow:0 10px 40px rgba(0,0,0,.25);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h2 style="font-size:19px;font-weight:800;"><i class="fa fa-clock-rotate-left" style="color:#475569;"></i> Lịch sử nhập bài</h2>
+      <span onclick="document.getElementById('importHistoryModal').style.display='none'" style="cursor:pointer;font-size:22px;color:#94a3b8;">&times;</span>
+    </div>
+    <form onsubmit="loadImportHistory(); return false;" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:14px;">
+      <input type="text" id="ihKeyword" placeholder="🔍 Tìm theo tiêu đề..." style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
+      <div><label style="font-size:11px;color:#94a3b8;display:block;">Từ ngày</label><input type="date" id="ihFrom" style="padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" /></div>
+      <div><label style="font-size:11px;color:#94a3b8;display:block;">Đến ngày</label><input type="date" id="ihTo" style="padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" /></div>
+      <button type="submit" style="background:#159aa3;color:#fff;border:none;padding:9px 16px;border-radius:6px;font-weight:600;cursor:pointer;">Lọc</button>
+      <button type="button" onclick="document.getElementById('ihKeyword').value='';document.getElementById('ihFrom').value='';document.getElementById('ihTo').value='';loadImportHistory();" style="background:#f0f2f5;color:#475569;border:none;padding:9px 14px;border-radius:6px;font-weight:600;cursor:pointer;">Xóa lọc</button>
     </form>
+    <div id="importHistoryBody" style="min-height:120px;"><div style="padding:26px;text-align:center;color:#94a3b8;"><i class="fa fa-spinner fa-spin"></i> Đang tải...</div></div>
+  </div>
+</div>
+
+<!-- MODAL QUẢN LÝ AI -->
+<div id="aiManageModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:26px 12px;">
+  <div style="background:#fff;border-radius:8px;padding:20px 22px;width:960px;max-width:97%;box-shadow:0 10px 40px rgba(0,0,0,.25);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h2 style="font-size:19px;font-weight:800;"><i class="fa fa-robot" style="color:#7c3aed;"></i> Quản lý AI — phân loại danh mục</h2>
+      <span onclick="document.getElementById('aiManageModal').style.display='none'" style="cursor:pointer;font-size:22px;color:#94a3b8;">&times;</span>
+    </div>
+    <p style="color:#64748b;font-size:13px;margin-bottom:14px;">Ánh xạ nhãn AI → danh mục, sửa danh mục AI gán sai (tự lưu quy tắc + ghi AI Logs).</p>
+    <div id="aiManageBody" style="min-height:160px;"><div style="padding:26px;text-align:center;color:#94a3b8;"><i class="fa fa-spinner fa-spin"></i> Đang tải...</div></div>
+  </div>
 </div>
 
 <!-- PHẦN TRÊN: DANH SÁCH NGUỒN TIN -->
@@ -100,9 +245,13 @@
                                     style="padding:5px 10px;background:#16a34a;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;margin-right:4px;">
                                 Nhập tin
                             </button>
-                            <button onclick="toggleSource(@src.Id)" 
+                            <button onclick="toggleSource(@src.Id)"
                                     style="padding:5px 10px;background:#f59e0b;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;margin-right:4px;">
                                 @(src.IsActive ? "Tắt" : "Bật")
+                            </button>
+                            <button onclick="toggleAuto(@src.Id)" id="auto-@src.Id" title="Tự động nhập 1 bài mỗi phút"
+                                    style="padding:5px 10px;background:@(src.AutoImport ? "#0e7d85" : "#94a3b8");color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;margin-right:4px;">
+                                <i class="fa fa-robot"></i> @(src.AutoImport ? "Tự động: BẬT" : "Tự động: Tắt")
                             </button>
                             @if (isSuper)
                             {
@@ -292,6 +441,100 @@
             const data = await res.json();
             if (data.success) {
                 location.reload();
+            }
+        } catch (err) {
+            Swal.fire('Lỗi', 'Lỗi kết nối', 'error');
+        }
+    }
+
+    // ===== Lịch sử nhập =====
+    function openImportHistory() { document.getElementById('importHistoryModal').style.display = 'flex'; loadImportHistory(); }
+    async function loadImportHistory() {
+        var kw = encodeURIComponent(document.getElementById('ihKeyword').value || '');
+        var from = document.getElementById('ihFrom').value || '';
+        var to = document.getElementById('ihTo').value || '';
+        var body = document.getElementById('importHistoryBody');
+        body.innerHTML = '<div style="padding:26px;text-align:center;color:#94a3b8;"><i class="fa fa-spinner fa-spin"></i> Đang tải...</div>';
+        try {
+            var res = await fetch('/admin/ImportHistory?keyword=' + kw + '&from=' + from + '&to=' + to);
+            body.innerHTML = await res.text();
+        } catch (e) { body.innerHTML = '<div style="padding:20px;text-align:center;color:#dc2626;">Lỗi tải lịch sử.</div>'; }
+    }
+    async function deleteHistoryArticle(id) {
+        if (!await confirmSwal('Xóa bài này khỏi hệ thống?')) return;
+        var token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        try {
+            var res = await fetch('/admin/DeleteImportedArticle/' + id, { method: 'POST', headers: { 'RequestVerificationToken': token } });
+            var d = await res.json();
+            if (d.success) { swalToast('success', 'Đã xóa bài'); loadImportHistory(); }
+            else Swal.fire('Lỗi', 'Không xóa được', 'error');
+        } catch (e) { Swal.fire('Lỗi', 'Lỗi kết nối', 'error'); }
+    }
+
+    // ===== Quản lý AI =====
+    function openAiManage() { document.getElementById('aiManageModal').style.display = 'flex'; loadAiManage(); }
+    async function loadAiManage() {
+        var body = document.getElementById('aiManageBody');
+        body.innerHTML = '<div style="padding:26px;text-align:center;color:#94a3b8;"><i class="fa fa-spinner fa-spin"></i> Đang tải...</div>';
+        try { var res = await fetch('/admin/AiManage'); body.innerHTML = await res.text(); }
+        catch (e) { body.innerHTML = '<div style="padding:20px;text-align:center;color:#dc2626;">Lỗi tải.</div>'; }
+    }
+    function aiToken() { return document.querySelector('input[name="__RequestVerificationToken"]').value; }
+    async function addMapping() {
+        var label = (document.getElementById('mapLabel').value || '').trim();
+        var cat = document.getElementById('mapCategory').value;
+        if (!label) { Swal.fire('Thiếu dữ liệu', 'Nhập nhãn AI nhận diện', 'warning'); return; }
+        var fd = new FormData(); fd.append('aiLabel', label); fd.append('categoryId', cat);
+        var res = await fetch('/admin/AddCategoryMapping', { method: 'POST', headers: { 'RequestVerificationToken': aiToken() }, body: fd });
+        var d = await res.json();
+        if (d.success) { swalToast('success', 'Đã thêm ánh xạ'); loadAiManage(); } else Swal.fire('Lỗi', d.message || 'Không thêm được', 'error');
+    }
+    async function deleteMapping(id) {
+        if (!await confirmSwal('Xóa ánh xạ này?')) return;
+        var res = await fetch('/admin/DeleteCategoryMapping/' + id, { method: 'POST', headers: { 'RequestVerificationToken': aiToken() } });
+        var d = await res.json(); if (d.success) { swalToast('success', 'Đã xóa'); loadAiManage(); }
+    }
+    async function correctCategory(articleId, categoryId) {
+        var fd = new FormData(); fd.append('articleId', articleId); fd.append('categoryId', categoryId);
+        var res = await fetch('/admin/CorrectArticleCategory', { method: 'POST', headers: { 'RequestVerificationToken': aiToken() }, body: fd });
+        var d = await res.json();
+        if (d.success) { swalToast('success', d.message || 'Đã cập nhật'); loadAiManage(); } else Swal.fire('Lỗi', d.message || 'Không cập nhật được', 'error');
+    }
+
+    // Cài đặt tự động: đặt nhanh giá trị + kiểm tra hợp lệ trước khi lưu
+    function setCfg(id, v) { document.getElementById(id).value = v; }
+    function validateAutoCfg() {
+        const gv = id => parseInt(document.getElementById(id).value || '0', 10);
+        const rule = [
+            ['ScanIntervalSeconds', 5, 'Chu kỳ quét tối thiểu 5 giây'],
+            ['MaxPerSource', 1, 'Số bài mỗi nguồn tối thiểu 1'],
+            ['Concurrency', 1, 'Số nguồn đồng thời tối thiểu 1'],
+            ['MaxTotalPerRun', 1, 'Tổng số bài mỗi lần tối thiểu 1'],
+            ['RetrySeconds', 5, 'Thời gian thử lại tối thiểu 5 giây']
+        ];
+        for (const [id, min, msg] of rule) {
+            if (isNaN(gv(id)) || gv(id) < min) { Swal.fire('Dữ liệu chưa hợp lệ', msg, 'warning'); return false; }
+        }
+        if (gv('DelayBetweenArticlesSeconds') < 0 || gv('DelayBetweenSourcesSeconds') < 0) {
+            Swal.fire('Dữ liệu chưa hợp lệ', 'Khoảng nghỉ không được âm', 'warning'); return false;
+        }
+        return true;
+    }
+
+    // Bật/tắt tự động nhập (1 bài/phút)
+    async function toggleAuto(id) {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        try {
+            const res = await fetch('/admin/ToggleAutoImport/' + id, {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': token }
+            });
+            const data = await res.json();
+            if (data.success) {
+                const b = document.getElementById('auto-' + id);
+                b.innerHTML = '<i class="fa fa-robot"></i> ' + (data.autoImport ? 'Tự động: BẬT' : 'Tự động: Tắt');
+                b.style.background = data.autoImport ? '#0e7d85' : '#94a3b8';
+                if (window.Swal) Swal.fire({ toast: true, position: 'top-end', timer: 1800, showConfirmButton: false, icon: 'success', title: data.autoImport ? 'Đã bật tự động (1 bài/phút)' : 'Đã tắt tự động' });
             }
         } catch (err) {
             Swal.fire('Lỗi', 'Lỗi kết nối', 'error');

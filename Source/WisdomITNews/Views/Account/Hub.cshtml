@@ -84,6 +84,7 @@
         <div class="hub-nav">
             <a href="/Account/Hub?tab=foryou" class="@(tab=="foryou"?"active":"")"><i class="fa fa-award"></i> Tin cho bạn</a>
             <a href="/Account/Hub?tab=topics" class="@(tab=="topics"?"active":"")"><i class="fa fa-folder"></i> Mục của bạn @if(topicCount>0){<span class="cnt">@topicCount</span>}</a>
+            <a href="/Account/Favorites"><i class="fa fa-heart"></i> Danh mục yêu thích</a>
             <a href="/Account/Hub?tab=following" class="@(tab=="following"?"active":"")"><i class="fa fa-rss"></i> Theo dõi @if(followCount>0){<span class="cnt">@followCount</span>}</a>
             <a href="/Account/Hub?tab=history" class="@(tab=="history"?"active":"")"><i class="fa fa-clock-rotate-left"></i> Đọc gần đây</a>
             <a href="/Account/Hub?tab=saved" class="@(tab=="saved"?"active":"")"><i class="fa fa-bookmark"></i> Báo đã lưu @if(savedCount>0){<span class="cnt">@savedCount</span>}</a>

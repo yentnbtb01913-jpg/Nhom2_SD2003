@@ -2,16 +2,16 @@
 @{
     ViewData["Title"] = "Quản lý nhân viên";
     Layout = "_AdminLayout";
-    var stLabel = new Dictionary<string, string> { ["working"] = "Đang làm việc", ["on_leave"] = "Tạm nghỉ", ["resigned"] = "Đã nghỉ", ["terminated"] = "Thôi việc" };
-    var stBg    = new Dictionary<string, string> { ["working"] = "#dcfce7", ["on_leave"] = "#fef9c3", ["resigned"] = "#f3f4f6", ["terminated"] = "#fee2e2" };
-    var stFg    = new Dictionary<string, string> { ["working"] = "#16a34a", ["on_leave"] = "#ca8a04", ["resigned"] = "#6b7280", ["terminated"] = "#dc2626" };
-    var stOrder = new[] { "working", "on_leave", "resigned", "terminated" };
+    var stLabel = new Dictionary<string, string> { ["working"] = "Đang làm việc", ["annual_leave"] = "Nghỉ phép", ["on_leave"] = "Tạm nghỉ", ["resigned"] = "Đã nghỉ việc", ["terminated"] = "Thôi việc" };
+    var stBg    = new Dictionary<string, string> { ["working"] = "#dcfce7", ["annual_leave"] = "#e0f2fe", ["on_leave"] = "#fef9c3", ["resigned"] = "#f3f4f6", ["terminated"] = "#fee2e2" };
+    var stFg    = new Dictionary<string, string> { ["working"] = "#16a34a", ["annual_leave"] = "#0284c7", ["on_leave"] = "#ca8a04", ["resigned"] = "#6b7280", ["terminated"] = "#dc2626" };
+    var stOrder = new[] { "working", "annual_leave", "on_leave", "resigned", "terminated" };
 }
 @functions {
     string Norm(string? s)
     {
         var v = (s ?? "").Trim();
-        return (v == "working" || v == "on_leave" || v == "resigned" || v == "terminated") ? v : "working";
+        return (v == "working" || v == "annual_leave" || v == "on_leave" || v == "resigned" || v == "terminated") ? v : "working";
     }
 }
 
@@ -67,6 +67,7 @@
                         </span>
                     </td>
                     <td style="padding:10px 8px;white-space:nowrap;">
+                        <a href="/admin/StaffDetail/@a.Id" title="Xem hồ sơ" style="background:#0e7d85;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-id-card"></i></a>
                         <a href="/admin/EditStaff/@a.Id" title="Sửa thông tin" style="background:#159aa3;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
                         <select onchange="changeStatus(@a.Id, this)" data-prev="@Norm(a.EmploymentStatus)" title="Đổi trạng thái làm việc" style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:5px;font-size:12px;cursor:pointer;">
                             @foreach (var code in stOrder)
@@ -101,26 +102,42 @@
         });
     });
 
-    const ST_LABEL = { working:'Đang làm việc', on_leave:'Tạm nghỉ', resigned:'Đã nghỉ', terminated:'Thôi việc' };
-    const ST_BG    = { working:'#dcfce7', on_leave:'#fef9c3', resigned:'#f3f4f6', terminated:'#fee2e2' };
-    const ST_FG    = { working:'#16a34a', on_leave:'#ca8a04', resigned:'#6b7280', terminated:'#dc2626' };
+    const ST_LABEL = { working:'Đang làm việc', annual_leave:'Nghỉ phép', on_leave:'Tạm nghỉ', resigned:'Đã nghỉ việc', terminated:'Thôi việc' };
+    const ST_BG    = { working:'#dcfce7', annual_leave:'#e0f2fe', on_leave:'#fef9c3', resigned:'#f3f4f6', terminated:'#fee2e2' };
+    const ST_FG    = { working:'#16a34a', annual_leave:'#0284c7', on_leave:'#ca8a04', resigned:'#6b7280', terminated:'#dc2626' };
 
     async function changeStatus(id, sel){
         const status = sel.value;
         const prev = sel.getAttribute('data-prev');
         if(status === prev) return;
-        if(!await confirmSwal('Đổi trạng thái nhân viên thành "' + ST_LABEL[status] + '"?')){ sel.value = prev; return; }
-        const fd = new FormData(); fd.append('id', id); fd.append('status', status);
-        const r = await fetch('/admin/SetStaffStatus', { method:'POST', body: fd });
-        const d = await r.json();
-        if(d.success){
-            sel.setAttribute('data-prev', status);
-            const badge = document.getElementById('st-' + id);
-            if(badge){ badge.textContent = ST_LABEL[status]; badge.style.background = ST_BG[status]; badge.style.color = ST_FG[status]; }
-            swalToast('success','Đã cập nhật trạng thái');
-        } else {
+        const res = await Swal.fire({
+            title: 'Đổi trạng thái thành "' + ST_LABEL[status] + '"',
+            input: 'textarea',
+            inputLabel: 'Lý do (bắt buộc)',
+            inputPlaceholder: 'VD: Nghỉ thai sản đến 10/2026, đã trở lại làm việc...',
+            showCancelButton: true,
+            confirmButtonText: 'Lưu',
+            cancelButtonText: 'Hủy',
+            inputValidator: function(v){ if(!v || !v.trim()) return 'Vui lòng nhập lý do'; }
+        });
+        if(!res.isConfirmed){ sel.value = prev; return; }
+        const reason = (res.value || '').trim();
+        const fd = new FormData(); fd.append('id', id); fd.append('status', status); fd.append('reason', reason);
+        try {
+            const r = await fetch('/admin/SetStaffStatus', { method:'POST', body: fd });
+            const d = await r.json();
+            if(d.success){
+                sel.setAttribute('data-prev', status);
+                const badge = document.getElementById('st-' + id);
+                if(badge){ badge.textContent = ST_LABEL[status]; badge.style.background = ST_BG[status]; badge.style.color = ST_FG[status]; }
+                swalToast('success','Đã cập nhật trạng thái');
+            } else {
+                sel.value = prev;
+                Swal.fire(d.message || 'Không cập nhật được');
+            }
+        } catch(e) {
             sel.value = prev;
-            Swal.fire(d.message || 'Không cập nhật được');
+            Swal.fire('Lỗi máy chủ khi đổi trạng thái. Hãy Rebuild + F5 để tạo bảng lịch sử rồi thử lại.');
         }
     }
 </script>

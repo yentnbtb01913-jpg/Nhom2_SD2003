@@ -76,6 +76,25 @@ public class AccountController : Controller
             HttpContext.Session.SetInt32("UserId", user.Id);
             HttpContext.Session.SetString("UserName", user.FullName);
             HttpContext.Session.SetString("UserAvatar", user.AvatarUrl ?? "");
+            HttpContext.Session.SetString("UserRole", user.Role);
+            HttpContext.Session.SetString("EmailVerified", "false");
+
+            // Gửi email xác nhận (best-effort, KHÔNG chặn đăng ký nếu gửi lỗi)
+            try
+            {
+                var confirmSvc = HttpContext.RequestServices.GetRequiredService<WisdomITNews.Services.EmailConfirmationService>();
+                var (mailOk, mailErr) = await confirmSvc.SendRegistrationAsync(user, $"{Request.Scheme}://{Request.Host}");
+                if (!mailOk)
+                {
+                    _logger.LogWarning("Gửi email xác nhận khi đăng ký thất bại: {Err}", mailErr);
+                    TempData["ConfirmError"] = "Không gửi được email xác nhận: " + (string.IsNullOrWhiteSpace(mailErr) ? "lỗi không rõ" : mailErr);
+                }
+            }
+            catch (Exception mailEx)
+            {
+                _logger.LogWarning(mailEx, "Gửi email xác nhận khi đăng ký thất bại");
+                TempData["ConfirmError"] = "Lỗi khi gửi email xác nhận: " + mailEx.Message;
+            }
 
             return RedirectToAction("Index", "Home");
         }
@@ -89,16 +108,22 @@ public class AccountController : Controller
 
     // ===== LOGIN =====
     [HttpGet]
-    public IActionResult Login()
+    public IActionResult Login(string? returnUrl = null)
     {
-        if (IsLoggedIn) return RedirectToAction("Index", "Home");
+        ViewBag.ReturnUrl = returnUrl;
+        if (IsLoggedIn)
+        {
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)) return Redirect(returnUrl);
+            return RedirectToAction("Index", "Home");
+        }
         return View(new LoginViewModel());
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(LoginViewModel vm)
+    public async Task<IActionResult> Login(LoginViewModel vm, string? returnUrl = null)
     {
+        ViewBag.ReturnUrl = returnUrl;
         if (!ModelState.IsValid)
         {
             vm.Error = string.Join(" • ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
@@ -126,7 +151,10 @@ public class AccountController : Controller
             HttpContext.Session.SetInt32("UserId", user.Id);
             HttpContext.Session.SetString("UserName", user.FullName);
             HttpContext.Session.SetString("UserAvatar", user.AvatarUrl ?? "");
+            HttpContext.Session.SetString("UserRole", user.Role);
+            HttpContext.Session.SetString("EmailVerified", user.EmailVerified ? "true" : "false");
 
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)) return Redirect(returnUrl);
             return RedirectToAction("Index", "Home");
         }
         catch (Exception ex)
@@ -224,9 +252,12 @@ public class AccountController : Controller
                 await _db.SaveChangesAsync();
             }
 
+            if (!user.EmailVerified) { user.EmailVerified = true; await _db.SaveChangesAsync(); }  // đăng nhập mạng XH -> email đã xác thực
             HttpContext.Session.SetInt32("UserId", user.Id);
             HttpContext.Session.SetString("UserName", user.FullName);
             HttpContext.Session.SetString("UserAvatar", user.AvatarUrl ?? "");
+            HttpContext.Session.SetString("UserRole", user.Role);
+            HttpContext.Session.SetString("EmailVerified", "true");
 
             if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
                 return Redirect(returnUrl);
@@ -641,25 +672,39 @@ public class AccountController : Controller
                     .OrderByDescending(a => a.PublishedAt).Take(20).ToListAsync()
                 : new List<Article>();
         }
-        else // foryou — gợi ý theo lịch sử đọc + theo dõi
+        else // foryou — ưu tiên danh mục YÊU THÍCH (tần suất cao hơn) + lịch sử đọc + tác giả theo dõi
         {
             var sid = HttpContext.Session.Id;
+            var favCatIds = await _db.UserCategoryFollows.Where(f => f.UserId == user.Id).Select(f => f.CategoryId).ToListAsync();
             var readCatIds = await _db.ViewHistories.Where(v => v.SessionId == sid)
                 .Join(_db.Articles, v => v.ArticleId, a => a.Id, (v, a) => a.CategoryId)
                 .Where(c => c != null).Select(c => c!.Value).Distinct().ToListAsync();
-            var followCatIds = await _db.UserCategoryFollows.Where(f => f.UserId == user.Id).Select(f => f.CategoryId).ToListAsync();
-            var catIds = readCatIds.Concat(followCatIds).Distinct().ToList();
             var followAuthorIds = await _db.UserFollows.Where(f => f.FollowerId == user.Id).Select(f => f.FollowingId).ToListAsync();
 
             var recs = new List<Article>();
-            if (catIds.Any() || followAuthorIds.Any())
+
+            // (1) Ưu tiên cao — bài thuộc danh mục YÊU THÍCH chiếm phần lớn feed (tần suất tăng).
+            if (favCatIds.Any())
             {
-                recs = await _db.Articles.Include(a => a.Category)
-                    .Where(a => a.Status == "published" &&
-                          ((a.CategoryId != null && catIds.Contains(a.CategoryId.Value)) ||
-                           (a.AuthorUserId != null && followAuthorIds.Contains(a.AuthorUserId.Value))))
-                    .OrderByDescending(a => a.PublishedAt).Take(20).ToListAsync();
+                var fav = await _db.Articles.Include(a => a.Category)
+                    .Where(a => a.Status == "published" && a.CategoryId != null && favCatIds.Contains(a.CategoryId.Value))
+                    .OrderByDescending(a => a.PublishedAt).Take(14).ToListAsync();
+                recs.AddRange(fav);
             }
+
+            // (2) Bổ sung — danh mục đã đọc (không trùng yêu thích) + tác giả theo dõi.
+            var otherCatIds = readCatIds.Where(c => !favCatIds.Contains(c)).ToList();
+            if (otherCatIds.Any() || followAuthorIds.Any())
+            {
+                var others = await _db.Articles.Include(a => a.Category)
+                    .Where(a => a.Status == "published" &&
+                          ((a.CategoryId != null && otherCatIds.Contains(a.CategoryId.Value)) ||
+                           (a.AuthorUserId != null && followAuthorIds.Contains(a.AuthorUserId.Value))))
+                    .OrderByDescending(a => a.PublishedAt).Take(10).ToListAsync();
+                foreach (var a in others) if (recs.All(x => x.Id != a.Id)) recs.Add(a);
+            }
+
+            // (3) Chưa đủ -> thêm bài mới nhất.
             if (recs.Count < 6)
             {
                 var extra = await _db.Articles.Include(a => a.Category)
@@ -927,5 +972,185 @@ public class AccountController : Controller
         ViewBag.ReadCount = total - unreadCount;
 
         return View(list);
+    }
+
+    // ===== XÁC NHẬN EMAIL =====
+    [HttpGet]
+    public async Task<IActionResult> ConfirmEmail(string? token, string? purpose)
+    {
+        ViewBag.Token = token;
+        ViewBag.Purpose = purpose;
+        if (string.IsNullOrWhiteSpace(token)) { ViewBag.State = "invalid"; return View(); }
+
+        var t = await _db.EmailConfirmationTokens.FirstOrDefaultAsync(x => x.Token == token);
+        if (t == null) { ViewBag.State = "invalid"; return View(); }
+        ViewBag.IsSubscription = t.Purpose == EmailTokenPurpose.SubscriptionReceipt;
+        ViewBag.IsTrial = t.Purpose == EmailTokenPurpose.TrialActivation;
+        ViewBag.IsPurchase = t.Purpose == EmailTokenPurpose.PurchaseConfirmation;
+        if (t.ConfirmedAt != null) { ViewBag.State = "already"; return View(); }
+        if (t.ExpiresAt < DateTime.Now) { ViewBag.State = "expired"; return View(); }
+        ViewBag.State = "pending";
+        return View();
+    }
+
+    // Xác nhận THẬT (chỉ khi bấm nút) — không tự xác nhận lúc trang load.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ConfirmEmailPost(string token)
+    {
+        var svc = HttpContext.RequestServices.GetRequiredService<WisdomITNews.Services.EmailConfirmationService>();
+        var res = await svc.ConfirmAsync(token, $"{Request.Scheme}://{Request.Host}");
+
+        if (res.Status == WisdomITNews.Services.EmailConfirmationService.ConfirmStatus.NotFound)
+        { TempData["ConfirmError"] = "Liên kết không hợp lệ."; return RedirectToAction("ConfirmEmail", new { token }); }
+        if (res.Status == WisdomITNews.Services.EmailConfirmationService.ConfirmStatus.Expired)
+        { TempData["ConfirmError"] = "Liên kết đã hết hạn. Vui lòng gửi lại email xác nhận."; return RedirectToAction("ConfirmEmail", new { token }); }
+
+        if (res.Purpose == EmailTokenPurpose.Registration)
+        {
+            if (HttpContext.Session.GetInt32("UserId") == res.UserId)
+                HttpContext.Session.SetString("EmailVerified", "true");
+            TempData["ConfirmSuccess"] = res.Status == WisdomITNews.Services.EmailConfirmationService.ConfirmStatus.Confirmed
+                ? "Xác nhận email thành công! Cảm ơn bạn."
+                : "Tài khoản đã được xác nhận trước đó.";
+            return RedirectToAction("Index", "Home");
+        }
+
+        if (res.Purpose == EmailTokenPurpose.PurchaseConfirmation)
+        {
+            TempData["ConfirmSuccess"] = res.Status == WisdomITNews.Services.EmailConfirmationService.ConfirmStatus.Confirmed
+                ? "Thanh toán thành công! Chào mừng bạn đến với Premium."
+                : "Giao dịch này đã được xác nhận trước đó.";
+            if (res.TransactionId != null)
+                return RedirectToAction("Result", "Subscription", new { transactionId = res.TransactionId.Value });
+            return RedirectToAction("Index", "Home");
+        }
+
+        if (res.Purpose == EmailTokenPurpose.TrialActivation)
+        {
+            TempData["ConfirmSuccess"] = res.Status == WisdomITNews.Services.EmailConfirmationService.ConfirmStatus.Confirmed
+                ? "Kích hoạt dùng thử thành công! Bạn đã có thể đọc nội dung Premium."
+                : "Gói dùng thử đã được kích hoạt trước đó.";
+            return RedirectToAction("Index", "Home");
+        }
+
+        // SubscriptionReceipt: chỉ ghi nhận đã xem email, KHÔNG đổi trạng thái Premium.
+        TempData["ConfirmSuccess"] = "Đã ghi nhận. Cảm ơn bạn.";
+        // TODO: khi trang "/Account/Subscription" (gói của tôi) được xây, redirect tới đó thay vì Home.
+        return RedirectToAction("Index", "Home");
+    }
+
+    // Gửi lại email xác nhận (cooldown 60s/UserId trong service).
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResendConfirmation(string? token)
+    {
+        int? userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null && !string.IsNullOrWhiteSpace(token))
+        {
+            var t = await _db.EmailConfirmationTokens.FirstOrDefaultAsync(x => x.Token == token);
+            userId = t?.UserId;
+        }
+        if (userId == null) { TempData["ConfirmError"] = "Không xác định được tài khoản."; return RedirectToAction("Index", "Home"); }
+
+        var svc = HttpContext.RequestServices.GetRequiredService<WisdomITNews.Services.EmailConfirmationService>();
+        var (ok, message) = await svc.ResendRegistrationAsync(userId.Value, $"{Request.Scheme}://{Request.Host}");
+        TempData[ok ? "ConfirmSuccess" : "ConfirmError"] = message;
+        return RedirectToAction("Index", "Home");
+    }
+
+    // ===== ĐĂNG KÝ NHẬN TIN (trang riêng) =====
+    [HttpGet]
+    public async Task<IActionResult> Newsletter()
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return RedirectToAction("Login", new { returnUrl = "/Account/Newsletter" });
+        var user = await _db.Users.FindAsync(userId.Value);
+        if (user == null) return RedirectToAction("Login");
+        ViewBag.Email = user.Email;
+        ViewBag.FullName = user.FullName;
+        ViewBag.AlreadySubscribed = await _db.NewsletterSubscribers.AnyAsync(x => x.Email == user.Email && x.Status == "active");
+        ViewBag.Categories = await _db.Categories.Where(c => c.IsVisible).OrderBy(c => c.SortOrder).ThenBy(c => c.Name).ToListAsync();
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Newsletter(string? fullName, string? interested)
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return RedirectToAction("Login");
+        var user = await _db.Users.FindAsync(userId.Value);
+        if (user == null) return RedirectToAction("Login");
+
+        var existing = await _db.NewsletterSubscribers.FirstOrDefaultAsync(x => x.Email == user.Email);
+        if (existing == null)
+        {
+            _db.NewsletterSubscribers.Add(new NewsletterSubscriber
+            {
+                Email = user.Email,
+                FullName = string.IsNullOrWhiteSpace(fullName) ? user.FullName : fullName.Trim(),
+                InterestedCategory = string.IsNullOrWhiteSpace(interested) ? null : interested.Trim(),
+                Source = "user",
+                Status = "active",
+                SubscribedAt = DateTime.Now
+            });
+        }
+        else
+        {
+            existing.Status = "active";
+            if (!string.IsNullOrWhiteSpace(fullName)) existing.FullName = fullName.Trim();
+            if (!string.IsNullOrWhiteSpace(interested)) existing.InterestedCategory = interested.Trim();
+        }
+        await _db.SaveChangesAsync();
+        TempData["SubSuccess"] = "Đăng ký nhận tin thành công! Giờ bạn có thể đăng ký gói Premium.";
+        return RedirectToAction("Pricing", "Subscription");
+    }
+
+    // ===== DANH MỤC YÊU THÍCH (gộp: chọn danh mục + bài đã lưu theo danh mục) =====
+    public async Task<IActionResult> Favorites(int? cat)
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return RedirectToAction("Login", new { returnUrl = "/Account/Favorites" });
+
+        var followedCatIds = await _db.UserCategoryFollows.Where(f => f.UserId == userId.Value).Select(f => f.CategoryId).ToListAsync();
+        ViewBag.FollowedCatIds = followedCatIds;
+        ViewBag.AllCategories = await _db.Categories.Where(c => c.IsVisible).OrderBy(c => c.SortOrder).ThenBy(c => c.Name).ToListAsync();
+
+        var savedIds = await _db.SavedArticles.Where(s => s.UserId == userId.Value).Select(s => s.ArticleId).ToListAsync();
+        var q = _db.Articles.Include(a => a.Category).Where(a => savedIds.Contains(a.Id));
+        if (cat != null) q = q.Where(a => a.CategoryId == cat.Value);
+        var saved = await q.OrderByDescending(a => a.PublishedAt ?? a.CreatedAt).ToListAsync();
+        ViewBag.SavedArticles = saved;
+        ViewBag.FilterCat = cat;
+
+        // danh mục xuất hiện trong danh sách đã lưu (cho bộ lọc)
+        var savedCatIds = await _db.Articles.Where(a => savedIds.Contains(a.Id) && a.CategoryId != null)
+            .Select(a => a.CategoryId!.Value).Distinct().ToListAsync();
+        ViewBag.SavedCatIds = savedCatIds;
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveFavorites(List<int>? categoryIds)
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+        if (userId == null) return RedirectToAction("Login");
+        var current = await _db.UserCategoryFollows.Where(f => f.UserId == userId.Value).ToListAsync();
+        _db.UserCategoryFollows.RemoveRange(current);
+        if (categoryIds != null)
+            foreach (var cid in categoryIds.Distinct())
+                _db.UserCategoryFollows.Add(new UserCategoryFollow { UserId = userId.Value, CategoryId = cid });
+        await _db.SaveChangesAsync();
+        TempData["FavOk"] = "Đã lưu danh mục yêu thích.";
+        return RedirectToAction("Favorites");
+    }
+
+    // ===== CÀI ĐẶT (placeholder — sẽ bổ sung sau) =====
+    [HttpGet]
+    public IActionResult Settings()
+    {
+        return View();
     }
 }

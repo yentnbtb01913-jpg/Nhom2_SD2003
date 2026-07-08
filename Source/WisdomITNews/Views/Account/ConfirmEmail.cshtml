@@ -1,0 +1,78 @@
+@{
+    Layout = null;
+    var state = (string)(ViewBag.State ?? "invalid");
+    var token = (string)(ViewBag.Token ?? "");
+    var isSub = (bool)(ViewBag.IsSubscription ?? false);
+    var isTrial = (bool)(ViewBag.IsTrial ?? false);
+    var isPurchase = (bool)(ViewBag.IsPurchase ?? false);
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Xác nhận email — Wisdom IT News</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-light">
+    <div class="container" style="max-width:520px;">
+        <div class="card shadow-sm my-5 border-0">
+            <div class="card-body p-4 p-md-5 text-center">
+                <h3 class="mb-4 fw-bold" style="color:#0e7d85;"><span style="display:inline-flex;width:30px;height:30px;background:linear-gradient(135deg,#c1121f,#e63946,#ba1a1a);align-items:center;justify-content:center;border-radius:7px;color:#fff;font-size:16px;vertical-align:middle;margin-right:7px;">&#9889;</span><span style="vertical-align:middle;color:#0f172a;">Wisdom IT News</span></h3>
+
+                @if (TempData["ConfirmError"] != null)
+                { <div class="alert alert-danger">@TempData["ConfirmError"]</div> }
+                @if (TempData["ConfirmSuccess"] != null)
+                { <div class="alert alert-success">@TempData["ConfirmSuccess"]</div> }
+
+                @if (state == "pending")
+                {
+                    var icon = isPurchase ? "fa-credit-card" : (isTrial ? "fa-gift" : (isSub ? "fa-receipt" : "fa-envelope-circle-check"));
+                    var head = isPurchase ? "Xác nhận thanh toán" : (isTrial ? "Kích hoạt dùng thử Premium" : (isSub ? "Biên nhận gói Premium" : "Xác nhận địa chỉ email"));
+                    var desc = isPurchase
+                        ? "Bấm nút bên dưới để xác nhận thanh toán (mô phỏng) và kích hoạt gói Premium của bạn."
+                        : (isTrial
+                        ? "Bấm nút bên dưới để kích hoạt bản dùng thử miễn phí. Thời gian dùng thử được tính từ lúc bạn kích hoạt."
+                        : (isSub ? "Cảm ơn bạn đã đăng ký gói Premium. Bấm nút bên dưới để xem gói của bạn." : "Bấm nút bên dưới để xác nhận đây là email của bạn và kích hoạt đầy đủ tính năng."));
+                    var btnIcon = isPurchase ? "fa-circle-check" : (isTrial ? "fa-gift" : (isSub ? "fa-box-open" : "fa-check"));
+                    var btnText = isPurchase ? "Xác nhận thanh toán" : (isTrial ? "Kích hoạt dùng thử" : (isSub ? "Xem gói của tôi" : "Xác nhận tài khoản"));
+                    <div class="mb-3" style="font-size:48px;color:#0e7d85;"><i class="fa @icon"></i></div>
+                    <h5 class="mb-2">@head</h5>
+                    <p class="text-muted mb-4">@desc</p>
+                    <form method="post" action="/Account/ConfirmEmailPost">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="token" value="@token" />
+                        <button type="submit" class="btn btn-lg text-white px-4" style="background:#0e7d85;">
+                            <i class="fa @btnIcon"></i> @btnText
+                        </button>
+                    </form>
+                }
+                else if (state == "already")
+                {
+                    <div class="mb-3" style="font-size:48px;color:#16a34a;"><i class="fa fa-circle-check"></i></div>
+                    <div class="alert alert-success">Tài khoản của bạn đã được xác nhận trước đó. Bạn có thể dùng đầy đủ tính năng.</div>
+                    <a href="/" class="btn text-white" style="background:#0e7d85;">Về trang chủ</a>
+                }
+                else if (state == "expired")
+                {
+                    <div class="mb-3" style="font-size:48px;color:#ca8a04;"><i class="fa fa-clock"></i></div>
+                    <div class="alert alert-warning">Liên kết xác nhận đã hết hạn (quá 48 giờ).</div>
+                    <form method="post" action="/Account/ResendConfirmation">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="token" value="@token" />
+                        <button type="submit" class="btn text-white" style="background:#0e7d85;"><i class="fa fa-paper-plane"></i> Gửi lại email xác nhận</button>
+                    </form>
+                }
+                else
+                {
+                    <div class="mb-3" style="font-size:48px;color:#dc2626;"><i class="fa fa-circle-xmark"></i></div>
+                    <div class="alert alert-danger">Liên kết không hợp lệ hoặc đã bị thay đổi.</div>
+                    <a href="/" class="btn btn-secondary">Về trang chủ</a>
+                }
+            </div>
+        </div>
+        <p class="text-center text-muted small">© Wisdom IT News — Báo Công nghệ, Lập trình & AI</p>
+    </div>
+</body>
+</html>

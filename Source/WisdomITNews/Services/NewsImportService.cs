@@ -13,6 +13,7 @@ public class NewsImportService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<NewsImportService> _logger;
+    private readonly AIService _ai;
     private static readonly HttpClient _http = CreateHttpClient();
 
     private static HttpClient CreateHttpClient()
@@ -42,14 +43,19 @@ public class NewsImportService
         return client;
     }
 
-    public NewsImportService(AppDbContext db, ILogger<NewsImportService> logger)
+    public NewsImportService(AppDbContext db, ILogger<NewsImportService> logger, AIService ai)
     {
         _db = db;
         _logger = logger;
+        _ai = ai;
     }
 
-    // Trả về (thêm mới, cập nhật, bỏ qua)
-    public async Task<(int added, int updated, int skipped)> ImportRssAsync(string feedUrl, string sourceName, int? categoryId, int max = 30)
+    // Trả về (connected, thêm mới, cập nhật, bỏ qua). connected=false nghĩa là lỗi kết nối/parse nguồn.
+    // maxNew: giới hạn số bài MỚI thêm. onlyNew: chỉ nhập bài chưa có (bỏ qua, không cập nhật bài cũ).
+    // delayPerArticleMs: nghỉ giữa xử lý từng bài.
+    public async Task<(bool connected, int added, int updated, int skipped)> ImportRssAsync(
+        string feedUrl, string sourceName, int? categoryId, int max = 30,
+        int maxNew = int.MaxValue, bool onlyNew = false, int delayPerArticleMs = 0, string? importedBy = null)
     {
         int added = 0, updated = 0, skipped = 0;
 
@@ -62,27 +68,32 @@ public class NewsImportService
         {
             _logger.LogWarning(ex, "Tải RSS thất bại [{StatusCode}]: {Url}",
                 ex.StatusCode, feedUrl);
-            return (0, 0, 0);
+            return (false, 0, 0, 0);
         }
         catch (TaskCanceledException ex)
         {
             _logger.LogWarning(ex, "RSS timeout sau 30s: {Url}", feedUrl);
-            return (0, 0, 0);
+            return (false, 0, 0, 0);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Lỗi không xác định khi tải RSS: {Url}", feedUrl);
-            return (0, 0, 0);
+            return (false, 0, 0, 0);
         }
 
         XDocument doc;
         try { doc = XDocument.Parse(xml); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Parse RSS thất bại: {Url}", feedUrl); return (0, 0, 0); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Parse RSS thất bại: {Url}", feedUrl); return (false, 0, 0, 0); }
+
+        // Danh mục có sẵn — dùng để tự phân loại từng bài (từ khóa trước, AI khi không khớp)
+        var cats = await _db.Categories.Where(c => c.IsVisible).ToListAsync();
 
         foreach (var it in doc.Descendants("item").Take(max))
         {
             var link = ((string?)it.Element("link"))?.Trim();
-            var title = ((string?)it.Element("title"))?.Trim();
+            var rssCats = it.Elements("category").Select(e => (e.Value ?? "").Trim()).Where(s => s.Length > 0).ToList();
+            // Decode thực thể HTML trong tiêu đề (&uacute; &#039; &ecirc; ...) -> chữ thuần
+            var title = System.Net.WebUtility.HtmlDecode(((string?)it.Element("title"))?.Trim() ?? "").Trim();
             if (string.IsNullOrWhiteSpace(link) || string.IsNullOrWhiteSpace(title)) continue;
 
             // Một số feed để nội dung đầy đủ hơn ở content:encoded; ưu tiên cái dài hơn
@@ -110,6 +121,7 @@ public class NewsImportService
             var existing = await _db.Articles.FirstOrDefaultAsync(a => a.SourceUrl == link);
             if (existing != null)
             {
+                if (onlyNew) { skipped++; continue; }   // chỉ nhập bài mới -> bỏ qua bài đã có
                 if (existing.IsExternal)   // làm mới bài tổng hợp cũ (để bài ngắn trước đây dài ra)
                 {
                     existing.Summary = summaryShort;
@@ -122,6 +134,15 @@ public class NewsImportService
                 continue;
             }
 
+            // Tự phân loại vào danh mục có sẵn: từ khóa/RSS-category trước, không khớp thì AI, cuối cùng fallback danh mục nguồn
+            int? catId = MatchCategory(cats, rssCats, title, summaryShort);
+            if (catId == null && cats.Count > 0)
+            {
+                try { catId = await _ai.ClassifyCategoryAsync(title, summaryShort, cats); }
+                catch (Exception ex) { _logger.LogWarning(ex, "AI phân loại danh mục lỗi (bỏ qua)"); }
+            }
+            catId ??= categoryId;
+
             var slug = SlugHelper.MakeSlug(title);
             if (string.IsNullOrWhiteSpace(slug)) slug = "tin-" + Guid.NewGuid().ToString("N").Substring(0, 8);
             if (await _db.Articles.AnyAsync(a => a.Slug == slug)) slug += "-" + DateTimeOffset.Now.ToUnixTimeSeconds();
@@ -133,7 +154,8 @@ public class NewsImportService
                 Summary = summaryShort,
                 Content = bodyHtml,
                 Thumbnail = string.IsNullOrWhiteSpace(img) ? null : img,
-                CategoryId = categoryId,
+                CategoryId = catId,
+                ImportedBy = string.IsNullOrEmpty(importedBy) ? $"Tự động · {sourceName}" : $"{importedBy} · {sourceName}",
                 Status = "published",
                 IsExternal = true,
                 SourceName = sourceName,
@@ -143,10 +165,48 @@ public class NewsImportService
                 UpdatedAt = DateTime.Now
             });
             added++;
+            if (delayPerArticleMs > 0) await Task.Delay(delayPerArticleMs);   // #4 nghỉ giữa mỗi bài
+            if (added >= maxNew) break;   // đủ số bài mới cần
         }
 
         if (added > 0 || updated > 0) await _db.SaveChangesAsync();
-        return (added, updated, skipped);
+        return (true, added, updated, skipped);
+    }
+
+    // Nhập TỐI ĐA 1 bài mới từ 1 nguồn (dùng cho tự động 1 bài/phút).
+    public async Task<int> ImportOneFromSourceAsync(RssSource source)
+    {
+        var r = await ImportRssAsync(source.FeedUrl, source.Name, source.DefaultCategoryId, source.MaxImport, maxNew: 1);
+        source.LastImportAt = DateTime.Now;
+        source.TotalImported += r.added;
+        return r.added;   // 0 hoặc 1
+    }
+
+    // Khớp danh mục có sẵn (MIỄN PHÍ, không gọi AI): ưu tiên thẻ <category> của RSS,
+    // sau đó dò tên danh mục xuất hiện trong tiêu đề + tóm tắt. Trả về CategoryId hoặc null.
+    private static int? MatchCategory(List<Category> cats, List<string> rssCats, string title, string summary)
+    {
+        if (cats == null || cats.Count == 0) return null;
+        string N(string s) => SlugHelper.MakeSlug(s ?? "");
+
+        // 1) Thẻ <category> trong feed khớp tên danh mục
+        foreach (var rc in rssCats)
+        {
+            var r = N(rc);
+            if (r.Length == 0) continue;
+            var m = cats.FirstOrDefault(c => N(c.Name) == r)
+                 ?? cats.FirstOrDefault(c => { var cn = N(c.Name); return cn.Length >= 3 && (r.Contains(cn) || cn.Contains(r)); });
+            if (m != null) return m.Id;
+        }
+
+        // 2) Tên danh mục xuất hiện trong tiêu đề + tóm tắt (ưu tiên tên dài/cụ thể hơn)
+        var hay = N(title + " " + summary);
+        foreach (var c in cats.OrderByDescending(c => c.Name.Length))
+        {
+            var cn = N(c.Name);
+            if (cn.Length >= 3 && hay.Contains(cn)) return c.Id;
+        }
+        return null;
     }
 
     // Bỏ tag, decode, tách thành các đoạn văn không rỗng
@@ -225,11 +285,11 @@ public class NewsImportService
     }
 
     // Import từ RssSource object
-    public async Task<(int added, int updated, int skipped)> ImportFromSourceAsync(RssSource source)
+    public async Task<(int added, int updated, int skipped)> ImportFromSourceAsync(RssSource source, string? importedBy = null)
     {
-        var result = await ImportRssAsync(source.FeedUrl, source.Name, source.DefaultCategoryId, source.MaxImport);
+        var result = await ImportRssAsync(source.FeedUrl, source.Name, source.DefaultCategoryId, source.MaxImport, importedBy: importedBy);
         source.LastImportAt = DateTime.Now;
         source.TotalImported += result.added;
-        return result;
+        return (result.added, result.updated, result.skipped);
     }
 }

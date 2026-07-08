@@ -1,0 +1,86 @@
+@model List<WisdomITNews.Models.SubscriptionPlan>
+@{
+    ViewData["Title"] = "Gói Premium"; Layout = "_AdminLayout";
+    var counts = ViewBag.SubCounts as Dictionary<int,int> ?? new Dictionary<int,int>();
+    string q = ViewBag.Q as string ?? "";
+    string active = ViewBag.Active as string ?? "";
+}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-box" style="color:#159aa3;"></i> Gói Premium (Sản phẩm)</h1>
+  <a href="/admin/CreateProduct" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Thêm gói</a>
+</div>
+
+@if (TempData["Ok"] != null)
+{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+
+<form method="get" action="/admin/Products" style="background:#fff;padding:14px;margin-bottom:16px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);display:flex;gap:10px;flex-wrap:wrap;">
+  <input type="text" name="q" value="@q" placeholder="🔍 Tìm theo tên gói..." style="flex:1;min-width:220px;padding:10px 14px;border:1px solid #d1d5db;font-size:14px;border-radius:6px;" />
+  <select name="active" style="padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;">
+    <option value="">Tất cả trạng thái</option>
+    <option value="1" selected="@(active=="1" ? "selected" : null)">Đang bán</option>
+    <option value="0" selected="@(active=="0" ? "selected" : null)">Đã ẩn</option>
+  </select>
+  <button type="submit" style="background:#159aa3;color:#fff;border:none;padding:10px 18px;border-radius:6px;font-weight:600;cursor:pointer;">Lọc</button>
+</form>
+
+<div style="background:#fff;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+    <thead>
+      <tr style="background:#f5f6f8;border-bottom:2px solid #e0e4e8;color:#6c757d;text-align:left;">
+        <th style="padding:12px 14px;">Tên gói</th>
+        <th style="padding:12px 14px;">Giá</th>
+        <th style="padding:12px 14px;">Thời hạn</th>
+        <th style="padding:12px 14px;">Dùng thử</th>
+        <th style="padding:12px 14px;">Quyền lợi</th>
+        <th style="padding:12px 14px;">Đăng ký</th>
+        <th style="padding:12px 14px;">Trạng thái</th>
+        <th style="padding:12px 14px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var p in Model)
+      {
+        var used = counts.ContainsKey(p.Id) ? counts[p.Id] : 0;
+        <tr id="plan-@p.Id" style="border-bottom:1px solid #f0f2f5;">
+          <td style="padding:12px 14px;font-weight:700;">@p.Name</td>
+          <td style="padding:12px 14px;color:#0e7d85;font-weight:700;">@string.Format("{0:#,##0}", p.Price) đ</td>
+          <td style="padding:12px 14px;">@p.DurationDays ngày</td>
+          <td style="padding:12px 14px;">@(p.TrialDays > 0 ? p.TrialDays + " ngày" : "—")</td>
+          <td style="padding:12px 14px;color:#6c757d;">@p.Features.Count mục</td>
+          <td style="padding:12px 14px;color:#374151;font-weight:600;">@used</td>
+          <td style="padding:12px 14px;">
+            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:@(p.IsActive?"#dcfce7":"#f0f2f5");color:@(p.IsActive?"#16a34a":"#6c757d");">
+              @(p.IsActive ? "Đang bán" : "Đã ẩn")
+            </span>
+          </td>
+          <td style="padding:12px 14px;white-space:nowrap;">
+            <a href="/admin/EditProduct/@p.Id" title="Sửa" style="background:#159aa3;color:#fff;padding:6px 10px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
+            <button onclick="delProduct(@p.Id, @used)" title="Xóa" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i></button>
+          </td>
+        </tr>
+      }
+      @if (!Model.Any())
+      { <tr><td colspan="8" style="padding:24px;text-align:center;color:#94a3b8;">Chưa có gói nào. Bấm "Thêm gói" để tạo gói Premium đầu tiên.</td></tr> }
+    </tbody>
+  </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+function delProduct(id, used){
+  var msg = used > 0
+    ? 'Gói này đã có ' + used + ' lượt đăng ký. Xóa sẽ chuyển thành ẨN (xóa mềm), giữ lại lịch sử. Tiếp tục?'
+    : 'Xóa vĩnh viễn gói này? (chưa ai đăng ký)';
+  Swal.fire({title:'Xác nhận', text:msg, icon:'warning', showCancelButton:true,
+    confirmButtonText:'Xóa', cancelButtonText:'Không', confirmButtonColor:'#dc2626'})
+  .then(function(r){
+    if(!r.isConfirmed) return;
+    fetch('/admin/DeleteProduct/'+id, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
+    .then(x=>x.json()).then(d=>{
+      if(d.success){ Swal.fire({title:'Xong', text:d.message||'', icon:'success', timer:1800, showConfirmButton:false})
+        .then(()=>location.reload()); }
+      else Swal.fire('Lỗi', d.message||'Không xóa được', 'error');
+    });
+  });
+}
+</script>

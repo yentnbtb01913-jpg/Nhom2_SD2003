@@ -1,0 +1,57 @@
+@model WisdomITNews.Models.Category
+@{ ViewData["Title"] = "Sửa danh mục"; Layout = "_AdminLayout"; }
+@{
+    string lbl = "display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#374151;";
+    string inp = "width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;";
+    string hint = "font-size:11px;color:#94a3b8;margin-top:4px;";
+    var color = string.IsNullOrWhiteSpace(Model.Color) ? "#e63946" : Model.Color;
+}
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <a href="/admin/Categories" style="color:#6c757d;text-decoration:none;"><i class="fa fa-arrow-left"></i></a>
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-folder-open" style="color:#159aa3;"></i> Sửa danh mục</h1>
+</div>
+
+@if (ViewBag.Error != null)
+{ <div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@ViewBag.Error</div> }
+
+<form method="post" action="/admin/EditCategory/@Model.Id" style="background:#fff;border-radius:8px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.06);max-width:640px;">
+    <div style="margin-bottom:16px;">
+        <label style="@lbl">Tên danh mục *</label>
+        <input style="@inp" name="Name" value="@Model.Name" required maxlength="100" />
+    </div>
+    <div style="margin-bottom:16px;">
+        <label style="@lbl">Slug (đường dẫn)</label>
+        <input style="@inp" name="Slug" value="@Model.Slug" placeholder="Để trống sẽ tự sinh từ tên" maxlength="120" />
+        <div style="@hint">Đổi slug sẽ đổi đường dẫn danh mục. Trùng thì tự thêm -2, -3.</div>
+    </div>
+    <div style="margin-bottom:16px;">
+        <label style="@lbl">Mô tả</label>
+        <textarea style="@inp" name="Description" rows="2" maxlength="300">@Model.Description</textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+        <div>
+            <label style="@lbl">Icon (emoji)</label>
+            <input style="@inp" name="Icon" value="@Model.Icon" placeholder="📰" maxlength="8" />
+        </div>
+        <div>
+            <label style="@lbl">Màu sắc</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <input type="color" name="Color" value="@color" oninput="document.getElementById('colorHex').textContent=this.value" style="width:44px;height:38px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;" />
+                <span id="colorHex" style="font-size:12px;color:#6c757d;">@color</span>
+            </div>
+        </div>
+        <div>
+            <label style="@lbl">Thứ tự</label>
+            <input style="@inp" type="number" name="SortOrder" value="@Model.SortOrder" />
+        </div>
+    </div>
+    <div style="margin-bottom:20px;">
+        <label style="@lbl">Hiển thị</label>
+        <select style="@inp;max-width:220px;" name="IsVisible">
+            <option value="true" selected="@(Model.IsVisible)">Hiển thị</option>
+            <option value="false" selected="@(!Model.IsVisible)">Ẩn</option>
+        </select>
+    </div>
+    <button type="submit" style="background:#159aa3;color:#fff;border:none;padding:11px 22px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;"><i class="fa fa-check"></i> Lưu thay đổi</button>
+    <a href="/admin/Categories" style="margin-left:8px;color:#6c757d;text-decoration:none;font-size:14px;">Hủy</a>
+</form>

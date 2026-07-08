@@ -1,0 +1,37 @@
+@using WisdomITNews.Models
+@model NewsletterSubscriber
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Thêm khách hàng";
+    var cats = ViewBag.Categories as List<string> ?? new List<string>();
+    string lbl = "display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#374151;";
+    string inp = "width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;";
+}
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <a href="/admin/Customers" style="color:#6c757d;text-decoration:none;"><i class="fa fa-arrow-left"></i></a>
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-user-plus" style="color:#159aa3;"></i> Thêm khách hàng</h1>
+</div>
+@if (ViewBag.Error != null)
+{ <div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@ViewBag.Error</div> }
+<form method="post" action="/admin/CreateCustomer" style="background:#fff;border-radius:8px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.06);max-width:600px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+        <div><label style="@lbl">Email *</label><input style="@inp" type="email" name="Email" value="@Model.Email" required /></div>
+        <div><label style="@lbl">Họ tên</label><input style="@inp" name="FullName" value="@Model.FullName" /></div>
+        <div><label style="@lbl">Số điện thoại</label><input style="@inp" name="Phone" value="@Model.Phone" /></div>
+        <div><label style="@lbl">Nguồn đăng ký</label><input style="@inp" name="Source" value="@Model.Source" placeholder="Website / Sự kiện / Thủ công..." /></div>
+        <div><label style="@lbl">Danh mục quan tâm</label>
+            <select style="@inp" name="InterestedCategory">
+                <option value="">— Không —</option>
+                @foreach (var c in cats) { <option value="@c" selected="@(Model.InterestedCategory == c)">@c</option> }
+            </select>
+        </div>
+        <div><label style="@lbl">Trạng thái</label>
+            <select style="@inp" name="Status">
+                <option value="active" selected="@(Model.Status != "inactive")">Đang nhận</option>
+                <option value="inactive" selected="@(Model.Status == "inactive")">Đã hủy</option>
+            </select>
+        </div>
+    </div>
+    <button type="submit" style="background:#159aa3;color:#fff;border:none;padding:11px 24px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;"><i class="fa fa-check"></i> Thêm</button>
+    <a href="/admin/Customers" style="margin-left:8px;color:#6c757d;text-decoration:none;font-size:14px;">Hủy</a>
+</form>

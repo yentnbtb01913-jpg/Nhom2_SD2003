@@ -1,0 +1,66 @@
+@model List<WisdomITNews.Models.Article>
+@{
+    var vid = ViewBag.Video as WisdomITNews.Models.Video;
+    int insertAt = ViewBag.InsertAt == null ? Model.Count : (int)ViewBag.InsertAt;
+}
+@for (int i = 0; i < Model.Count; i++)
+{
+    if (vid != null && i == insertAt)
+    {
+        <div class="bm-list-item feed-vid vid-hover" data-type="@vid.VideoType" data-yt="@vid.YouTubeId" data-vurl="@vid.VideoUrl" onclick="location.href='/Video/Watch/@vid.Id'">
+            <div class="bm-thumb vid-thumb" style="position:relative;">
+                <img src="@vid.Thumbnail" alt="@vid.Title" loading="lazy" />
+                <span class="feed-vid-badge"><i class="fa fa-circle-play"></i> VIDEO</span>
+            </div>
+            <div class="bm-it-body">
+                <div class="bm-meta"><span class="bm-cat" style="color:#e63946;"><i class="fa fa-video"></i> Video</span></div>
+                <h4><a href="/Video/Watch/@vid.Id">@vid.Title</a></h4>
+                <div class="bm-meta">
+                    <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(vid.Views)</span>
+                    <span class="sep">·</span>
+                    <span><i class="fa fa-clock"></i> @SlugHelper.FormatDate(vid.PublishedAt)</span>
+                </div>
+            </div>
+        </div>
+    }
+    var a = Model[i];
+    <div class="bm-list-item" onclick="location.href='/bai-viet/@a.Slug'">
+        <div class="bm-thumb" style="position:relative;">
+            @if (a.IsPremiumOnly) { <span style="position:absolute;top:6px;left:6px;z-index:2;background:#0e7d85;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.25);"><i class="fa fa-crown"></i> PREMIUM</span> }
+            @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
+            {
+                <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
+            }
+            else
+            {
+                <div class="bm-noimg"></div>
+            }
+        </div>
+        <div class="bm-it-body">
+            <div class="bm-meta"><span class="bm-cat">@a.Category?.Icon @a.Category?.Name</span></div>
+            <h4><a href="/bai-viet/@a.Slug">@a.Title</a></h4>
+            <p class="bm-desc">@a.Summary</p>
+            <div class="bm-meta">
+                <span><i class="fa fa-clock"></i> @SlugHelper.FormatDate(a.PublishedAt)</span>
+                <span class="sep">·</span>
+                <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(a.Views)</span>
+            </div>
+        </div>
+    </div>
+}
+@if (vid != null && insertAt >= Model.Count && Model.Count > 0)
+{
+    <div class="bm-list-item feed-vid vid-hover" data-type="@vid.VideoType" data-yt="@vid.YouTubeId" data-vurl="@vid.VideoUrl" onclick="location.href='/Video/Watch/@vid.Id'">
+        <div class="bm-thumb vid-thumb" style="position:relative;">
+            <img src="@vid.Thumbnail" alt="@vid.Title" loading="lazy" />
+            <span class="feed-vid-badge"><i class="fa fa-circle-play"></i> VIDEO</span>
+        </div>
+        <div class="bm-it-body">
+            <div class="bm-meta"><span class="bm-cat" style="color:#e63946;"><i class="fa fa-video"></i> Video</span></div>
+            <h4><a href="/Video/Watch/@vid.Id">@vid.Title</a></h4>
+            <div class="bm-meta">
+                <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(vid.Views)</span>
+            </div>
+        </div>
+    </div>
+}

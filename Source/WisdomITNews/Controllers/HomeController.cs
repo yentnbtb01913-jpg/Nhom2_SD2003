@@ -241,4 +241,34 @@ public class HomeController : Controller
             return View(new List<ViewHistoryItem>());
         }
     }
+
+    // Tự nạp thêm bài (infinite scroll) + chèn 1 video ngẫu nhiên như một tin
+    public async Task<IActionResult> LoadMore(int skip = 0)
+    {
+        const int take = 6;
+        var arts = await _db.Articles
+            .Include(a => a.Category)
+            .Where(a => a.Status == "published")
+            .OrderByDescending(a => a.PublishedAt)
+            .Skip(skip).Take(take)
+            .ToListAsync();
+
+        // Lấy 1 video ngẫu nhiên (trong 30 video mới nhất) để chèn xen kẽ
+        Models.Video? vid = null;
+        if (arts.Count > 0)
+        {
+            var vidCount = await _db.Videos.CountAsync();
+            if (vidCount > 0)
+            {
+                int pool = Math.Min(vidCount, 30);
+                int idx = new Random().Next(pool);
+                vid = await _db.Videos
+                    .OrderByDescending(v => v.PublishedAt)
+                    .Skip(idx).Take(1).FirstOrDefaultAsync();
+            }
+        }
+        ViewBag.Video = vid;
+        ViewBag.InsertAt = arts.Count > 1 ? new Random().Next(1, arts.Count) : arts.Count;
+        return PartialView("_FeedMore", arts);
+    }
 }

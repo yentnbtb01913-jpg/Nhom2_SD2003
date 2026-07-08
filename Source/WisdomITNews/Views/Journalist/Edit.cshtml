@@ -7,6 +7,7 @@
 <div class="j-topbar">
     <h1><i class="fa fa-pen-to-square" style="color:#001f3f;"></i> Sua bai viet</h1>
     <div class="j-topbar-actions">
+        <button type="button" onclick="genAudio('/journalist', @Model.Article.Id, this)" class="j-btn-secondary"><i class="fa fa-headphones"></i> Tao audio</button>
         @if (Model.Article.Status == "published")
         {
             <a href="/bai-viet/@Model.Article.Slug" target="_blank" class="j-btn-secondary"><i class="fa fa-eye"></i> Xem bai</a>
@@ -161,3 +162,16 @@
         });
     </script>
 }
+<script>
+    async function genAudio(prefix, id, btn){
+        if (typeof confirmSwal === "function") { if(!await confirmSwal("Tạo audio (giọng đọc AI - Piper) từ bài viết này? Có thể mất một lúc.")) return; }
+        var old = btn.innerHTML; btn.disabled = true; btn.innerHTML = "Đang tạo audio...";
+        try {
+            var r = await fetch(prefix + "/GeneratePodcast?articleId=" + id, { method: "POST" });
+            var d = await r.json();
+            if (d.success) Swal.fire("Thành công", "Đã tạo audio. Xem ở trang bài viết và mục Quản lý Audio.", "success");
+            else Swal.fire("Lỗi", d.message || "Không tạo được audio (kiểm tra Piper đã cài chưa).", "error");
+        } catch(e) { Swal.fire("Lỗi kết nối"); }
+        btn.disabled = false; btn.innerHTML = old;
+    }
+</script>

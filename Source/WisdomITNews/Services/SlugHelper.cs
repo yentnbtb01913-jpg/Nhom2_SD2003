@@ -16,6 +16,17 @@ public static class SlugHelper
         return result.Trim('-');
     }
 
+    private static readonly Dictionary<string, string> _regionNames = new()
+    {
+        ["dong-nai"] = "Đồng Nai", ["ha-noi"] = "Hà Nội", ["ho-chi-minh"] = "TP. Hồ Chí Minh",
+        ["da-nang"] = "Đà Nẵng", ["hai-phong"] = "Hải Phòng", ["can-tho"] = "Cần Thơ"
+    };
+
+    // Slug vùng -> tên hiển thị. Null/rỗng -> "Toàn quốc".
+    public static string RegionName(string? slug) =>
+        string.IsNullOrWhiteSpace(slug) ? "Toàn quốc"
+        : (_regionNames.TryGetValue(slug, out var n) ? n : slug);
+
     public static string FormatViews(int views)
     {
         if (views >= 1_000_000) return $"{views / 1_000_000.0:0.#}M";

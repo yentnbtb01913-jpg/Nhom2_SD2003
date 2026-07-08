@@ -1,0 +1,68 @@
+@using WisdomITNews.Models
+@model List<Article>
+@{
+    var recent = ViewBag.Recent as List<Article> ?? new();
+    (string bg, string fg, string tx) StatusClr(string? s) => s switch
+    {
+        "published" => ("#dcfce7", "#16a34a", "Đã đăng"),
+        "draft" => ("#fef3c7", "#b45309", "Nháp"),
+        "pending" => ("#e0f2fe", "#0369a1", "Chờ duyệt"),
+        _ => ("#f0f2f5", "#6c757d", s ?? "—")
+    };
+}
+
+@if (recent.Any())
+{
+    <div style="margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:800;color:#159aa3;text-transform:uppercase;margin-bottom:8px;"><i class="fa fa-bolt"></i> Bài vừa nhập</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            @foreach (var r in recent)
+            {
+                <a href="/bai-viet/@r.Slug" target="_blank" title="@r.Title"
+                   style="display:flex;align-items:center;gap:6px;max-width:230px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;text-decoration:none;color:#334155;font-size:12px;">
+                    <i class="fa fa-newspaper" style="color:#94a3b8;"></i>
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@r.Title</span>
+                </a>
+            }
+        </div>
+    </div>
+}
+
+<div style="overflow-x:auto;border:1px solid #eef0f2;border-radius:8px;">
+  <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+    <thead>
+      <tr style="background:#f5f6f8;color:#6c757d;text-align:left;">
+        <th style="padding:9px 12px;">Tiêu đề</th>
+        <th style="padding:9px 12px;">Danh mục</th>
+        <th style="padding:9px 12px;">Nguồn</th>
+        <th style="padding:9px 12px;">Thời gian nhập</th>
+        <th style="padding:9px 12px;">Người nhập</th>
+        <th style="padding:9px 12px;">Trạng thái</th>
+        <th style="padding:9px 12px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      @if (!Model.Any())
+      {
+        <tr><td colspan="7" style="padding:22px;text-align:center;color:#94a3b8;">Không có bài nào phù hợp.</td></tr>
+      }
+      @foreach (var a in Model)
+      {
+        var clr = StatusClr(a.Status);
+        <tr style="border-top:1px solid #f0f2f5;">
+          <td style="padding:9px 12px;max-width:320px;white-space:normal;"><a href="/bai-viet/@a.Slug" target="_blank" style="color:#1f2937;font-weight:600;text-decoration:none;">@a.Title</a></td>
+          <td style="padding:9px 12px;">@(a.Category?.Name ?? "—")</td>
+          <td style="padding:9px 12px;color:#64748b;">@(a.SourceName ?? "—")</td>
+          <td style="padding:9px 12px;color:#64748b;">@a.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+          <td style="padding:9px 12px;color:#64748b;">@(string.IsNullOrWhiteSpace(a.ImportedBy) ? "—" : a.ImportedBy)</td>
+          <td style="padding:9px 12px;"><span style="padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;background:@clr.bg;color:@clr.fg;">@clr.tx</span></td>
+          <td style="padding:9px 12px;text-align:right;">
+            <a href="/admin/EditArticle/@a.Id" target="_blank" style="background:#159aa3;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;font-weight:600;text-decoration:none;margin-right:4px;"><i class="fa fa-pen"></i> Sửa</a>
+            <button type="button" onclick="deleteHistoryArticle(@a.Id)" style="background:#dc2626;color:#fff;border:none;padding:5px 10px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;"><i class="fa fa-trash"></i> Xóa</button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+<div style="margin-top:8px;font-size:12px;color:#94a3b8;">Hiển thị tối đa 200 bài mới nhất.</div>

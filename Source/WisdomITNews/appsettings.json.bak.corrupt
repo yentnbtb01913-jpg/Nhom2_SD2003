@@ -1,0 +1,57 @@
+﻿{
+    "ConnectionStrings": {
+        "DefaultConnection": "Server=YAAI\\SQLEXPRESS;Database=WisdomITNews;Trusted_Connection=True;TrustServerCertificate=True;"
+    },
+    "Gemini": {
+        "ApiKey": "AQ.Ab8RN6LiGVXVOJkesbKBAOfhkaxGPZ4yCxuatExRc7jmI05qjg",
+        "Model": "models/gemini-2.5-flash"
+    },
+    "OpenWeather": {
+        "ApiKey": "6121f35e5324304a53cbbe25780b8cc6"
+    },
+    "Smtp": {
+        "Host": "smtp.gmail.com",
+        "Port": "587",
+        "EnableSsl": "true",
+        "Username": "yentnbtb01913@gmail.com",
+        "Password": "hdcq iclf sozm dhyt",
+        "From": "yentnbtb01913@gmail.com",
+        "FromName": "Wisdom IT News"
+    },
+    "Authentication": {
+        "Google": {
+            "ClientId": "",
+            "ClientSecret": ""
+        },
+        "Facebook": {
+            "AppId": "",
+            "AppSecret": ""
+        }
+    },
+    "Logging": {
+        "LogLevel": {
+            "Default": "Information",
+            "Microsoft.AspNetCore": "Warning"
+        }
+    },
+    "AllowedHosts": "*",
+    "AI": {
+        "Model": "models/gemini-2.5-flash",
+        "ApiVersion": "v1beta",
+        "Temperature": 0.7,
+        "MaxOutputTokens": 2048,
+        "ThinkingBudget": 0,
+        "SystemInstruction": "Bạn là trợ lý ảo của Wisdom IT News — báo điện tử về công nghệ, lập trình và AI. Thân thiện và chính xác.",
+        "Summarize": {
+            "Length": "150-200 từ",
+            "Template": "Tóm tắt bài báo sau bằng tiếng Việt ({Length}), dùng HTML với <p> và <ul><li>:\n\nTiêu đề: {Title}\n\nNội dung: {Content}"
+        },
+        "SuggestTitle": {
+            "Template": "Gợi ý 5 tiêu đề hấp dẫn cho bài báo sau bằng tiếng Việt, mỗi tiêu đề theo phong cách khác nhau: thông tin, tò mò, câu hỏi, ngắn gọn, có số liệu.\nTrả về JSON (không markdown): [{\"style\":\"tên\",\"text\":\"tiêu đề\"}]\nBài: {Title}\n{Content}"
+        },
+        "Moderate": {
+            "Template": "Bạn là kiểm duyệt viên nội dung báo điện tử.\nPhân tích đoạn văn sau và trả về JSON đúng format (KHÔNG markdown):\n{\"score\": <số 0-100>, \"issues\": [\"...\"]}\nQuy tắc:\n- score > 70 = vi phạm nghiêm trọng\n- score 40-70 = cần xem xét\n- score < 40 = an toàn\nNội dung:\n{Content}"
+        },
+        "Chat": {
+            "MaxSentences": 4,
+            "Template": "Trả lời ngắn gọn (tối đa {MaxSentences} câu) bằng tiếng Việt, thân thiện và chính xác. Nếu câu hỏi không liên quan đến công nghệ/IT/AI, gợi ý người dùng tìm bài viết phù hợp t

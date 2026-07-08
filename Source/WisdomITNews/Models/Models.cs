@@ -57,11 +57,13 @@ public class Article
     public string Status { get; set; } = "draft";
     public bool IsFeatured { get; set; } = false;
     public bool IsBreaking { get; set; } = false;
+    public bool IsPremiumOnly { get; set; } = false; // chỉ hiển thị đầy đủ cho Premium (Gói Premium)
     public DateTime? PublishedAt { get; set; }
     public string? AiSummary { get; set; }
     public string? SourceName { get; set; }   // nguồn (vd: The Hacker News)
     public string? SourceUrl { get; set; }     // link bài gốc
     public bool IsExternal { get; set; } = false; // true = bài tổng hợp từ nguồn ngoài
+    public string? ImportedBy { get; set; }       // người/nguồn nhập bài (auto RSS hoặc admin)
     public string? MetaTitle { get; set; }
     public string? MetaDesc { get; set; }
     public string? Region { get; set; }
@@ -144,6 +146,7 @@ public class NewsletterSubscriber
     public string? FullName { get; set; }
     public string? Phone { get; set; }
     public string? Source { get; set; }
+    public string? InterestedCategory { get; set; }   // danh mục quan tâm (phân nhóm)
     public string Status { get; set; } = "active";
     public DateTime SubscribedAt { get; set; } = DateTime.Now;
 }
@@ -189,9 +192,12 @@ public class User
     public string? AvatarUrl { get; set; }
     public string? CoverUrl { get; set; }
     public string? Bio { get; set; }
+    public string? Phone { get; set; }                 // SĐT liên hệ (module Quản lý khách hàng)
     public string Role { get; set; } = "Reader";
     public bool IsActive { get; set; } = true;
     public bool IsEmailConfirmed { get; set; } = false;
+    public bool EmailVerified { get; set; } = false;   // xác nhận email (tính năng Xác nhận Email)
+    public bool HasUsedTrial { get; set; } = false;    // đã dùng thử Premium (Gói Premium)
     public bool IsDeleted { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     
@@ -208,6 +214,7 @@ public class RssSource
     public string? WebsiteUrl { get; set; }
     public string? Country { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool AutoImport { get; set; } = false;     // tự động nhập 1 bài/phút
     public int? DefaultCategoryId { get; set; }
     public int MaxImport { get; set; } = 30;
     public DateTime? LastImportAt { get; set; }
@@ -244,4 +251,17 @@ public class Notification
     
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime? ReadAt { get; set; }
+}
+
+// Lịch sử email đã gửi cho khách hàng (GĐ2 CRM)
+public class NewsletterEmailLog
+{
+    public int Id { get; set; }
+    public int SubscriberId { get; set; }
+    public string Email { get; set; } = "";
+    public string Subject { get; set; } = "";
+    public string Segment { get; set; } = "";      // nhóm gửi: all / category:X / source:Y / active
+    public bool IsSuccess { get; set; } = true;
+    public string? Error { get; set; }
+    public DateTime SentAt { get; set; } = DateTime.Now;
 }

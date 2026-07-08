@@ -28,6 +28,10 @@
         .GroupBy(a => a.Id).Select(g => g.First())
         .Take(6).ToList();
     foreach (var a in latest) shown.Add(a.Id);
+
+    // Số bài đã hiển thị (để infinite scroll bỏ qua, tránh trùng)
+    foreach (var a in Model.AIArticles) shown.Add(a.Id);
+    int shownCount = shown.Count;
 }
 
 <!-- TICKER (Breaking News) -->
@@ -92,7 +96,8 @@
                     @foreach (var a in highlights)
                     {
                         <article class="bm-card" onclick="location.href='/bai-viet/@a.Slug'">
-                            <div class="bm-thumb">
+                            <div class="bm-thumb" style="position:relative;">
+                                @if (a.IsPremiumOnly) { <span style="position:absolute;top:6px;left:6px;z-index:2;background:#0e7d85;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.25);"><i class="fa fa-crown"></i> PREMIUM</span> }
                                 @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
                                 {
                                     <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
@@ -135,7 +140,8 @@
                     @foreach (var a in latest)
                     {
                         <div class="bm-list-item" onclick="location.href='/bai-viet/@a.Slug'">
-                            <div class="bm-thumb">
+                            <div class="bm-thumb" style="position:relative;">
+                                @if (a.IsPremiumOnly) { <span style="position:absolute;top:6px;left:6px;z-index:2;background:#0e7d85;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.25);"><i class="fa fa-crown"></i> PREMIUM</span> }
                                 @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
                                 {
                                     <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
@@ -172,7 +178,8 @@
                         @foreach (var a in Model.AIArticles)
                         {
                             <article class="bm-card" onclick="location.href='/bai-viet/@a.Slug'">
-                                <div class="bm-thumb">
+                                <div class="bm-thumb" style="position:relative;">
+                                @if (a.IsPremiumOnly) { <span style="position:absolute;top:6px;left:6px;z-index:2;background:#0e7d85;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.25);"><i class="fa fa-crown"></i> PREMIUM</span> }
                                     @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
                                     {
                                         <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
@@ -193,6 +200,11 @@
                     </div>
                 </section>
             }
+            <!-- Infinite scroll: tự nạp thêm bài sau Góc AI (có video xen kẽ) -->
+            <div id="feedMore"></div>
+            <div id="feedLoader" style="display:none;text-align:center;padding:18px;color:#94a3b8;font-size:14px;"><i class="fa fa-spinner fa-spin"></i> Đang tải thêm bài...</div>
+            <div id="feedEnd" style="display:none;text-align:center;padding:18px;color:#cbd5e1;font-size:13px;">— Bạn đã xem hết tin —</div>
+            <div id="feedSentinel" data-skip="@shownCount" style="height:1px;"></div>
         </main>
 
         <!-- ===================== SIDEBAR ===================== -->
@@ -242,7 +254,100 @@
                     </div>
                 </div>
             }
+            <!-- Cột Video (tìm kiếm + cuộn) — dính đáy màn hình -->
+            @await Component.InvokeAsync("VideoSidebar")
+
         </aside>
 
     </div>
 </div>
+
+@section Scripts {
+<style>
+    .feed-vid { position: relative; }
+    .feed-vid .feed-vid-badge {
+        position: absolute; top: 6px; left: 6px; z-index: 2;
+        background: #e63946; color: #fff; font-size: 10px; font-weight: 800;
+        padding: 2px 8px; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+    }
+    .vid-hover .bm-thumb, .vid-hover .vid-thumb { overflow: hidden; }
+    .vid-hover:hover { cursor: pointer; }
+    .vid-hover .vid-thumb img { transition: transform .3s ease; }
+    .vid-hover:hover .vid-thumb img { transform: scale(1.05); }
+</style>
+<script>
+(function () {
+    // ---- Hover preview: phát video thật (tắt tiếng) khi di chuột vào ----
+    function attachVidHover(root) {
+        (root || document).querySelectorAll('.vid-hover:not([data-hooked])').forEach(function (el) {
+            el.setAttribute('data-hooked', '1');
+            var thumb = el.querySelector('.vid-thumb') || el.querySelector('.bm-thumb');
+            if (!thumb) return;
+            var yt = el.getAttribute('data-yt') || '';
+            var type = el.getAttribute('data-type') || '';
+            var vurl = el.getAttribute('data-vurl') || '';
+            var orig = thumb.innerHTML, timer = null;
+            el.addEventListener('mouseenter', function () {
+                timer = setTimeout(function () {
+                    if (type === 'upload' && vurl) {
+                        thumb.innerHTML = '<video src="' + vurl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;"></video>';
+                    } else if (yt) {
+                        thumb.innerHTML = '<iframe src="https://www.youtube.com/embed/' + yt + '?autoplay=1&mute=1&controls=0&loop=1&playlist=' + yt + '&modestbranding=1&rel=0&playsinline=1" allow="autoplay" frameborder="0" style="width:100%;height:100%;border:0;position:absolute;inset:0;"></iframe>';
+                    }
+                }, 320);
+            });
+            el.addEventListener('mouseleave', function () {
+                if (timer) { clearTimeout(timer); timer = null; }
+                thumb.innerHTML = orig;
+            });
+        });
+    }
+    window.attachVidHover = attachVidHover;
+    attachVidHover(document);
+
+    // ---- Infinite scroll: tự nạp thêm bài sau Góc AI ----
+    var sentinel = document.getElementById('feedSentinel');
+    var box = document.getElementById('feedMore');
+    var loader = document.getElementById('feedLoader');
+    var endMsg = document.getElementById('feedEnd');
+    if (sentinel && box) {
+        var skip = parseInt(sentinel.getAttribute('data-skip') || '0', 10) || 0;
+        var loading = false, done = false;
+
+        function loadMore() {
+            if (loading || done) return;
+            loading = true;
+            loader.style.display = 'block';
+            fetch('/Home/LoadMore?skip=' + skip, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.text(); })
+                .then(function (html) {
+                    var t = (html || '').trim();
+                    if (!t) { done = true; loader.style.display = 'none'; endMsg.style.display = 'block'; return; }
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = t;
+                    // đếm số bài viết thật (không tính thẻ video) để tăng skip đúng
+                    var articleCount = tmp.querySelectorAll('.bm-list-item:not(.feed-vid)').length;
+                    while (tmp.firstChild) box.appendChild(tmp.firstChild);
+                    attachVidHover(box);
+                    skip += articleCount;
+                    loader.style.display = 'none';
+                    loading = false;
+                    if (articleCount === 0) { done = true; endMsg.style.display = 'block'; }
+                })
+                .catch(function () { loader.style.display = 'none'; loading = false; });
+        }
+
+        if ('IntersectionObserver' in window) {
+            var io = new IntersectionObserver(function (entries) {
+                if (entries[0].isIntersecting) loadMore();
+            }, { rootMargin: '400px' });
+            io.observe(sentinel);
+        } else {
+            window.addEventListener('scroll', function () {
+                if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) loadMore();
+            });
+        }
+    }
+})();
+</script>
+}

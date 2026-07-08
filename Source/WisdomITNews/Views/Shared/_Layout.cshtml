@@ -487,74 +487,22 @@
 }
 <body data-theme="@currentTheme">
     <!-- TOPBAR -->
-    <div class="topbar">
-        <div class="container">
-            <span><i class="fa fa-calendar"></i> @DateTime.Now.ToString("dddd, dd/MM/yyyy")</span>
-            <div class="topbar-right">
-                <!-- Region Switcher -->
-                @{
-                    var currentRegion = Context.Session.GetString("CurrentRegion") ?? "dong-nai";
-                    var regionNames = new Dictionary<string, string>
-                    {
-                        ["dong-nai"] = "Đồng Nai",
-                        ["ha-noi"] = "Hà Nội",
-                        ["ho-chi-minh"] = "TP. HCM",
-                        ["da-nang"] = "Đà Nẵng",
-                        ["hai-phong"] = "Hải Phòng",
-                        ["can-tho"] = "Cần Thơ"
-                    };
-                    var currentRegionName = regionNames.GetValueOrDefault(currentRegion, "Đồng Nai");
-                }
-                <div class="region-switcher">
-                    <button class="region-toggle" id="regionToggle">
-                        <i class="fa fa-map-marker-alt"></i>
-                        <span id="regionLabel">@currentRegionName</span>
-                        <i class="fa fa-chevron-down" style="font-size:9px;opacity:.7;"></i>
-                    </button>
-                    <div class="region-dropdown" id="regionDropdown">
-                        @foreach (var r in regionNames)
-                        {
-                            <a href="/@r.Key" class="region-item @(r.Key == currentRegion ? "active" : "")">
-                                <i class="fa fa-map-pin"></i> @r.Value
-                            </a>
-                        }
-                    </div>
-                </div>
-
-                <!-- Theme Toggle (Sun/Moon) -->
-                <button id="themeToggleBtn" onclick="toggleDarkMode()" title="Chuyển sáng/tối"
-                        style="background:none;border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.85);
-                    width:32px;height:32px;border-radius:0px;cursor:pointer;font-size:15px;
-                    display:inline-flex;align-items:center;justify-content:center;transition:all .2s;margin-left:4px;"
-                        onmouseover="this.style.background='rgba(255,255,255,.12)'"
-                        onmouseout="this.style.background='none'">
-                    <i class="fa fa-sun" id="themeIcon"></i>
-                </button>
-
-                @await Component.InvokeAsync("Weather")
-                <a href="/lich-su"><i class="fa fa-clock-rotate-left"></i> Lịch sử</a>
-                @{
-                    var userId = Context.Session.GetInt32("UserId");
-                    var userName = Context.Session.GetString("UserName");
-                    var userAvatar = Context.Session.GetString("UserAvatar");
-                }
-                @if (userId.HasValue)
-                {
-                    <span class="topbar-user-pill">
-                        <i class="fa fa-user-circle"></i> @userName
-                    </span>
-                    <a href="javascript:void(0)" onclick="subscribeNewsletterMe()" title="Đăng ký nhận bản tin qua email">
-                        <i class="fa fa-envelope"></i> Đăng ký nhận tin
-                    </a>
-                }
-                else
-                {
-                    <!-- Đăng nhập / Đăng ký đã chuyển xuống header; bỏ Admin ở topbar -->
-                }
-                <a href="/rss/list"><i class="fa fa-rss"></i> RSS</a>
-            </div>
-        </div>
-    </div>
+    @{
+        var currentRegion = Context.Session.GetString("CurrentRegion") ?? "dong-nai";
+        var regionNames = new Dictionary<string, string>
+        {
+            ["dong-nai"] = "Đồng Nai",
+            ["ha-noi"] = "Hà Nội",
+            ["ho-chi-minh"] = "TP. HCM",
+            ["da-nang"] = "Đà Nẵng",
+            ["hai-phong"] = "Hải Phòng",
+            ["can-tho"] = "Cần Thơ"
+        };
+        var currentRegionName = regionNames.GetValueOrDefault(currentRegion, "Đồng Nai");
+        var userId = Context.Session.GetInt32("UserId");
+        var userName = Context.Session.GetString("UserName");
+        var userAvatar = Context.Session.GetString("UserAvatar");
+    }
     <!-- HEADER (sticky) -->
     <header>
         <div class="header-main">
@@ -566,62 +514,13 @@
                         <span>Tin tức công nghệ · AI · Lập trình</span>
                     </div>
                 </a>
+                <div style="display:flex;align-items:center;margin-right:10px;">@await Component.InvokeAsync("Weather")</div>
                 @if (userId.HasValue)
                 {
-                    <!-- Bell thông báo -->
-                    <div style="position:relative;display:inline-block;margin-right:12px;">
-                        <button onclick="toggleUserNotifDropdown()"
-                            style="background:none;border:none;cursor:pointer;padding:6px;position:relative;">
-                            <i class="fa fa-bell" style="font-size:20px;color:#374151;"></i>
-                            <span id="user-notif-dot"
-                                style="display:none;position:absolute;top:2px;right:2px;
-                                width:10px;height:10px;background:#dc2626;border-radius:50%;
-                                border:2px solid #fff;">
-                            </span>
-                        </button>
-
-                        <div id="user-notif-dropdown"
-                            style="display:none;position:absolute;top:44px;right:0;
-                            width:380px;background:#fff;border-radius:10px;
-                            box-shadow:0 4px 24px rgba(0,0,0,.15);z-index:9999;">
-                            <div style="padding:12px 16px;border-bottom:1px solid #f0f2f5;
-                                display:flex;justify-content:space-between;align-items:center;">
-                                <span style="font-weight:700;font-size:14px;">Thông báo</span>
-                                <div style="display:flex;gap:8px;align-items:center;">
-                                    <button id="btn-delete-selected" onclick="deleteSelectedNotifs()"
-                                        style="display:none;background:#fee2e2;color:#dc2626;border:none;
-                                        border-radius:5px;padding:4px 10px;font-size:12px;
-                                        font-weight:600;cursor:pointer;">
-                                        <i class="fa fa-trash"></i> Xóa đã chọn
-                                    </button>
-                                    <button onclick="deleteAllRead()"
-                                        style="background:none;border:none;color:#94a3b8;
-                                        font-size:12px;cursor:pointer;font-weight:500;">
-                                        Xóa đã đọc
-                                    </button>
-                                    <button onclick="markAllRead()"
-                                        style="background:none;border:none;color:#159aa3;
-                                        font-size:12px;cursor:pointer;font-weight:600;">
-                                        Đọc tất cả
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="user-notif-list"
-                                style="max-height:420px;overflow-y:auto;
-                                scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;">
-                            </div>
-                            <a href="/Account/Inbox"
-                                style="display:block;text-align:center;padding:10px;
-                                font-size:13px;color:#159aa3;font-weight:600;
-                                border-top:1px solid #f0f2f5;text-decoration:none;">
-                                <i class="fa fa-inbox"></i> Vào hộp thư
-                            </a>
-                        </div>
-                    </div>
-
                     <!-- DROPDOWN trong header sticky -->
                     <div class="header-account-dropdown">
-                        <button class="header-account-toggle" id="accountToggle">
+                        <button class="header-account-toggle" id="accountToggle" style="position:relative;">
+                            <span id="user-notif-dot" style="display:none;position:absolute;top:0;left:26px;width:9px;height:9px;background:#dc2626;border-radius:50%;border:2px solid #fff;z-index:3;"></span>
                             <div class="toggle-avatar">
                                 @if (!string.IsNullOrEmpty(userAvatar))
                                 {
@@ -655,9 +554,17 @@
                             <div class="dd-divider"></div>
                             <a href="/Account/MyProfile" class="dd-item"><i class="fa fa-user"></i> Tài khoản cá nhân</a>
                             <a href="/Account/Hub?tab=foryou" class="dd-item"><i class="fa fa-award"></i> Tin cho bạn</a>
-                            <a href="/Account/Hub?tab=saved" class="dd-item"><i class="fa fa-bookmark"></i> Báo đã lưu</a>
+                            <a href="/Account/Favorites" class="dd-item"><i class="fa fa-heart"></i> Danh mục yêu thích</a>
+                            <a href="/Account/Inbox" class="dd-item"><i class="fa fa-inbox"></i> Hộp thư</a>
+                            <a href="/lich-su" class="dd-item"><i class="fa fa-clock-rotate-left"></i> Lịch sử xem</a>
                             <a href="/Account/Hub?tab=following" class="dd-item"><i class="fa fa-rss"></i> Theo dõi</a>
-                            <a href="javascript:void(0)" class="dd-item" id="ddChangeAvatar"><i class="fa fa-camera"></i> Đổi ảnh đại diện</a>
+                            <a href="/Subscription/Pricing" class="dd-item" style="color:#0e7d85;font-weight:600;"><i class="fa fa-crown"></i> Nâng cấp Premium</a>
+                            <a href="/Subscription/MySubscription" class="dd-item"><i class="fa fa-id-card"></i> Gói của tôi</a>
+                            <a href="/Account/Newsletter" class="dd-item"><i class="fa fa-envelope-open-text"></i> Đăng ký nhận tin</a>
+                            @if (Context.Session.GetString("UserRole") == "Journalist")
+                            {
+                                <a href="/Journalist/Login" class="dd-item" style="color:#476083;font-weight:600;"><i class="fa fa-pen-nib"></i> Journalist Panel</a>
+                            }
                             <input type="file" id="ddAvatarInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" />
                             <div class="dd-divider"></div>
                             <a href="/Account/Logout" class="dd-item dd-item-danger"><i class="fa fa-right-from-bracket"></i> Đăng xuất</a>
@@ -666,20 +573,29 @@
                 }
                 else
                 {
-                    <a href="/Account/Login" class="btn-auth btn-login"><i class="fa fa-right-to-bracket"></i> Đăng nhập</a>
-                    <a href="/Account/Register" class="btn-auth btn-register"><i class="fa fa-user-plus"></i> Đăng ký</a>
+                    <!-- Chưa đăng nhập: gộp vào nút avatar (như Báo Mới) -->
+                    <div class="header-account-dropdown">
+                        <button class="header-account-toggle" id="accountToggle" title="Tài khoản">
+                            <div class="toggle-avatar"><span><i class="fa fa-user"></i></span></div>
+                            <i class="fa fa-chevron-down" style="font-size:10px;opacity:.7;"></i>
+                        </button>
+                        <div class="header-dropdown-menu" id="accountDropdown">
+                            <div class="dd-user-info">
+                                <div class="dd-avatar"><span><i class="fa fa-user"></i></span></div>
+                                <div>
+                                    <strong>Khách</strong>
+                                    <span class="dd-role">Chưa đăng nhập</span>
+                                </div>
+                            </div>
+                            <div class="dd-divider"></div>
+                            <a href="/Account/Login" class="dd-item"><i class="fa fa-right-to-bracket"></i> Đăng nhập</a>
+                            <a href="/Account/Register" class="dd-item"><i class="fa fa-user-plus"></i> Đăng ký</a>
+                            <div class="dd-divider"></div>
+                            <a href="/lich-su" class="dd-item"><i class="fa fa-clock-rotate-left"></i> Lịch sử xem</a>
+                        </div>
+                    </div>
                 }
-                @{
-                    var journalistId = Context.Session.GetInt32("JournalistId");
-                }
-                @if (journalistId.HasValue)
-                {
-                    <a href="/Journalist/Dashboard" class="btn-admin"><i class="fa fa-pen-nib"></i> Journalist Panel</a>
-                }
-                else
-                {
-                    <a href="/Journalist/Login" class="btn-admin" style="background:#476083;"><i class="fa fa-pen-nib"></i> Nhà Báo</a>
-                }
+                @* Nút Nhà Báo đã gỡ — chuông thông báo (khu user) thay thế. Journalist Panel nằm trong dropdown (chỉ role Journalist). *@
             </div>
         </div>
     </header>
@@ -716,11 +632,73 @@
             <details class="bm-nav-burger">
                 <summary aria-label="Danh mục"><i class="fa fa-bars"></i></summary>
                 <div class="bm-burger-menu">
-                    @await Component.InvokeAsync("CategoryMenu")
+                    @if (userId.HasValue)
+                    {
+                        <a href="javascript:void(0)" onclick="openNotifPanel(); return false;" class="burger-item" style="position:relative;">
+                            <i class="fa fa-bell" style="width:18px;color:#f59e0b;"></i> Thông báo
+                            <span id="burger-notif-dot" style="display:none;width:8px;height:8px;background:#dc2626;border-radius:50%;margin-left:auto;"></span>
+                        </a>
+                    }
+                    <div class="burger-item burger-has-sub">
+                        <span><i class="fa fa-map-marker-alt" style="width:18px;color:#0e7d85;"></i> Vùng đọc</span>
+                        <i class="fa fa-chevron-left" style="font-size:10px;opacity:.6;"></i>
+                        <div class="burger-submenu">
+                            @foreach (var r in regionNames)
+                            {
+                                <a href="/@r.Key" class="@(r.Key == currentRegion ? "active" : "")"><i class="fa fa-map-pin"></i> @r.Value</a>
+                            }
+                        </div>
+                    </div>
+                    <a href="javascript:void(0)" onclick="toggleDarkMode()" class="burger-item"><i class="fa fa-sun" id="themeIcon" style="width:18px;color:#6366f1;"></i> Chế độ tối</a>
+                    <a href="/Account/Settings" class="burger-item"><i class="fa fa-gear" style="width:18px;color:#64748b;"></i> Cài đặt</a>
                 </div>
             </details>
+
+            @if (userId.HasValue)
+            {
+                <!-- Panel Thông báo (mở từ mục ☰ > Thông báo) -->
+                <div id="notifBackdrop" onclick="closeNotifPanel()" style="display:none;position:fixed;inset:0;z-index:1999;"></div>
+                <div id="notifPanel" style="display:none;position:fixed;top:64px;right:14px;width:370px;max-width:94vw;max-height:74vh;background:#fff;border-radius:12px;box-shadow:0 12px 44px rgba(0,0,0,.28);z-index:2000;overflow:hidden;flex-direction:column;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #f0f2f5;">
+                        <strong style="font-size:15px;"><i class="fa fa-bell" style="color:#f59e0b;"></i> Thông báo</strong>
+                        <div style="display:flex;gap:12px;align-items:center;">
+                            <button type="button" onclick="markAllRead()" style="background:none;border:none;color:#159aa3;font-size:12px;font-weight:600;cursor:pointer;padding:0;">Đánh dấu đã đọc</button>
+                            <span onclick="closeNotifPanel()" style="cursor:pointer;font-size:22px;color:#94a3b8;line-height:1;">&times;</span>
+                        </div>
+                    </div>
+                    <div id="user-notif-list" style="overflow-y:auto;flex:1;"></div>
+                    <div style="padding:9px;text-align:center;border-top:1px solid #f0f2f5;">
+                        <a href="/Account/Inbox" style="color:#159aa3;font-size:13px;font-weight:600;text-decoration:none;">Xem tất cả trong Hộp thư <i class="fa fa-arrow-right" style="font-size:11px;"></i></a>
+                    </div>
+                </div>
+            }
         </div>
     </nav>
+    <div class="container" style="max-width:1200px;margin:14px auto 0;padding:0 16px;">
+        @await Component.InvokeAsync("AdSlot", new { position = "header" })
+    </div>
+    @{
+        var _emUid = Context.Session.GetInt32("UserId");
+        var _emVerified = Context.Session.GetString("EmailVerified");
+    }
+    @if (TempData["ConfirmSuccess"] != null)
+    {
+        <div style="background:#dcfce7;color:#166534;padding:10px 16px;text-align:center;font-size:13.5px;">@TempData["ConfirmSuccess"]</div>
+    }
+    @if (TempData["ConfirmError"] != null)
+    {
+        <div style="background:#fee2e2;color:#991b1b;padding:10px 16px;text-align:center;font-size:13.5px;">@TempData["ConfirmError"]</div>
+    }
+    @if (_emUid != null && _emVerified == "false")
+    {
+        <div style="background:#fff7ed;border-bottom:1px solid #fed7aa;color:#9a3412;padding:10px 16px;text-align:center;font-size:13.5px;">
+            <i class="fa fa-triangle-exclamation"></i> Vui lòng xác nhận email để dùng đầy đủ tính năng (bình luận...).
+            <form method="post" action="/Account/ResendConfirmation" style="display:inline;margin-left:8px;">
+                @Html.AntiForgeryToken()
+                <button type="submit" style="background:#0e7d85;color:#fff;border:none;padding:4px 12px;border-radius:5px;font-size:12.5px;cursor:pointer;font-weight:600;">Gửi lại email xác nhận</button>
+            </form>
+        </div>
+    }
     @RenderBody()
     <!-- FOOTER -->
     <footer style="background:#000613;color:rgba(255,255,255,.7);padding:48px 0 20px;margin-top:40px;">
@@ -761,6 +739,10 @@
                 <span>Developed with love in Vietnam</span>
             </div>
         </footer>
+        <!-- RSS dưới Footer -->
+        <div style="background:#00030a;text-align:center;padding:12px 0;border-top:1px solid rgba(255,255,255,.06);">
+            <a href="/rss/list" style="color:rgba(255,255,255,.6);text-decoration:none;font-size:13px;"><i class="fa fa-rss"></i> RSS Feed — Đăng ký nhận tin qua trình đọc RSS</a>
+        </div>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
         @RenderSection("Scripts", required: false)
         @{
@@ -2014,11 +1996,29 @@
             userNotifConnection.start().catch(err => console.error(err));
 
             function showUserNotifDot() {
-                document.getElementById('user-notif-dot').style.display = 'block';
+                var d = document.getElementById('user-notif-dot'); if (d) d.style.display = 'block';
+                var b = document.getElementById('burger-notif-dot'); if (b) b.style.display = 'inline-block';
             }
 
+            // Mở/đóng panel Thông báo (gọi từ mục ☰ > Thông báo)
+            function openNotifPanel() {
+                var p = document.getElementById('notifPanel'); if (!p) return;
+                if (p.style.display === 'flex') { closeNotifPanel(); return; }
+                p.style.display = 'flex';
+                var bd = document.getElementById('notifBackdrop'); if (bd) bd.style.display = 'block';
+                if (typeof loadUserNotifications === 'function') loadUserNotifications();
+                document.querySelectorAll('details.bm-nav-burger[open]').forEach(function (d) { d.removeAttribute('open'); });
+            }
+            function closeNotifPanel() {
+                var p = document.getElementById('notifPanel'); if (p) p.style.display = 'none';
+                var bd = document.getElementById('notifBackdrop'); if (bd) bd.style.display = 'none';
+            }
+            window.openNotifPanel = openNotifPanel;
+            window.closeNotifPanel = closeNotifPanel;
+
             function hideUserNotifDot() {
-                document.getElementById('user-notif-dot').style.display = 'none';
+                var d = document.getElementById('user-notif-dot'); if (d) d.style.display = 'none';
+                var b = document.getElementById('burger-notif-dot'); if (b) b.style.display = 'none';
             }
 
             async function checkUserUnread() {

@@ -1,0 +1,193 @@
+@{
+    ViewData["Title"] = "Doanh thu"; Layout = "_AdminLayout";
+    var labels = ViewBag.Labels as List<string> ?? new();
+    var data = ViewBag.Data as List<decimal> ?? new();
+    int activeCount = (int)(ViewBag.ActiveCount ?? 0);
+    int trialCount = (int)(ViewBag.TrialCount ?? 0);
+    decimal totalRevenue = (decimal)(ViewBag.TotalRevenue ?? 0m);
+    double expiredRate = (double)(ViewBag.ExpiredRate ?? 0.0);
+    int expiredThisMonth = (int)(ViewBag.ExpiredThisMonth ?? 0);
+    var labelsJson = System.Text.Json.JsonSerializer.Serialize(labels);
+    var dataJson = System.Text.Json.JsonSerializer.Serialize(data.Select(x => (long)x));
+    var compares = ViewBag.Compares as List<WisdomITNews.Models.RevenueCompareRow> ?? new();
+    bool hasCustomCmp = (bool)(ViewBag.HasCustom ?? false);
+    string aF = ViewBag.AFrom as string ?? "", aT = ViewBag.ATo as string ?? "", bF = ViewBag.BFrom as string ?? "", bT = ViewBag.BTo as string ?? "";
+}
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+  <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-chart-line" style="color:#159aa3;"></i> Dashboard doanh thu Premium</h1>
+  <button onclick="openExp()" style="background:#16a34a;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;cursor:pointer;"><i class="fa fa-file-excel"></i> Xuất Excel</button>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;">
+  <div style="background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);border-left:4px solid #16a34a;">
+    <div style="font-size:12px;color:#6c757d;">Đang hoạt động (Active)</div>
+    <div style="font-size:26px;font-weight:800;color:#16a34a;">@activeCount</div>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);border-left:4px solid #0ea5e9;">
+    <div style="font-size:12px;color:#6c757d;">Đang dùng thử (Trial)</div>
+    <div style="font-size:26px;font-weight:800;color:#0ea5e9;">@trialCount</div>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);border-left:4px solid #0e7d85;">
+    <div style="font-size:12px;color:#6c757d;">Tổng doanh thu</div>
+    <div style="font-size:24px;font-weight:800;color:#0e7d85;">@string.Format("{0:#,##0}", totalRevenue) đ</div>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);border-left:4px solid #f59e0b;">
+    <div style="font-size:12px;color:#6c757d;">Tỉ lệ hết hạn (tháng này)</div>
+    <div style="font-size:26px;font-weight:800;color:#f59e0b;">@expiredRate%</div>
+    <div style="font-size:11px;color:#94a3b8;">@expiredThisMonth gói hết hạn</div>
+  </div>
+</div>
+
+<style>
+  .cmp-tab{background:#f0f2f5;color:#374151;border:none;padding:7px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;}
+  .cmp-tab.active{background:#0e7d85;color:#fff;}
+</style>
+<div style="background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:18px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+    <h3 style="font-size:15px;font-weight:700;"><i class="fa fa-scale-balanced" style="color:#0e7d85;"></i> Đối chiếu doanh thu</h3>
+    <div id="cmpTabs" style="display:flex;gap:6px;">
+      <button type="button" class="cmp-tab" data-k="day">Ngày</button>
+      <button type="button" class="cmp-tab" data-k="week">Tuần</button>
+      <button type="button" class="cmp-tab" data-k="month">Tháng</button>
+      <button type="button" class="cmp-tab" data-k="year">Năm</button>
+      <button type="button" class="cmp-tab" data-k="custom"><i class="fa fa-sliders"></i> Tùy chọn</button>
+    </div>
+  </div>
+  @foreach (var c in compares.Where(x => x.Key != "custom"))
+  {
+    var delta = c.Current - c.Previous;
+    var pct = c.Previous != 0 ? (double)(delta / c.Previous) * 100 : (c.Current > 0 ? 100.0 : 0.0);
+    var up = delta >= 0;
+    <div class="cmp-panel" data-k="@c.Key" style="@((!hasCustomCmp && c.Key == "day") ? "" : "display:none;")">
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:14px;align-items:center;">
+        <div style="border:1px solid #e5e7eb;border-radius:10px;padding:14px;">
+          <div style="font-size:12px;color:#6c757d;">@c.CurLabel</div>
+          <div style="font-size:22px;font-weight:800;color:#0e7d85;">@string.Format("{0:#,##0}", c.Current) đ</div>
+          <div style="font-size:11px;color:#94a3b8;">@c.CurCount giao dịch</div>
+        </div>
+        <div style="border:1px solid #e5e7eb;border-radius:10px;padding:14px;background:#f8fafc;">
+          <div style="font-size:12px;color:#6c757d;">@c.PrevLabel</div>
+          <div style="font-size:22px;font-weight:800;color:#64748b;">@string.Format("{0:#,##0}", c.Previous) đ</div>
+          <div style="font-size:11px;color:#94a3b8;">@c.PrevCount giao dịch</div>
+        </div>
+        <div style="text-align:center;min-width:120px;">
+          <div style="font-size:12px;color:#6c757d;">Chênh lệch</div>
+          <div style="font-size:19px;font-weight:800;color:@(up ? "#16a34a" : "#dc2626");"><i class="fa fa-arrow-@(up ? "up" : "down")"></i> @string.Format("{0:#,##0}", Math.Abs(delta)) đ</div>
+          <div style="font-size:12px;font-weight:600;color:@(up ? "#16a34a" : "#dc2626");">@(up ? "+" : "-")@Math.Abs(pct).ToString("0.#")%</div>
+        </div>
+      </div>
+    </div>
+  }
+  <div class="cmp-panel" data-k="custom" style="@(hasCustomCmp ? "" : "display:none;")">
+    <form method="get" action="/admin/RevenueDashboard" style="display:flex;flex-wrap:wrap;gap:14px;align-items:end;background:#f8fafc;padding:14px;border-radius:8px;margin-bottom:@(hasCustomCmp ? "16px" : "0");">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#0e7d85;margin-bottom:5px;">Kỳ A</div>
+        <div style="display:flex;gap:6px;">
+          <input type="date" name="aFrom" value="@aF" required style="padding:8px;border:1px solid #d1d5db;border-radius:6px;" />
+          <span style="align-self:center;color:#94a3b8;">→</span>
+          <input type="date" name="aTo" value="@aT" required style="padding:8px;border:1px solid #d1d5db;border-radius:6px;" />
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">Kỳ B (đối chiếu)</div>
+        <div style="display:flex;gap:6px;">
+          <input type="date" name="bFrom" value="@bF" required style="padding:8px;border:1px solid #d1d5db;border-radius:6px;" />
+          <span style="align-self:center;color:#94a3b8;">→</span>
+          <input type="date" name="bTo" value="@bT" required style="padding:8px;border:1px solid #d1d5db;border-radius:6px;" />
+        </div>
+      </div>
+      <button type="submit" style="background:#0e7d85;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;"><i class="fa fa-scale-balanced"></i> So sánh</button>
+    </form>
+    @{ var cust = compares.FirstOrDefault(x => x.Key == "custom"); }
+    @if (cust != null)
+    {
+      var cd = cust.Current - cust.Previous;
+      var cp = cust.Previous != 0 ? (double)(cd / cust.Previous) * 100 : (cust.Current > 0 ? 100.0 : 0.0);
+      var cu = cd >= 0;
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:14px;align-items:center;">
+        <div style="border:1px solid #e5e7eb;border-radius:10px;padding:14px;">
+          <div style="font-size:12px;color:#6c757d;">Kỳ A: @cust.CurLabel</div>
+          <div style="font-size:20px;font-weight:800;color:#0e7d85;">@string.Format("{0:#,##0}", cust.Current) đ</div>
+          <div style="font-size:11px;color:#94a3b8;">@cust.CurCount giao dịch</div>
+        </div>
+        <div style="border:1px solid #e5e7eb;border-radius:10px;padding:14px;background:#f8fafc;">
+          <div style="font-size:12px;color:#6c757d;">Kỳ B: @cust.PrevLabel</div>
+          <div style="font-size:20px;font-weight:800;color:#64748b;">@string.Format("{0:#,##0}", cust.Previous) đ</div>
+          <div style="font-size:11px;color:#94a3b8;">@cust.PrevCount giao dịch</div>
+        </div>
+        <div style="text-align:center;min-width:120px;">
+          <div style="font-size:12px;color:#6c757d;">Chênh lệch</div>
+          <div style="font-size:19px;font-weight:800;color:@(cu ? "#16a34a" : "#dc2626");"><i class="fa fa-arrow-@(cu ? "up" : "down")"></i> @string.Format("{0:#,##0}", Math.Abs(cd)) đ</div>
+          <div style="font-size:12px;font-weight:600;color:@(cu ? "#16a34a" : "#dc2626");">@(cu ? "+" : "-")@Math.Abs(cp).ToString("0.#")%</div>
+        </div>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Modal xuất Excel -->
+<div id="exportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:22px;width:410px;max-width:92vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="font-size:16px;font-weight:800;"><i class="fa fa-file-excel" style="color:#16a34a;"></i> Xuất Excel doanh thu</h3>
+      <button onclick="closeExp()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;">&times;</button>
+    </div>
+    <a href="/admin/ExportRevenueExcel" style="display:block;text-align:center;background:#16a34a;color:#fff;padding:12px;border-radius:8px;font-weight:700;text-decoration:none;margin-bottom:16px;"><i class="fa fa-download"></i> Xuất TOÀN BỘ doanh thu</a>
+    <div style="border-top:1px solid #eef2f5;padding-top:14px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px;">Hoặc xuất theo thời điểm (tháng/khoảng ngày bất kỳ)</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="flex:1;"><label style="font-size:12px;color:#6c757d;">Từ ngày</label><input type="date" id="expFrom" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;"></div>
+        <div style="flex:1;"><label style="font-size:12px;color:#6c757d;">Đến ngày</label><input type="date" id="expTo" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;"></div>
+      </div>
+      <button onclick="exportRange()" style="width:100%;background:#0e7d85;color:#fff;border:none;padding:11px;border-radius:8px;font-weight:700;cursor:pointer;"><i class="fa fa-download"></i> Xuất theo khoảng đã chọn</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openExp(){ document.getElementById('exportModal').style.display='flex'; }
+  function closeExp(){ document.getElementById('exportModal').style.display='none'; }
+  document.getElementById('exportModal').addEventListener('click', function(e){ if(e.target===this) closeExp(); });
+  function exportRange(){
+    var f=document.getElementById('expFrom').value, t=document.getElementById('expTo').value;
+    var pr=[]; if(f)pr.push('from='+f); if(t)pr.push('to='+t);
+    window.location.href='/admin/ExportRevenueExcel'+(pr.length?('?'+pr.join('&')):'');
+  }
+  document.querySelectorAll('.cmp-tab').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.cmp-tab').forEach(function(x){ x.classList.remove('active'); });
+      this.classList.add('active');
+      var k=this.getAttribute('data-k');
+      document.querySelectorAll('.cmp-panel').forEach(function(pn){ pn.style.display = (pn.getAttribute('data-k')===k)?'block':'none'; });
+    });
+  });
+  document.querySelector('.cmp-tab[data-k="@(hasCustomCmp ? "custom" : "day")"]').classList.add('active');
+</script>
+
+<div style="background:#fff;border-radius:10px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
+  <h3 style="font-size:15px;font-weight:700;margin-bottom:14px;">Doanh thu theo tháng (12 tháng gần nhất)</h3>
+  <canvas id="revChart" height="90"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  const ctx = document.getElementById('revChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: @Html.Raw(labelsJson),
+      datasets: [{
+        label: 'Doanh thu (đ)',
+        data: @Html.Raw(dataJson),
+        backgroundColor: '#159aa3',
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => c.parsed.y.toLocaleString('vi-VN') + ' đ' } } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('vi-VN') } } }
+    }
+  });
+</script>

@@ -1,0 +1,128 @@
+@model List<WisdomITNews.Models.Admin>
+@{
+    ViewData["Title"] = "Quản lý nhân viên";
+    Layout = "_AdminLayout";
+    var stLabel = new Dictionary<string, string> { ["working"] = "Đang làm việc", ["on_leave"] = "Tạm nghỉ", ["resigned"] = "Đã nghỉ", ["terminated"] = "Thôi việc" };
+    var stBg    = new Dictionary<string, string> { ["working"] = "#dcfce7", ["on_leave"] = "#fef9c3", ["resigned"] = "#f3f4f6", ["terminated"] = "#fee2e2" };
+    var stFg    = new Dictionary<string, string> { ["working"] = "#16a34a", ["on_leave"] = "#ca8a04", ["resigned"] = "#6b7280", ["terminated"] = "#dc2626" };
+    var stOrder = new[] { "working", "on_leave", "resigned", "terminated" };
+}
+@functions {
+    string Norm(string? s)
+    {
+        var v = (s ?? "").Trim();
+        return (v == "working" || v == "on_leave" || v == "resigned" || v == "terminated") ? v : "working";
+    }
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-user-shield" style="color:#159aa3;"></i> Quản lý nhân viên</h1>
+    <a href="/admin/CreateStaff" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Thêm nhân viên</a>
+</div>
+
+@if (TempData["Ok"] != null)
+{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+@if (TempData["Err"] != null)
+{ <div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Err"]</div> }
+
+<!-- Tìm kiếm nhân viên -->
+<div style="background:#fff;padding:14px;margin-bottom:16px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
+    <input type="text" id="searchInput" placeholder="🔍 Tìm kiếm theo tên, tên đăng nhập, email..." 
+           style="width:100%;padding:10px 14px;border:1px solid #d1d5db;font-size:14px;border-radius:6px;" />
+</div>
+
+<div style="background:#fff;border-radius:6px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap;">
+        <thead>
+            <tr style="border-bottom:2px solid #f0f2f5;color:#6c757d;text-align:left;">
+                <th style="padding:10px 8px;">Mã NV</th>
+                <th style="padding:10px 8px;">Họ tên</th>
+                <th style="padding:10px 8px;">Tên đăng nhập</th>
+                <th style="padding:10px 8px;">Vai trò</th>
+                <th style="padding:10px 8px;">Giới tính</th>
+                <th style="padding:10px 8px;">Email</th>
+                <th style="padding:10px 8px;">Địa chỉ</th>
+                <th style="padding:10px 8px;">Tình trạng</th>
+                <th style="padding:10px 8px;"></th>
+            </tr>
+        </thead>
+        <tbody id="staffTable">
+            @foreach (var a in Model)
+            {
+                <tr style="border-bottom:1px solid #f0f2f5;" data-name="@a.FullName.ToLower()" data-username="@a.Username.ToLower()" data-email="@a.Email.ToLower()">
+                    <td style="padding:10px 8px;font-weight:700;color:#0e7d85;">NV@(a.Id.ToString("D3"))</td>
+                    <td style="padding:10px 8px;font-weight:600;">@a.FullName</td>
+                    <td style="padding:10px 8px;color:#6c757d;">@a.Username</td>
+                    <td style="padding:10px 8px;">
+                        <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:@(a.Role=="superadmin"?"#e6f4f5":"#f0eeff");color:@(a.Role=="superadmin"?"#0e7d85":"#476083");">
+                            @(a.Role == "superadmin" ? "Super Admin" : "Nhân viên")
+                        </span>
+                    </td>
+                    <td style="padding:10px 8px;color:#374151;">@(string.IsNullOrWhiteSpace(a.Gender) ? "—" : a.Gender)</td>
+                    <td style="padding:10px 8px;color:#6c757d;">@a.Email</td>
+                    <td style="padding:10px 8px;color:#6c757d;max-width:200px;overflow:hidden;text-overflow:ellipsis;">@(string.IsNullOrWhiteSpace(a.Address) ? "—" : a.Address)</td>
+                    <td style="padding:10px 8px;">
+                        <span id="st-@a.Id" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@stBg[Norm(a.EmploymentStatus)];color:@stFg[Norm(a.EmploymentStatus)];">
+                            @stLabel[Norm(a.EmploymentStatus)]
+                        </span>
+                    </td>
+                    <td style="padding:10px 8px;white-space:nowrap;">
+                        <a href="/admin/StaffDetail/@a.Id" title="Xem hồ sơ" style="background:#0e7d85;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-id-card"></i></a>
+                        <a href="/admin/EditStaff/@a.Id" title="Sửa thông tin" style="background:#159aa3;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
+                        <select onchange="changeStatus(@a.Id, this)" data-prev="@Norm(a.EmploymentStatus)" title="Đổi trạng thái làm việc" style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:5px;font-size:12px;cursor:pointer;">
+                            @foreach (var code in stOrder)
+                            {
+                                <option value="@code" selected="@(Norm(a.EmploymentStatus) == code)">@stLabel[code]</option>
+                            }
+                        </select>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+<script>
+    // Realtime search filter
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        const search = e.target.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#staffTable tr');
+        
+        rows.forEach(row => {
+            const name = row.getAttribute('data-name') || '';
+            const username = row.getAttribute('data-username') || '';
+            const email = row.getAttribute('data-email') || '';
+            
+            if (name.includes(search) || username.includes(search) || email.includes(search)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    const ST_LABEL = { working:'Đang làm việc', on_leave:'Tạm nghỉ', resigned:'Đã nghỉ', terminated:'Thôi việc' };
+    const ST_BG    = { working:'#dcfce7', on_leave:'#fef9c3', resigned:'#f3f4f6', terminated:'#fee2e2' };
+    const ST_FG    = { working:'#16a34a', on_leave:'#ca8a04', resigned:'#6b7280', terminated:'#dc2626' };
+
+    async function changeStatus(id, sel){
+        const status = sel.value;
+        const prev = sel.getAttribute('data-prev');
+        if(status === prev) return;
+        if(!await confirmSwal('Đổi trạng thái nhân viên thành "' + ST_LABEL[status] + '"?')){ sel.value = prev; return; }
+        const fd = new FormData(); fd.append('id', id); fd.append('status', status);
+        const r = await fetch('/admin/SetStaffStatus', { method:'POST', body: fd });
+        const d = await r.json();
+        if(d.success){
+            sel.setAttribute('data-prev', status);
+            const badge = document.getElementById('st-' + id);
+            if(badge){ badge.textContent = ST_LABEL[status]; badge.style.background = ST_BG[status]; badge.style.color = ST_FG[status]; }
+            swalToast('success','Đã cập nhật trạng thái');
+        } else {
+            sel.value = prev;
+            Swal.fire(d.message || 'Không cập nhật được');
+        }
+    }
+</script>
+}

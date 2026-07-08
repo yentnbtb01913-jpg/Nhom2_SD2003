@@ -66,10 +66,6 @@
                 @articles.Count bai viet
             </p>
             <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-                <label for="detailAvatarFile" style="background:#476083;color:#fff;padding:8px 16px;border-radius:0px;font-size:13px;font-weight:600;cursor:pointer;">
-                    <i class="fa fa-camera"></i> Doi avatar
-                </label>
-                <input type="file" id="detailAvatarFile" accept="image/*" style="display:none;" />
                 @if (Model.IsActive)
                 {
                     <button onclick="lockUser(@Model.Id)" style="background:#ba1a1a;color:#fff;padding:8px 16px;border-radius:0px;font-size:13px;font-weight:600;border:none;cursor:pointer;">
@@ -122,22 +118,6 @@
 
 @section Scripts {
     <script>
-        document.getElementById('detailAvatarFile').addEventListener('change', async function () {
-            const file = this.files[0];
-            if (!file) return;
-            const fd = new FormData();
-            fd.append('userId', @Model.Id);
-            fd.append('avatarFile', file);
-            try {
-                const res = await fetch('/admin/AdminUploadUserAvatar', { method: 'POST', body: fd });
-                const data = await res.json();
-                if (data.success) {
-                    document.getElementById('detailAvatar').innerHTML = `<img src="${data.avatarUrl}" style="width:100%;height:100%;object-fit:cover;" />`;
-                    Swal.fire('Cập nhật avatar thành công!');
-                } else { Swal.fire(data.message || 'Lỗi'); }
-            } catch { Swal.fire('Lỗi kết nối'); }
-        });
-
         async function lockUser(id) {
             if (!await confirmSwal('Khóa tài khoản này?')) return;
             const res = await fetch(`/Admin/LockUser?id=${id}`, { method: 'POST' });

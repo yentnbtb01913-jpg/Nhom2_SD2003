@@ -33,6 +33,23 @@ public class AppDbContext : DbContext
     public DbSet<RssSource> RssSources { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<VideoComment> VideoComments { get; set; }
+    public DbSet<AiSetting> AiSettings { get; set; }
+    public DbSet<StaffProfile> StaffProfiles { get; set; }
+    public DbSet<StaffActivityLog> StaffActivityLogs { get; set; }
+    public DbSet<Advertisement> Advertisements { get; set; }
+    public DbSet<AdRenewalMessage> AdRenewalMessages { get; set; }
+    public DbSet<TeamChatMessage> TeamChatMessages { get; set; }
+    public DbSet<NewsletterEmailLog> NewsletterEmailLogs { get; set; }
+    public DbSet<Podcast> Podcasts { get; set; }
+    public DbSet<EmailConfirmationToken> EmailConfirmationTokens { get; set; }
+    public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
+    public DbSet<PlanFeature> PlanFeatures { get; set; }
+    public DbSet<UserSubscription> UserSubscriptions { get; set; }
+    public DbSet<Transaction> Transactions { get; set; }
+    public DbSet<CustomerActivityLog> CustomerActivityLogs { get; set; }
+    public DbSet<AutoImportSettings> AutoImportSettings { get; set; }
+    public DbSet<CategoryMapping> CategoryMappings { get; set; }
+    public DbSet<AiCategoryCorrectionLog> AiCategoryCorrectionLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -139,10 +156,82 @@ public class AppDbContext : DbContext
         mb.Entity<SavedArticle>().HasIndex(x => new { x.UserId, x.ArticleId }).IsUnique();
         mb.Entity<UserCategoryFollow>().HasIndex(x => new { x.UserId, x.CategoryId }).IsUnique();
         mb.Entity<JournalistProfile>().HasIndex(x => x.UserId).IsUnique();
+        mb.Entity<StaffProfile>().HasIndex(x => x.AdminId).IsUnique();
+        mb.Entity<StaffActivityLog>().HasIndex(x => x.CreatedAt);
+        mb.Entity<StaffActivityLog>().HasIndex(x => x.TargetAdminId);
+        mb.Entity<NewsletterEmailLog>().HasIndex(x => x.SubscriberId);
 
         // Bình luận video — FK tới Video (xóa video -> xóa bình luận). KHÔNG cấu hình self-FK cho ParentId (giữ phẳng, tránh đệ quy).
         mb.Entity<VideoComment>()
             .HasOne(c => c.Video).WithMany().HasForeignKey(c => c.VideoId).OnDelete(DeleteBehavior.Cascade);
         mb.Entity<VideoComment>().HasIndex(c => c.VideoId);
+
+        // Podcast -> Article: xóa bài thì gỡ liên kết (không chặn xóa bài)
+        mb.Entity<Podcast>()
+            .HasOne(p => p.Article).WithMany().HasForeignKey(p => p.ArticleId).OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<Podcast>().HasIndex(p => p.ArticleId);
+
+        // Token xác nhận email
+        mb.Entity<EmailConfirmationToken>().Property(t => t.Token).HasMaxLength(128);
+        mb.Entity<EmailConfirmationToken>().HasIndex(t => t.Token).IsUnique();
+        mb.Entity<EmailConfirmationToken>()
+            .HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        // ===== Chat nội bộ ban quản lý =====
+        mb.Entity<TeamChatMessage>().Property(m => m.ConversationKey).HasMaxLength(120);
+        mb.Entity<TeamChatMessage>().Property(m => m.SenderRole).HasMaxLength(20);
+        mb.Entity<TeamChatMessage>().Property(m => m.SenderName).HasMaxLength(150);
+        mb.Entity<TeamChatMessage>().Property(m => m.RecipientRole).HasMaxLength(20);
+        mb.Entity<TeamChatMessage>().HasIndex(m => m.ConversationKey);
+
+        // ===== Audit log thao tác khách hàng (Quản lý khách hàng) =====
+        mb.Entity<CustomerActivityLog>().Property(l => l.ActorRole).HasMaxLength(20);
+        mb.Entity<CustomerActivityLog>().Property(l => l.ActorName).HasMaxLength(150);
+        mb.Entity<CustomerActivityLog>().Property(l => l.Action).HasMaxLength(60);
+        mb.Entity<CustomerActivityLog>().HasIndex(l => l.UserId);
+
+        // ===== Phân loại AI: ánh xạ danh mục + nhật ký sửa =====
+        mb.Entity<CategoryMapping>().Property(m => m.AiLabel).HasMaxLength(150);
+        mb.Entity<CategoryMapping>().HasIndex(m => m.AiLabel);
+        mb.Entity<CategoryMapping>()
+            .HasOne(m => m.Category).WithMany()
+            .HasForeignKey(m => m.CategoryId).OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<AiCategoryCorrectionLog>().Property(l => l.EditorName).HasMaxLength(150);
+        mb.Entity<AiCategoryCorrectionLog>().Property(l => l.OldCategory).HasMaxLength(150);
+        mb.Entity<AiCategoryCorrectionLog>().Property(l => l.NewCategory).HasMaxLength(150);
+
+        // ===== Chat gia hạn quảng cáo =====
+        mb.Entity<AdRenewalMessage>().Property(m => m.SenderRole).HasMaxLength(20);
+        mb.Entity<AdRenewalMessage>().Property(m => m.SenderName).HasMaxLength(150);
+        mb.Entity<AdRenewalMessage>().HasIndex(m => m.AdvertisementId);
+        mb.Entity<AdRenewalMessage>()
+            .HasOne(m => m.Advertisement).WithMany()
+            .HasForeignKey(m => m.AdvertisementId).OnDelete(DeleteBehavior.Cascade);
+
+        // ===== Gói Premium =====
+        mb.Entity<SubscriptionPlan>().Property(p => p.Name).HasMaxLength(120);
+        mb.Entity<SubscriptionPlan>().Property(p => p.Description).HasMaxLength(500);
+        mb.Entity<SubscriptionPlan>().Property(p => p.Price).HasColumnType("decimal(18,2)");
+
+        mb.Entity<PlanFeature>().Property(f => f.FeatureText).HasMaxLength(200);
+        mb.Entity<PlanFeature>()
+            .HasOne(f => f.Plan).WithMany(p => p.Features)
+            .HasForeignKey(f => f.PlanId).OnDelete(DeleteBehavior.Cascade);
+
+        mb.Entity<UserSubscription>().Property(s => s.Notes).HasMaxLength(500);
+        mb.Entity<UserSubscription>().HasIndex(s => s.UserId);
+        mb.Entity<UserSubscription>()
+            .HasOne(s => s.Plan).WithMany()
+            .HasForeignKey(s => s.PlanId).OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<Transaction>().Property(t => t.Amount).HasColumnType("decimal(18,2)");
+        mb.Entity<Transaction>().Property(t => t.PaymentMethodLabel).HasMaxLength(50);
+        mb.Entity<Transaction>().HasIndex(t => t.UserId);
+        mb.Entity<Transaction>()
+            .HasOne(t => t.Plan).WithMany()
+            .HasForeignKey(t => t.PlanId).OnDelete(DeleteBehavior.Restrict);
+        mb.Entity<Transaction>()
+            .HasOne<UserSubscription>().WithMany()
+            .HasForeignKey(t => t.UserSubscriptionId).OnDelete(DeleteBehavior.SetNull);
     }
 }

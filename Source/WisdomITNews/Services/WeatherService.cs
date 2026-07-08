@@ -5,7 +5,7 @@ using WisdomITNews.Models;
 namespace WisdomITNews.Services;
 
 /// <summary>
-/// [I] Gọi OpenWeatherMap, cache 30 phút theo city.
+/// [I] Gọi OpenWeatherMap, cache 2 phút theo city (gần thời gian thực).
 /// </summary>
 public class WeatherService
 {
@@ -65,7 +65,7 @@ public class WeatherService
                 IconCode    = json["weather"]?[0]?["icon"]?.ToString() ?? "01d"
             };
 
-            _cache.Set(key, vm, TimeSpan.FromMinutes(30));
+            _cache.Set(key, vm, TimeSpan.FromMinutes(2));
             return vm;
         }
         catch (Exception ex)

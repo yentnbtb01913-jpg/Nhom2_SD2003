@@ -31,6 +31,11 @@
         }
         .mgr-nav a:hover, .mgr-nav a.active { color:#fff; background:rgba(255,255,255,.12); border-left-color:#fff; }
         .mgr-nav .label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,.5); padding:14px 20px 6px; }
+        .mgr-nav .nav-group > summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,.5); padding:14px 20px 6px; user-select:none; }
+        .mgr-nav .nav-group > summary::-webkit-details-marker { display:none; }
+        .mgr-nav .nav-group > summary:hover { color:rgba(255,255,255,.9); }
+        .mgr-nav .nav-group > summary .chev { margin-left:auto; font-size:9px; transition:transform .2s; }
+        .mgr-nav .nav-group[open] > summary .chev { transform:rotate(180deg); }
         .mgr-nav i { width:16px; text-align:center; }
 
         .mgr-footer { padding:14px 20px; border-top:1px solid rgba(255,255,255,.14); font-size:13px; color:rgba(255,255,255,.8); }
@@ -49,26 +54,43 @@
         </div>
         <nav class="mgr-nav">
             <a href="/nhan-vien/Dashboard"><i class="fa fa-gauge-high"></i> Bảng điều khiển</a>
-            <div class="label">Nội dung</div>
-            <a href="/nhan-vien/CreateArticle"><i class="fa fa-pen-nib"></i> Viết bài mới</a>
-            <a href="/nhan-vien/Articles"><i class="fa fa-newspaper"></i> Kênh Wisdom</a>
-            <a href="/nhan-vien/RssSources"><i class="fa fa-satellite-dish"></i> Nhập Bài Báo</a>
-            <a href="/nhan-vien/Categories"><i class="fa fa-folder"></i> Danh mục</a>
-            <a href="/nhan-vien/Comments"><i class="fa fa-comments"></i> Bình luận</a>
-            <a href="/nhan-vien/Feedbacks"><i class="fa fa-flag"></i> Báo cáo / Góp ý</a>
-            <a href="/nhan-vien/Videos"><i class="fa fa-video"></i> Video</a>
-            <a href="/nhan-vien/Notifications">
-                <i class="fa fa-bell"></i> Quản lý Thông báo
-                <span id="sidebar-notif-count-nv"
-                    style="background:#dc2626;color:#fff;border-radius:10px;
-                    padding:1px 6px;font-size:11px;margin-left:4px;display:none;">
-                </span>
-            </a>
-            <div class="label">Đối tác</div>
-            <a href="/nhan-vien/Partners"><i class="fa fa-handshake"></i> Đối tác (Nhà Báo)</a>
-            <a href="/nhan-vien/Customers"><i class="fa fa-users"></i> Quản lý Khách Hàng</a>
-            <div class="label">Khác</div>
-            <a href="/" target="_blank"><i class="fa fa-globe"></i> Xem website</a>
+
+            <details class="nav-group" open>
+                <summary>Nội dung <i class="fa fa-chevron-down chev"></i></summary>
+                <a href="/nhan-vien/CreateArticle"><i class="fa fa-pen-nib"></i> Viết bài mới</a>
+                <a href="/nhan-vien/Articles"><i class="fa fa-newspaper"></i> Kênh Wisdom</a>
+                <a href="/nhan-vien/RssSources"><i class="fa fa-satellite-dish"></i> Nhập Bài Báo</a>
+                <a href="/nhan-vien/Categories"><i class="fa fa-folder"></i> Danh mục</a>
+                <a href="/nhan-vien/Videos"><i class="fa fa-video"></i> Video</a>
+                <a href="/nhan-vien/Podcasts"><i class="fa fa-podcast"></i> Audio / Podcast</a>
+            </details>
+
+            <details class="nav-group" open>
+                <summary>Quảng cáo <i class="fa fa-chevron-down chev"></i></summary>
+                <a href="/nhan-vien/Advertisements"><i class="fa fa-rectangle-ad"></i> Quảng cáo</a>
+                <a href="/nhan-vien/RenewalAds"><i class="fa fa-clock-rotate-left"></i> Gia hạn QC @await Component.InvokeAsync("AdRenewalBadge", new { side = "admin" })</a>
+            </details>
+
+            <details class="nav-group" open>
+                <summary>Đối tác &amp; Khách hàng <i class="fa fa-chevron-down chev"></i></summary>
+                <a href="/nhan-vien/Partners"><i class="fa fa-handshake"></i> Đối tác (Nhà Báo)</a>
+                <a href="/nhan-vien/PremiumCustomers"><i class="fa fa-user-tie"></i> Quản lý khách hàng</a>
+            </details>
+
+            <details class="nav-group" open>
+                <summary>Tương tác <i class="fa fa-chevron-down chev"></i></summary>
+                <a href="/nhan-vien/Comments"><i class="fa fa-comments"></i> Bình luận</a>
+                <a href="/nhan-vien/Feedbacks"><i class="fa fa-flag"></i> Báo cáo / Góp ý</a>
+                <a href="/nhan-vien/Notifications"><i class="fa fa-bell"></i> Quản lý Thông báo <span id="sidebar-notif-count-nv" style="background:#dc2626;color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px;display:none;"></span></a>
+                <a href="/nhan-vien/TeamChat"><i class="fa fa-comments"></i> Chat nội bộ</a>
+            </details>
+
+            <details class="nav-group">
+                <summary>Cá nhân <i class="fa fa-chevron-down chev"></i></summary>
+                <a href="/nhan-vien/ActivityLog"><i class="fa fa-clock-rotate-left"></i> Lịch sử làm việc</a>
+            </details>
+
+            <a href="/" target="_blank" style="margin-top:8px;"><i class="fa fa-globe"></i> Xem website</a>
             <a href="/nhan-vien/Logout" style="color:rgba(255,200,200,.95);"><i class="fa fa-right-from-bracket"></i> Đăng xuất</a>
         </nav>
         <div class="mgr-footer">

@@ -267,3 +267,16 @@ html[data-mode="dark"] .bm-burger-menu .nav-list li a:hover{
 .bm-video-others::-webkit-scrollbar-track{background:transparent;}
 .bm-video-others::-webkit-scrollbar-thumb{background:#cfd8dc;border-radius:8px;}
 .bm-video-others::-webkit-scrollbar-thumb:hover{background:var(--bm-teal);}
+
+/* ===== Cột Video sidebar dính đáy màn hình (theo suốt feed infinite-scroll) ===== */
+.bm-aside{align-self:stretch;}
+.vid-sticky{position:sticky;top:74px;z-index:5;background:#fff;}
+.vid-sticky .vid-list-scroll{max-height:340px;overflow-y:auto;}
+@media (max-width:900px){
+  .vid-sticky{position:static;}
+  .vid-sticky .vid-list-scroll{max-height:420px;}
+}
+
+/* ===== Trang chi tiết bài: cho sidebar cao bằng bài viết để cột Video dính suốt khi cuộn ===== */
+.page-wrapper > .sidebar { align-self: stretch; }
+@media (max-width:900px){ .page-wrapper > .sidebar { align-self: auto; } }

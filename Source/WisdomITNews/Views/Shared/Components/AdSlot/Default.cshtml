@@ -1,0 +1,10 @@
+@model WisdomITNews.Models.Advertisement
+@if (Model != null && !string.IsNullOrEmpty(Model.ImageUrl))
+{
+    <div class="ad-slot ad-@Model.Position" style="text-align:center;margin:12px 0;">
+        <a href="/ad/click/@Model.Id" target="_blank" rel="nofollow sponsored noopener" title="@Model.Title">
+            <img src="@Model.ImageUrl" alt="@Model.Title" style="max-width:100%;height:auto;border-radius:6px;display:inline-block;" />
+        </a>
+        <div style="font-size:10px;color:#9ca3af;margin-top:2px;letter-spacing:.3px;">Quảng cáo</div>
+    </div>
+}

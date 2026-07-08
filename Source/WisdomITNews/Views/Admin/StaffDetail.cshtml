@@ -1,0 +1,185 @@
+@using WisdomITNews.Models
+@model WisdomITNews.Models.Admin
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Hồ sơ nhân viên";
+    var p = ViewBag.Profile as StaffProfile ?? new StaffProfile();
+    var managerName = ViewBag.ManagerName as string;
+    var articles = ViewBag.StaffArticles as List<Article> ?? new List<Article>();
+    var logs = ViewBag.ActivityLogs as List<StaffActivityLog> ?? new List<StaffActivityLog>();
+    var stLabel = new Dictionary<string, string> {
+        ["working"] = "Đang làm việc", ["annual_leave"] = "Nghỉ phép", ["on_leave"] = "Tạm nghỉ",
+        ["resigned"] = "Đã nghỉ việc", ["terminated"] = "Thôi việc"
+    };
+    var stColor = new Dictionary<string, string> {
+        ["working"] = "#16a34a", ["annual_leave"] = "#0ea5e9", ["on_leave"] = "#ca8a04",
+        ["resigned"] = "#6b7280", ["terminated"] = "#dc2626"
+    };
+    var code = string.IsNullOrWhiteSpace(Model.EmploymentStatus) ? "working" : Model.EmploymentStatus;
+    if (!stLabel.ContainsKey(code)) code = "working";
+    string card = "background:#fff;border-radius:8px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:16px;";
+    string h3 = "font-size:15px;font-weight:800;margin-bottom:14px;color:#0e7d85;padding-bottom:8px;border-bottom:1px solid #f0f2f5;";
+}
+@functions {
+    string V(string? s) => string.IsNullOrWhiteSpace(s) ? "—" : s;
+    string D(DateTime? d) => d.HasValue ? d.Value.ToString("dd/MM/yyyy") : "—";
+    static readonly Dictionary<string, string> ActLabel = new() { ["edit_profile"] = "Sửa hồ sơ", ["change_status"] = "Đổi trạng thái", ["add_article"] = "Đăng bài", ["import_rss"] = "Nhập RSS", ["post_notification"] = "Thông báo" };
+    static readonly Dictionary<string, string> ActIcon = new() { ["edit_profile"] = "fa-user-pen", ["change_status"] = "fa-user-clock", ["add_article"] = "fa-newspaper", ["import_rss"] = "fa-satellite-dish", ["post_notification"] = "fa-bell" };
+    static readonly Dictionary<string, string> ActColor = new() { ["edit_profile"] = "#159aa3", ["change_status"] = "#ca8a04", ["add_article"] = "#2563eb", ["import_rss"] = "#7c3aed", ["post_notification"] = "#dc2626" };
+    string AL(string a) => ActLabel.TryGetValue(a ?? "", out var v) ? v : (a ?? "");
+    string AIc(string a) => ActIcon.TryGetValue(a ?? "", out var v) ? v : "fa-circle-info";
+    string AC(string a) => ActColor.TryGetValue(a ?? "", out var v) ? v : "#6b7280";
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <a href="/admin/Staff" style="color:#6c757d;text-decoration:none;"><i class="fa fa-arrow-left"></i></a>
+        <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-id-card" style="color:#159aa3;"></i> Hồ sơ nhân viên</h1>
+    </div>
+    <a href="/admin/EditStaffProfile/@Model.Id" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-pen"></i> Sửa hồ sơ</a>
+</div>
+
+@if (TempData["Ok"] != null)
+{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+
+<!-- Header -->
+<div style="@card;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+    @if (!string.IsNullOrEmpty(p.Avatar))
+    {
+        <img src="@p.Avatar" alt="@Model.FullName" style="width:88px;height:88px;border-radius:50%;object-fit:cover;" />
+    }
+    else
+    {
+        <div style="width:88px;height:88px;border-radius:50%;background:linear-gradient(135deg,#0e7d85,#159aa3);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:34px;">
+            @(string.IsNullOrWhiteSpace(Model.FullName) ? "?" : Model.FullName.Substring(0, 1).ToUpper())
+        </div>
+    }
+    <div>
+        <div style="font-size:22px;font-weight:800;color:#0a2540;">@Model.FullName</div>
+        <div style="color:#6c757d;font-size:13px;margin:4px 0;">Mã NV: <b style="color:#0e7d85;">NV@(Model.Id.ToString("D3"))</b> &middot; @@@Model.Username</div>
+        <span style="padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;color:#fff;background:@stColor[code];">@stLabel[code]</span>
+        @if (!string.IsNullOrWhiteSpace(p.StatusNote))
+        {
+            <span style="color:#6c757d;font-size:12px;margin-left:8px;">(@p.StatusNote@(p.ReturnDate.HasValue ? " · trở lại " + p.ReturnDate.Value.ToString("dd/MM/yyyy") : ""))</span>
+        }
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <!-- 👤 Cá nhân -->
+    <div style="@card">
+        <div style="@h3">👤 Thông tin cá nhân</div>
+        <div style="display:grid;grid-template-columns:150px 1fr;gap:10px 14px;font-size:13px;">
+            <div style="color:#6c757d;">Mã nhân viên</div><div style="font-weight:600;">NV@(Model.Id.ToString("D3"))</div>
+            <div style="color:#6c757d;">Họ và tên</div><div>@V(Model.FullName)</div>
+            <div style="color:#6c757d;">Giới tính</div><div>@V(Model.Gender)</div>
+            <div style="color:#6c757d;">Ngày sinh</div><div>@D(p.DateOfBirth)</div>
+            <div style="color:#6c757d;">Nơi sinh</div><div>@V(p.PlaceOfBirth)</div>
+            <div style="color:#6c757d;">Quốc tịch</div><div>@V(p.Nationality)</div>
+            <div style="color:#6c757d;">CCCD/CMND/Hộ chiếu</div><div>@V(p.IdNumber)</div>
+            <div style="color:#6c757d;">Ngày cấp</div><div>@D(p.IdIssueDate)</div>
+            <div style="color:#6c757d;">Nơi cấp</div><div>@V(p.IdIssuePlace)</div>
+            <div style="color:#6c757d;">Tình trạng hôn nhân</div><div>@V(p.MaritalStatus)</div>
+        </div>
+    </div>
+
+    <!-- 📞 Liên hệ -->
+    <div style="@card">
+        <div style="@h3">📞 Thông tin liên hệ</div>
+        <div style="display:grid;grid-template-columns:150px 1fr;gap:10px 14px;font-size:13px;">
+            <div style="color:#6c757d;">Email công ty</div><div>@V(Model.Email)</div>
+            <div style="color:#6c757d;">Email cá nhân</div><div>@V(p.PersonalEmail)</div>
+            <div style="color:#6c757d;">Số điện thoại</div><div>@V(p.Phone)</div>
+            <div style="color:#6c757d;">Địa chỉ thường trú</div><div>@V(p.PermanentAddress)</div>
+            <div style="color:#6c757d;">Địa chỉ hiện tại</div><div>@V(p.CurrentAddress)</div>
+            <div style="color:#6c757d;">Liên hệ khẩn cấp</div><div>@V(p.EmergencyContactName)</div>
+            <div style="color:#6c757d;">SĐT liên hệ khẩn</div><div>@V(p.EmergencyContactPhone)</div>
+        </div>
+    </div>
+
+    <!-- 💼 Công việc -->
+    <div style="@card">
+        <div style="@h3">💼 Thông tin công việc</div>
+        <div style="display:grid;grid-template-columns:150px 1fr;gap:10px 14px;font-size:13px;">
+            <div style="color:#6c757d;">Phòng ban</div><div>@V(p.Department)</div>
+            <div style="color:#6c757d;">Chức vụ</div><div>@V(p.JobTitle)</div>
+            <div style="color:#6c757d;">Cấp bậc</div><div>@V(p.Level)</div>
+            <div style="color:#6c757d;">Quản lý trực tiếp</div><div>@V(managerName)</div>
+            <div style="color:#6c757d;">Ngày vào làm</div><div>@D(p.JoinDate)</div>
+            <div style="color:#6c757d;">Loại hợp đồng</div><div>@V(p.ContractType)</div>
+            <div style="color:#6c757d;">Thời hạn hợp đồng</div><div>@V(p.ContractTerm)</div>
+            <div style="color:#6c757d;">Trạng thái</div><div><span style="color:@stColor[code];font-weight:700;">@stLabel[code]</span></div>
+            <div style="color:#6c757d;">Ghi chú trạng thái</div><div>@V(p.StatusNote)</div>
+            <div style="color:#6c757d;">Dự kiến trở lại</div><div>@D(p.ReturnDate)</div>
+        </div>
+    </div>
+
+    <!-- 🔐 Tài khoản hệ thống -->
+    <div style="@card">
+        <div style="@h3">🔐 Tài khoản hệ thống</div>
+        <div style="display:grid;grid-template-columns:150px 1fr;gap:10px 14px;font-size:13px;">
+            <div style="color:#6c757d;">Tên đăng nhập</div><div>@Model.Username</div>
+            <div style="color:#6c757d;">Vai trò</div><div>@(Model.Role == "superadmin" ? "Super Admin" : "Nhân viên")</div>
+            <div style="color:#6c757d;">Quyền hạn</div><div>@(Model.Role == "superadmin" ? "Toàn quyền quản trị" : "Quản lý nội dung được phân công")</div>
+            <div style="color:#6c757d;">Trạng thái tài khoản</div><div>@(Model.IsActive ? "Đang hoạt động (đăng nhập được)" : "Không hoạt động")</div>
+            <div style="color:#6c757d;">Ngày tạo tài khoản</div><div>@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+            <div style="color:#6c757d;">Lần đăng nhập cuối</div><div>@(Model.LastLogin.HasValue ? Model.LastLogin.Value.ToString("dd/MM/yyyy HH:mm") : "—")</div>
+        </div>
+    </div>
+</div>
+
+<!-- 📈 Lịch sử làm việc -->
+<div style="@card">
+    <div style="@h3">📈 Lịch sử làm việc (bài viết đã đăng)</div>
+    @if (!articles.Any())
+    {
+        <p style="color:#94a3b8;font-size:13px;">Nhân viên chưa đăng bài viết nào.</p>
+    }
+    else
+    {
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+                <tr style="border-bottom:2px solid #f0f2f5;color:#6c757d;text-align:left;">
+                    <th style="padding:8px;">Tiêu đề</th>
+                    <th style="padding:8px;">Chuyên mục</th>
+                    <th style="padding:8px;">Trạng thái</th>
+                    <th style="padding:8px;">Ngày tạo</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in articles)
+                {
+                    <tr style="border-bottom:1px solid #f0f2f5;">
+                        <td style="padding:8px;font-weight:600;">@a.Title</td>
+                        <td style="padding:8px;color:#6c757d;">@(a.Category?.Name ?? "—")</td>
+                        <td style="padding:8px;">@a.Status</td>
+                        <td style="padding:8px;color:#6c757d;">@a.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+<!-- 📈 Nhật ký hoạt động liên quan -->
+<div style="@card">
+    <div style="@h3">🕓 Nhật ký hoạt động liên quan</div>
+    @if (!logs.Any())
+    {
+        <p style="color:#94a3b8;font-size:13px;">Chưa có hoạt động nào được ghi lại cho nhân viên này.</p>
+    }
+    else
+    {
+        foreach (var l in logs)
+        {
+            <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f0f2f5;align-items:flex-start;">
+                <div style="width:34px;height:34px;border-radius:50%;background:#f3f4f6;color:@AC(l.Action);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa @AIc(l.Action)"></i></div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;"><b>@l.ActorName</b> <span style="padding:1px 8px;border-radius:20px;font-size:11px;font-weight:700;background:#f3f4f6;color:@AC(l.Action);">@AL(l.Action)</span></div>
+                    <div style="color:#374151;font-size:13px;margin:2px 0;">@l.Detail</div>
+                    <div style="color:#94a3b8;font-size:12px;"><i class="fa fa-clock"></i> @l.CreatedAt.ToString("HH:mm dd/MM/yyyy")</div>
+                </div>
+            </div>
+        }
+    }
+</div>
