@@ -50,6 +50,7 @@ public class AppDbContext : DbContext
     public DbSet<AutoImportSettings> AutoImportSettings { get; set; }
     public DbSet<CategoryMapping> CategoryMappings { get; set; }
     public DbSet<AiCategoryCorrectionLog> AiCategoryCorrectionLogs { get; set; }
+    public DbSet<SearchHistory> SearchHistories { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -83,6 +84,11 @@ public class AppDbContext : DbContext
             .HasOne(v => v.Article).WithMany(a => a.ViewHistories).HasForeignKey(v => v.ArticleId).OnDelete(DeleteBehavior.Cascade);
         mb.Entity<ViewHistory>().HasIndex(v => v.SessionId);
         mb.Entity<ViewHistory>().HasIndex(v => v.ViewedAt);
+
+        // Lịch sử tìm kiếm (tính năng tìm kiếm thông minh trên Trang chủ)
+        mb.Entity<SearchHistory>().HasIndex(s => s.SessionId);
+        mb.Entity<SearchHistory>().HasIndex(s => s.UserId);
+        mb.Entity<SearchHistory>().HasIndex(s => s.SearchedAt);
 
         mb.Entity<Category>()
             .HasOne(c => c.ParentCategory).WithMany(c => c.Children).HasForeignKey(c => c.ParentCategoryId).OnDelete(DeleteBehavior.Restrict);

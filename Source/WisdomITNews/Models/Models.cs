@@ -172,6 +172,19 @@ public class ViewHistory
     public Article? Article { get; set; }
 }
 
+/// <summary>
+/// Lịch sử tìm kiếm của người dùng (gắn theo UserId nếu đã đăng nhập, luôn kèm SessionId
+/// để khách vãng lai cũng có lịch sử riêng theo phiên trình duyệt).
+/// </summary>
+public class SearchHistory
+{
+    public int Id { get; set; }
+    public int? UserId { get; set; }
+    [Required] public string SessionId { get; set; } = "";
+    [Required] public string Keyword { get; set; } = "";
+    public DateTime SearchedAt { get; set; } = DateTime.Now;
+}
+
 public class FeedbackReport
 {
     public int Id { get; set; }

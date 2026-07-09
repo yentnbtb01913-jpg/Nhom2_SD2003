@@ -1937,23 +1937,86 @@
             if (!inp || !box) return;
             function esc(x) { return (x || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
             var t;
+
+            function bindRowEvents() {
+            box.querySelectorAll('.sg-del').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            var id = btn.getAttribute('data-id');
+            fetch('/Home/DeleteSearchHistory?id=' + encodeURIComponent(id), { method: 'POST' }).then(function () {
+            var row = btn.closest('.sg-kw-row');
+            if (row) row.remove();
+            if (!box.querySelector('.sg-kw-row')) loadEmptyState();
+            });
+            });
+            });
+            }
+
+            function renderEmptyState(data) {
+            var html = '<div class="sg-group"><div class="sg-group-head"><span>Lịch sử tìm kiếm</span></div>';
+            if (!data.history || !data.history.length) {
+            html += '<div class="sg-empty">Chưa có lịch sử tìm kiếm.</div>';
+            } else {
+            html += '<div class="sg-list sg-scroll">' + data.history.map(function (h) {
+            return '<div class="sg-kw-row"><a class="sg-kw" href="/tim-kiem?q=' + encodeURIComponent(h.keyword) + '"><i class="fa fa-clock"></i>' + esc(h.keyword) + '</a><button type="button" class="sg-del" data-id="' + h.id + '" title="Xóa từ khóa này" aria-label="Xóa từ khóa này">&times;</button></div>';
+            }).join('') + '</div>';
+            }
+            html += '</div>';
+            if (data.popular && data.popular.length) {
+            html += '<div class="sg-group"><div class="sg-group-head"><span>Từ khóa được tìm kiếm nhiều</span></div><div class="sg-chips">' +
+            data.popular.map(function (k) { return '<a class="sg-chip" href="/tim-kiem?q=' + encodeURIComponent(k) + '">' + esc(k) + '</a>'; }).join('') + '</div></div>';
+            }
+            box.innerHTML = html;
+            box.style.display = 'block';
+            bindRowEvents();
+            }
+
+            function renderSuggestState(data) {
+            var hasAny = (data.keywords && data.keywords.length) || (data.categories && data.categories.length) || (data.articles && data.articles.length);
+            if (!hasAny) { box.innerHTML = '<div class="sg-empty">Không tìm thấy kết quả phù hợp.</div>'; box.style.display = 'block'; return; }
+            var html = '';
+            if (data.keywords && data.keywords.length) {
+            html += '<div class="sg-group"><div class="sg-group-head"><span>Từ khóa gợi ý</span></div><div class="sg-chips">' +
+            data.keywords.map(function (k) { return '<a class="sg-chip" href="/tim-kiem?q=' + encodeURIComponent(k) + '">' + esc(k) + '</a>'; }).join('') + '</div></div>';
+            }
+            if (data.categories && data.categories.length) {
+            html += '<div class="sg-group"><div class="sg-group-head"><span>Danh mục</span></div><div class="sg-list">' +
+            data.categories.map(function (c) { return '<a class="sg-cat-item" href="/danh-muc/' + esc(c.slug) + '"><span class="sg-cat-icon">' + esc(c.icon || '📁') + '</span>' + esc(c.name) + '</a>'; }).join('') + '</div></div>';
+            }
+            if (data.articles && data.articles.length) {
+            html += '<div class="sg-group"><div class="sg-group-head"><span>Bài viết</span></div><div class="sg-list sg-scroll">' +
+            data.articles.map(function (a) {
+            var img = a.thumbnail ? '<img src="' + esc(a.thumbnail) + '" alt="" />' : '<div class="ph"></div>';
+            return '<a class="sg-item" href="/bai-viet/' + esc(a.slug) + '">' + img + '<div><div class="sg-t">' + esc(a.title) + '</div><div class="sg-c">' + esc(a.categoryName) + '</div></div></a>';
+            }).join('') + '</div></div>';
+            }
+            box.innerHTML = html;
+            box.style.display = 'block';
+            }
+
+            function loadEmptyState() {
+            fetch('/Home/SearchPanel').then(function (r) { return r.json(); }).then(renderEmptyState).catch(function () { box.style.display = 'none'; });
+            }
+
+            function loadSuggestState(q) {
+            fetch('/Home/SearchSuggest?q=' + encodeURIComponent(q))
+            .then(function (r) { return r.json(); })
+            .then(renderSuggestState)
+            .catch(function () { box.style.display = 'none'; });
+            }
+
+            inp.addEventListener('focus', function () {
+            var q = inp.value.trim();
+            if (q.length < 1) loadEmptyState(); else loadSuggestState(q);
+            });
+
             inp.addEventListener('input', function () {
             clearTimeout(t);
             var q = inp.value.trim();
-            if (q.length < 1) { box.style.display = 'none'; box.innerHTML = ''; return; }
-            t = setTimeout(function () {
-            fetch('/Home/SearchSuggest?q=' + encodeURIComponent(q))
-            .then(function (r) { return r.json(); })
-            .then(function (items) {
-            if (!items || !items.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-            box.innerHTML = items.map(function (a) {
-            var img = a.thumbnail ? '<img src="' + esc(a.thumbnail) + '" alt="" />' : '<div class="ph"></div>';
-            return '<a class="sg-item" href="/bai-viet/' + esc(a.slug) + '">' + img + '<div><div class="sg-t">' + esc(a.title) + '</div><div class="sg-c">' + esc(a.categoryName) + '</div></div></a>';
-            }).join('');
-            box.style.display = 'block';
-            }).catch(function () { box.style.display = 'none'; });
-            }, 200);
+            if (q.length < 1) { loadEmptyState(); return; }
+            t = setTimeout(function () { loadSuggestState(q); }, 200);
             });
+
             document.addEventListener('click', function (e) { if (!box.contains(e.target) && e.target !== inp) box.style.display = 'none'; });
             })();
         </script>

@@ -153,17 +153,185 @@ public class HomeController : Controller
         return View(vm);
     }
 
-    // Gợi ý tìm kiếm (autocomplete) — trả JSON tối đa 6 bài
+    // ===== Tìm kiếm thông minh (lịch sử + gợi ý real-time) =====
+    private const int HistoryLimit = 10;
+    private const int PopularKeywordLimit = 8;
+    private const int SuggestArticleLimit = 8;
+    private const int SuggestCategoryLimit = 5;
+    private const int SuggestKeywordLimit = 6;
+    private static readonly string[] FallbackPopularKeywords =
+        { "AI", "ChatGPT", "Windows", "Linux", "Python", "Gemini", "Claude", "Cyber Security" };
+
+    /// <summary>Bỏ dấu tiếng Việt + hạ chữ thường để so khớp không phân biệt hoa/thường và dấu.</summary>
+    private static string RemoveDiacritics(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in normalized)
+        {
+            var uc = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+            if (uc != System.Globalization.UnicodeCategory.NonSpacingMark) sb.Append(c);
+        }
+        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC)
+            .Replace('đ', 'd').Replace('Đ', 'D');
+    }
+
+    private static string NormalizeKeyword(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return "";
+        var noDiacritics = RemoveDiacritics(s).ToLowerInvariant().Trim();
+        return System.Text.RegularExpressions.Regex.Replace(noDiacritics, @"\s+", " ");
+    }
+
+    /// <summary>Xác định chủ sở hữu lịch sử tìm kiếm: UserId (nếu đăng nhập) + SessionId (luôn có, kể cả khách).</summary>
+    private (int? userId, string sessionId) GetSearchOwner()
+    {
+        HttpContext.Session.SetString("__init", "1"); // đảm bảo session đã được khởi tạo → có Session.Id ổn định
+        var userId = HttpContext.Session.GetInt32("UserId");
+        var sessionId = HttpContext.Session.Id;
+        return (userId, sessionId);
+    }
+
+    private async Task SaveSearchHistoryAsync(string keyword)
+    {
+        var norm = NormalizeKeyword(keyword);
+        if (string.IsNullOrEmpty(norm)) return;
+
+        var (userId, sessionId) = GetSearchOwner();
+        var mine = await _db.SearchHistories
+            .Where(h => h.SessionId == sessionId && h.UserId == userId)
+            .OrderByDescending(h => h.SearchedAt)
+            .ToListAsync();
+
+        var dup = mine.FirstOrDefault(h => NormalizeKeyword(h.Keyword) == norm);
+        if (dup != null)
+        {
+            dup.Keyword = keyword.Trim();
+            dup.SearchedAt = DateTime.Now;
+        }
+        else
+        {
+            _db.SearchHistories.Add(new SearchHistory
+            {
+                UserId = userId,
+                SessionId = sessionId,
+                Keyword = keyword.Trim(),
+                SearchedAt = DateTime.Now
+            });
+        }
+        await _db.SaveChangesAsync();
+
+        // Giới hạn tối đa 50 mục lưu trữ mỗi người dùng/phiên để tránh phình bảng
+        var all = await _db.SearchHistories
+            .Where(h => h.SessionId == sessionId && h.UserId == userId)
+            .OrderByDescending(h => h.SearchedAt)
+            .ToListAsync();
+        if (all.Count > 50)
+        {
+            _db.SearchHistories.RemoveRange(all.Skip(50));
+            await _db.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>Danh sách bài published khớp từ khóa theo Title/Summary/Content/Tag/Category (fuzzy, không phân biệt hoa-thường/dấu).</summary>
+    private async Task<List<Article>> SearchArticlesAsync(string q, int take)
+    {
+        var kwLower = q.Trim().ToLower();
+        var kwNorm = NormalizeKeyword(q);
+
+        var matchingTagIds = (await _db.Tags.ToListAsync())
+            .Where(t => NormalizeKeyword(t.Name).Contains(kwNorm))
+            .Select(t => t.Id)
+            .ToHashSet();
+
+        var dbMatches = await _db.Articles
+            .Include(a => a.Category)
+            .Where(a => a.Status == "published" && (
+                a.Title.ToLower().Contains(kwLower) ||
+                a.Summary.ToLower().Contains(kwLower) ||
+                a.Content.ToLower().Contains(kwLower) ||
+                (a.Category != null && a.Category.Name.ToLower().Contains(kwLower)) ||
+                a.ArticleTags.Any(at => matchingTagIds.Contains(at.TagId))))
+            .OrderByDescending(a => a.PublishedAt)
+            .Take(take)
+            .ToListAsync();
+
+        if (dbMatches.Count >= take) return dbMatches;
+
+        // Vòng bổ sung: quét gần đúng (bỏ dấu) trên tập bài gần đây để bắt các trường hợp gõ không dấu
+        var existIds = dbMatches.Select(a => a.Id).ToHashSet();
+        var candidates = await _db.Articles
+            .Include(a => a.Category)
+            .Where(a => a.Status == "published" && !existIds.Contains(a.Id))
+            .OrderByDescending(a => a.PublishedAt)
+            .Take(400)
+            .ToListAsync();
+
+        var fuzzy = candidates.Where(a =>
+                NormalizeKeyword(a.Title).Contains(kwNorm) ||
+                NormalizeKeyword(a.Summary).Contains(kwNorm) ||
+                NormalizeKeyword(a.Category?.Name).Contains(kwNorm))
+            .Take(take - dbMatches.Count);
+
+        dbMatches.AddRange(fuzzy);
+        return dbMatches;
+    }
+
+    /// <summary>Trạng thái rỗng của ô tìm kiếm: lịch sử gần đây + từ khóa phổ biến.</summary>
+    [HttpGet]
+    public async Task<IActionResult> SearchPanel()
+    {
+        var (userId, sessionId) = GetSearchOwner();
+
+        var history = await _db.SearchHistories
+            .Where(h => h.SessionId == sessionId && h.UserId == userId)
+            .OrderByDescending(h => h.SearchedAt)
+            .Take(HistoryLimit)
+            .Select(h => new { id = h.Id, keyword = h.Keyword })
+            .ToListAsync();
+
+        var grouped = await _db.SearchHistories
+            .GroupBy(h => h.Keyword.Trim().ToLower())
+            .Select(g => new { key = g.Key, count = g.Count(), sample = g.Select(x => x.Keyword).FirstOrDefault() })
+            .OrderByDescending(g => g.count)
+            .Take(PopularKeywordLimit)
+            .ToListAsync();
+
+        var popular = grouped.Select(g => g.sample).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+        if (popular.Count < PopularKeywordLimit)
+        {
+            foreach (var fb in FallbackPopularKeywords)
+            {
+                if (popular.Count >= PopularKeywordLimit) break;
+                if (!popular.Any(p => NormalizeKeyword(p) == NormalizeKeyword(fb))) popular.Add(fb);
+            }
+        }
+
+        return Json(new { history, popular });
+    }
+
+    // Gợi ý tìm kiếm real-time (autocomplete) — trả JSON: từ khóa gợi ý, danh mục liên quan, bài viết liên quan
     [HttpGet]
     public async Task<IActionResult> SearchSuggest(string q)
     {
-        if (string.IsNullOrWhiteSpace(q)) return Json(new object[0]);
-        var key = q.Trim();
-        var items = await _db.Articles
-            .Include(a => a.Category)
-            .Where(a => a.Status == "published" && a.Title.Contains(key))
-            .OrderByDescending(a => a.PublishedAt)
-            .Take(6)
+        if (string.IsNullOrWhiteSpace(q))
+            return Json(new { keywords = new string[0], categories = new object[0], articles = new object[0] });
+
+        var kwNorm = NormalizeKeyword(q);
+
+        var categories = (await _db.Categories.Where(c => c.IsVisible).ToListAsync())
+            .Where(c => NormalizeKeyword(c.Name).Contains(kwNorm) || NormalizeKeyword(c.Slug).Contains(kwNorm))
+            .Take(SuggestCategoryLimit)
+            .Select(c => new { name = c.Name, slug = c.Slug, icon = c.Icon })
+            .ToList();
+
+        var matchingTags = (await _db.Tags.ToListAsync())
+            .Where(t => NormalizeKeyword(t.Name).Contains(kwNorm))
+            .Select(t => t.Name)
+            .ToList();
+
+        var articles = (await SearchArticlesAsync(q, SuggestArticleLimit))
             .Select(a => new
             {
                 title = a.Title,
@@ -171,8 +339,43 @@ public class HomeController : Controller
                 thumbnail = a.Thumbnail,
                 categoryName = a.Category != null ? a.Category.Name : ""
             })
-            .ToListAsync();
-        return Json(items);
+            .ToList();
+
+        var keywordSuggestions = new List<string>();
+        keywordSuggestions.AddRange(categories.Select(c => c.name));
+        keywordSuggestions.AddRange(matchingTags);
+        keywordSuggestions.AddRange(articles.Select(a => a.title));
+        var keywords = keywordSuggestions
+            .Where(k => !string.IsNullOrWhiteSpace(k))
+            .GroupBy(k => NormalizeKeyword(k)).Select(g => g.First())
+            .Take(SuggestKeywordLimit)
+            .ToList();
+
+        return Json(new { keywords, categories, articles });
+    }
+
+    /// <summary>Xóa một từ khóa khỏi lịch sử tìm kiếm (chỉ xóa đúng chủ sở hữu).</summary>
+    [HttpPost]
+    public async Task<IActionResult> DeleteSearchHistory(int id)
+    {
+        var (userId, sessionId) = GetSearchOwner();
+        var item = await _db.SearchHistories.FirstOrDefaultAsync(h => h.Id == id && h.SessionId == sessionId && h.UserId == userId);
+        if (item == null) return Json(new { success = false });
+
+        _db.SearchHistories.Remove(item);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    /// <summary>Xóa toàn bộ lịch sử tìm kiếm của người dùng/phiên hiện tại.</summary>
+    [HttpPost]
+    public async Task<IActionResult> ClearSearchHistory()
+    {
+        var (userId, sessionId) = GetSearchOwner();
+        var mine = _db.SearchHistories.Where(h => h.SessionId == sessionId && h.UserId == userId);
+        _db.SearchHistories.RemoveRange(mine);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
     }
 
     public async Task<IActionResult> Search(string q = "")
@@ -180,15 +383,8 @@ public class HomeController : Controller
         var results = new List<Article>();
         if (!string.IsNullOrWhiteSpace(q))
         {
-            var kw = q.ToLower();
-            results = await _db.Articles
-                .Include(a => a.Category)
-                .Where(a => a.Status == "published" &&
-                    (a.Title.ToLower().Contains(kw) ||
-                     a.Summary.ToLower().Contains(kw) ||
-                     a.Content.ToLower().Contains(kw)))
-                .OrderByDescending(a => a.PublishedAt)
-                .Take(20).ToListAsync();
+            await SaveSearchHistoryAsync(q);
+            results = await SearchArticlesAsync(q, 30);
         }
 
         return View(new SearchViewModel { Keyword = q, Results = results, TotalCount = results.Count });
