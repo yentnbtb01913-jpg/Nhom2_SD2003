@@ -7,7 +7,11 @@ a{text-decoration:none;color:inherit;transition:color var(--tr);}img{width:100%;
 /* ===== RESPONSIVE NỀN (áp dụng toàn site — public + Admin/Journalist/Nhân viên) =====
    Mục tiêu: không trang nào bị tràn ngang trên điện thoại. Không đổi bố cục desktop,
    chỉ đặt các "rào chắn" an toàn; các @media riêng của từng trang vẫn hoạt động bình thường. */
-html,body{max-width:100%;overflow-x:hidden;}
+/* LƯU Ý: KHÔNG đặt overflow-x:hidden trên html/body — nó làm hỏng mọi position:sticky trên trang
+   (thanh nav teal, dải quảng cáo Trang Chủ trái/phải, cột chat MyProfile...) vì trình duyệt biến
+   html/body thành một scroll container overflow riêng, cắt luôn ngữ cảnh sticky theo viewport.
+   Chặn tràn ngang bằng cách sửa đúng phần tử gây tràn (bảng, ảnh, header mobile...) thay vì chặn ở gốc. */
+html,body{max-width:100%;}
 video,iframe,embed,object,canvas,svg{max-width:100%;}
 video{height:auto;}
 pre,code{overflow-wrap:break-word;word-break:break-word;white-space:pre-wrap;}
