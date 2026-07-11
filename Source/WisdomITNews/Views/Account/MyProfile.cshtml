@@ -2,12 +2,40 @@
 @using WisdomITNews.Services
 @model ProfileViewModel
 @{
-    Layout = "_Layout"; ViewData["Title"] = "Tài khoản cá nhân";
+    Layout = "_StandaloneLayout"; ViewData["Title"] = "Tài khoản cá nhân";
 }
 
 @section Head {
     <style>
-        .mp-page { max-width: 820px; margin: 0 auto; }
+        .mp-page { max-width: 1400px; margin: 0 auto; }
+
+        /* Layout 2 cột: trái thông tin cá nhân, phải khung chat (chat chiếm phần lớn hơn) */
+        .mp-2col {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(480px, 1.4fr);
+            gap: 20px;
+            align-items: start;
+        }
+        .mp-col-left { min-width: 0; }
+        .mp-col-right {
+            position: sticky;
+            top: 68px;
+            height: calc(100vh - 90px);
+            min-height: 480px;
+            max-height: 760px;
+            background: var(--bg-white, #fff);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 6px 24px rgba(0,0,0,.04);
+            border: 1px solid var(--border, #e5e7eb);
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        @@media (max-width: 1180px) {
+            .mp-2col { grid-template-columns: 1fr; }
+            .mp-col-right { position: static; height: 620px; max-height: none; }
+        }
 
         /* Card chính */
         .mp-card-main {
@@ -209,6 +237,8 @@
 
 <div class="page-wrapper" style="grid-template-columns:1fr;">
     <main class="mp-page">
+      <div class="mp-2col">
+        <div class="mp-col-left">
 
         <!-- Card chính -->
         <div class="mp-card-main">
@@ -314,6 +344,14 @@
             }
         </section>
 
+        </div>
+
+        <!-- Khung Chat -->
+        <div class="mp-col-right">
+            @await Html.PartialAsync("_ChatEmbed")
+        </div>
+
+      </div>
     </main>
 </div>
 
@@ -404,5 +442,19 @@
                 msg.innerHTML = '<span style="color:#dc2626;">Lỗi kết nối</span>';
             }
         });
+
+        // Nếu tới từ trang hồ sơ người khác qua nút "Nhắn tin" (?openGroup=ID) -> mở đúng hội thoại đó
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            const openGroupId = params.get('openGroup');
+            if (!openGroupId) return;
+            const tryOpen = setInterval(() => {
+                if (window.chatUI && chatUI.currentUser) {
+                    clearInterval(tryOpen);
+                    chatUI.openGroup(parseInt(openGroupId, 10));
+                }
+            }, 300);
+            setTimeout(() => clearInterval(tryOpen), 8000);
+        })();
     </script>
 }

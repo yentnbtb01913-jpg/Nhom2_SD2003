@@ -162,6 +162,12 @@ namespace WisdomITNews.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("FeaturedHidden")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("FeaturedPinned")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsBreaking")
                         .HasColumnType("bit");
 
@@ -236,6 +242,10 @@ namespace WisdomITNews.Migrations
                     b.HasIndex("AuthorUserId");
 
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("FeaturedHidden");
+
+                    b.HasIndex("FeaturedPinned");
 
                     b.HasIndex("Region");
 
@@ -853,6 +863,9 @@ namespace WisdomITNews.Migrations
                     b.Property<int>("MaxImport")
                         .HasColumnType("int");
 
+                    b.Property<string>("LogoUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -866,6 +879,54 @@ namespace WisdomITNews.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("RssSources");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.SeedViewBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ArticleCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DetailsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EditorName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("MaxViews")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinViews")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TargetLabel")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("TotalAdded")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Scope");
+
+                    b.ToTable("SeedViewBatches");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.SavedArticle", b =>

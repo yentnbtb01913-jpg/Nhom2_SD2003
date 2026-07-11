@@ -56,7 +56,14 @@
     </div>
 </div>
 
-<div class="bm-home container">
+<!-- Dải quảng cáo "Trang Chủ" (home_left/home_right) — hiện ở 2 gutter trái/phải khi màn hình đủ rộng,
+     sticky trong vùng nội dung, tự ẩn trên tablet/mobile, không hiện khung rỗng nếu không có QC. -->
+<div class="home-rail-wrap">
+    <aside class="home-rail home-rail-left">
+        @await Component.InvokeAsync("AdSlot", new { position = "home_left" })
+    </aside>
+
+    <div class="bm-home container">
     <div class="bm-grid">
 
         <!-- ===================== CỘT CHÍNH ===================== -->
@@ -260,6 +267,11 @@
         </aside>
 
     </div>
+    </div>
+
+    <aside class="home-rail home-rail-right">
+        @await Component.InvokeAsync("AdSlot", new { position = "home_right" })
+    </aside>
 </div>
 
 @section Scripts {

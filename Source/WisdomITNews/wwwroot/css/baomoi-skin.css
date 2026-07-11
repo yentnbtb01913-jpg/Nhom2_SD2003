@@ -56,10 +56,45 @@ nav{background:var(--bm-teal) !important;border-bottom:1px solid var(--bm-teal-d
 .bm-nav-list li.mega-menu-wrapper:hover{position:relative !important;}
 
 /* ============================ TRANG CHỦ — 2 CỘT ========================== */
-.bm-home{padding:22px 0 50px;}
+/* .bm-home dùng chung với class "container" (max-width:1280px; margin:0 auto; padding:0 20px
+   khai báo ở site.css) để nội dung bó gọn giữa màn hình, cùng trục căn giữa với header/nav/ticker
+   (topbar, nav, ticker "NÓNG" đều dùng chung .container nên luôn thẳng hàng với nội dung).
+   CHỈ khai báo padding-top/bottom ở đây — KHÔNG dùng shorthand "padding" để tránh đè mất
+   padding ngang 20px của .container (đó chính là khoảng gutter hai bên, sau này đặt quảng cáo). */
+.bm-home{padding-top:22px;padding-bottom:50px;}
 .bm-grid{display:flex;gap:var(--bm-gap);align-items:flex-start;}
 .bm-main{flex:1 1 auto;min-width:0;}                       /* cột nội dung chính */
 .bm-aside{width:var(--bm-side-w);flex:0 0 auto;}           /* sidebar Nóng 24H */
+
+/* ---- Vị trí quảng cáo "Trang Chủ" (home_left/home_right) — 2 dải skyscraper trong gutter ----
+   Dùng CSS Grid "breakout": track giữa = min(1280px,100%) đúng bằng .bm-home.container, hai track
+   1fr hai bên tự co giãn = gutter hiện có. Vì vậy .bm-home KHÔNG cần tự margin/max-width nữa (grid
+   lo phần đó) nhưng vẫn giữ nguyên class "container" cho các trang khác không bị ảnh hưởng.
+   Ẩn hẳn dưới ~1650px (đủ chỗ cho container 1280px + 2×(160px quảng cáo + 20px khoảng cách) mới hiện,
+   tự ẩn trên tablet/mobile theo đúng yêu cầu). Nếu AdSlot không có quảng cáo -> aside rỗng, cao 0px,
+   không hiện khung trống. */
+.home-rail-wrap{display:grid;grid-template-columns:1fr min(1280px,100%) 1fr;column-gap:20px;align-items:start;}
+.home-rail-wrap > .bm-home.container{grid-column:2;margin:0;max-width:none;}
+/* width khớp đúng khuyến nghị 160px trong AdSlot/Default.cshtml (khung skyscraper cao 600px, ảnh object-fit:cover
+   lấp đầy — xem component đó). Sticky để dải quảng cáo "đi theo" khi cuộn trang, dừng lại khi hết chỗ chứa. */
+.home-rail{width:160px;position:sticky;top:74px;}
+.home-rail-left{grid-column:1;justify-self:end;}
+.home-rail-right{grid-column:3;justify-self:start;}
+.home-rail .ad-slot{margin:0;width:100%;}
+@media (max-width:1650px){
+  .home-rail{display:none;}
+}
+
+/* Responsive: màn hình <1024px thu nhỏ padding ngang để nội dung chiếm gần hết bề rộng,
+   không vỡ layout (áp dụng cho mọi trang public dùng .container hoặc .page-wrapper). */
+@media (max-width:1024px){
+  .container,
+  .page-wrapper{padding-left:14px;padding-right:14px;}
+}
+@media (max-width:580px){
+  .container,
+  .page-wrapper{padding-left:12px;padding-right:12px;}
+}
 
 .bm-card-wrap{background:#fff;border:1px solid var(--bm-line);border-radius:4px;}
 

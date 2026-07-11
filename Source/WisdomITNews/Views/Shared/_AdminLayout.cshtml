@@ -111,13 +111,60 @@
                 margin-left: 220px;
                 flex: 1;
                 padding: 24px;
+                min-width: 0;
+            }
+
+            /* ===== Mobile off-canvas sidebar (≤992px) ===== */
+            .admin-hamburger {
+                display: none;
+                position: fixed;
+                top: 14px;
+                left: 14px;
+                z-index: 1100;
+                width: 40px;
+                height: 40px;
+                border-radius: 8px;
+                background: #000613;
+                color: #fff;
+                border: none;
+                font-size: 17px;
+                cursor: pointer;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 10px rgba(0,0,0,.25);
+            }
+            .admin-backdrop {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,.45);
+                z-index: 199;
+            }
+            @@media (max-width: 992px) {
+                .admin-hamburger { display: flex; }
+                .admin-sidebar {
+                    transform: translateX(-100%);
+                    transition: transform .25s ease;
+                    z-index: 200;
+                    width: 250px;
+                }
+                .admin-sidebar.open { transform: translateX(0); }
+                .admin-backdrop.show { display: block; }
+                .admin-main {
+                    margin-left: 0;
+                    padding: 18px 14px 24px;
+                    padding-top: 64px;
+                }
+                #notif-dropdown { width: 92vw !important; right: 4vw !important; left: 4vw !important; }
             }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
 </head>
 <body>
-    <div class="admin-sidebar">
+    <button type="button" class="admin-hamburger" onclick="toggleAdminSidebar()" aria-label="Mở/đóng menu"><i class="fa fa-bars"></i></button>
+    <div class="admin-backdrop" id="adminBackdrop" onclick="closeAdminSidebar()"></div>
+    <div class="admin-sidebar" id="adminSidebar">
         <div class="admin-sidebar-logo">
             <div class="icon">&#9889;</div>
             <span>Wisdom Admin</span>
@@ -134,6 +181,8 @@
                 <a href="/admin/Articles"><i class="fa fa-newspaper" style="width:16px;"></i> Kênh Wisdom</a>
                 <a href="/admin/CreateArticle"><i class="fa fa-plus" style="width:16px;"></i> Viết bài mới</a>
                 <a href="/admin/RssSources"><i class="fa fa-satellite-dish" style="width:16px;"></i> Nhập Bài Báo</a>
+                <a href="/admin/ExternalArticles"><i class="fa fa-globe" style="width:16px;"></i> Kênh Bên Ngoài</a>
+                <a href="/admin/FeaturedArticles"><i class="fa fa-trophy" style="width:16px;"></i> Tin Nổi Bật Tự Động</a>
                 <a href="/admin/Categories"><i class="fa fa-folder" style="width:16px;"></i> Danh mục</a>
                 <a href="/admin/Videos"><i class="fa fa-video" style="width:16px;"></i> Video</a>
                 <a href="/admin/Podcasts"><i class="fa fa-podcast" style="width:16px;"></i> Audio / Podcast</a>
@@ -222,6 +271,19 @@
 <script>
   window.confirmSwal=function(msg,title){return Swal.fire({title:title||'Xác nhận?',text:msg,icon:'warning',showCancelButton:true,confirmButtonColor:'#d33',cancelButtonColor:'#6c757d',confirmButtonText:'Đồng ý',cancelButtonText:'Huỷ'}).then(function(r){return r.isConfirmed;});};
   window.swalToast=function(icon,msg){if(window.Swal)Swal.fire({toast:true,position:'top-end',icon:icon,title:msg,showConfirmButton:false,timer:3000,timerProgressBar:true});};
+
+  // ===== Sidebar off-canvas (mobile ≤992px) =====
+  function toggleAdminSidebar(){
+    document.getElementById('adminSidebar').classList.toggle('open');
+    document.getElementById('adminBackdrop').classList.toggle('show');
+  }
+  function closeAdminSidebar(){
+    document.getElementById('adminSidebar').classList.remove('open');
+    document.getElementById('adminBackdrop').classList.remove('show');
+  }
+  document.querySelectorAll('.admin-sidebar .sidebar-nav a').forEach(function(a){
+    a.addEventListener('click', closeAdminSidebar);
+  });
 
   const connection = new signalR.HubConnectionBuilder()
     .withUrl("/hubs/notification")

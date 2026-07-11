@@ -197,6 +197,8 @@
                     method = 'DELETE';
                     break;
                 case 'message':
+                    // Chat đã chuyển vào trang Hồ sơ cá nhân (MyProfile) -> tạo/lấy hội thoại
+                    // rồi điều hướng sang đó, mở đúng cuộc trò chuyện.
                     const dmRes = await fetch('/api/chat/dm', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -204,13 +206,9 @@
                     });
                     const dmData = await dmRes.json();
                     if (dmData.success) {
-                        const panel = document.getElementById('chatPanel');
-                        if (panel) {
-                            panel.style.display = 'block';
-                            if (!chatUI.currentUser) await chatUI.init();
-                            else { await chatUI.loadGroups(); }
-                            setTimeout(() => chatUI.openGroup(dmData.groupId), 500);
-                        }
+                        window.location.href = '/Account/MyProfile?openGroup=' + dmData.groupId;
+                    } else {
+                        Swal.fire(dmData.message || 'Không thể bắt đầu trò chuyện.');
                     }
                     return;
             }

@@ -1,0 +1,596 @@
+@using WisdomITNews.Models
+@using WisdomITNews.Services
+@model List<Article>
+@{
+    // basePath: "/admin" hoặc "/nhan-vien" — được set từ view bọc ngoài (chỉ khác route/layout, logic dùng chung)
+    var basePath = ViewBag.BasePath as string ?? "/admin";
+    var sources = ViewBag.Sources as List<RssSource> ?? new List<RssSource>();
+    var selectedSource = ViewBag.SelectedSource as string;
+    var page = ViewBag.Page as int? ?? 1;
+    var total = ViewBag.Total as int? ?? 0;
+    var totalPages = ViewBag.TotalPages as int? ?? 1;
+    var batches = ViewBag.Batches as List<SeedViewBatch> ?? new List<SeedViewBatch>();
+    var categories = ViewBag.Categories as List<Category> ?? new List<Category>();
+    // GroupBy để an toàn khi có nhiều nguồn trùng tên trong RssSources (tránh lỗi trùng key)
+    var sourceByName = sources
+        .GroupBy(s => s.Name)
+        .ToDictionary(g => g.Key, g => g.First());
+
+    string Avatar(string? sourceName)
+    {
+        RssSource? src = sourceName != null && sourceByName.TryGetValue(sourceName, out var s) ? s : null;
+        return ExternalArticleService.ResolveAvatarUrl(src);
+    }
+
+    (string bg, string fg, string text) StatusBadge(string status) => status switch
+    {
+        "published" => ("#dcfce7", "#166534", "Đã đăng"),
+        "draft" => ("#f3f4f6", "#6b7280", "Nháp"),
+        "PendingReview" => ("#fef3c7", "#92400e", "Chờ duyệt"),
+        "PendingApproval" => ("#fef3c7", "#92400e", "Chờ duyệt"),
+        "Rejected" => ("#fee2e2", "#991b1b", "Từ chối"),
+        _ => ("#f3f4f6", "#6b7280", status)
+    };
+
+    string ScopeLabel(string scope) => scope switch
+    {
+        "article" => "Theo bài viết",
+        "source" => "Theo nguồn tin",
+        "category" => "Theo danh mục",
+        "all" => "Tất cả bài",
+        _ => scope
+    };
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+    <h1 style="font-size:22px;font-weight:700;">🌐 Kênh Bên Ngoài <span style="font-size:13px;font-weight:400;color:#6c757d;">(@total bài nhập tự động)</span></h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" onclick="openSeedViewModal()"
+                style="background:#7c3aed;color:#fff;padding:9px 18px;border:none;border-radius:6px;font-weight:600;font-size:14px;cursor:pointer;">
+            <i class="fa fa-chart-line"></i> Tạo lượt xem mẫu
+        </button>
+        <button type="button" onclick="document.getElementById('batchPanel').scrollIntoView({behavior:'smooth'})"
+                style="background:#475569;color:#fff;padding:9px 18px;border:none;border-radius:6px;font-weight:600;font-size:14px;cursor:pointer;">
+            <i class="fa fa-clock-rotate-left"></i> Quản lý lượt xem mẫu
+        </button>
+    </div>
+</div>
+
+<form id="extToken">@Html.AntiForgeryToken()</form>
+
+<!-- BỘ LỌC THEO NGUỒN (autocomplete) -->
+<div style="background:#fff;padding:16px 20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-radius:8px;">
+    <form method="get" action="@basePath/ExternalArticles" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <label style="font-size:13px;font-weight:600;color:#475569;">Nguồn:</label>
+        <input type="text" name="source" list="sourceList" value="@selectedSource" placeholder="Chọn/gõ tên nguồn..."
+               style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:220px;" />
+        <datalist id="sourceList">
+            @foreach (var s in sources)
+            {
+                <option value="@s.Name"></option>
+            }
+        </datalist>
+        <button type="submit" style="background:#0e7d85;color:#fff;padding:8px 16px;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">Lọc</button>
+        @if (!string.IsNullOrWhiteSpace(selectedSource))
+        {
+            <a href="@basePath/ExternalArticles" style="background:#6b7280;color:#fff;padding:8px 16px;text-decoration:none;border-radius:6px;font-weight:600;font-size:13px;">Xóa lọc</a>
+        }
+    </form>
+</div>
+
+<!-- QUẢN LÝ AVATAR NGUỒN (thu gọn) -->
+<details style="background:#fff;padding:0;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-radius:8px;overflow:hidden;">
+    <summary style="padding:16px 20px;cursor:pointer;font-size:15px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px;">
+        <i class="fa fa-image" style="color:#159aa3;"></i> Quản lý avatar nguồn
+        <span style="font-size:12px;font-weight:400;color:#94a3b8;margin-left:auto;">(bấm để mở/thu gọn)</span>
+    </summary>
+    <div style="padding:0 20px 20px;">
+        @if (!sources.Any())
+        {
+            <div style="padding:16px;color:#6c757d;font-size:13px;">Chưa có nguồn tin nào.</div>
+        }
+        else
+        {
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;">
+                @foreach (var s in sources)
+                {
+                    <div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px;">
+                        <img id="srcAvatar-@s.Id" src="@ExternalArticleService.ResolveAvatarUrl(s)" alt="@s.Name"
+                             onerror="this.onerror=null;this.src='/images/default-avatar.png';"
+                             style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:#f3f4f6;" />
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:600;font-size:13px;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@s.Name</div>
+                            <div style="display:flex;gap:6px;">
+                                <input type="text" id="srcLogoInput-@s.Id" value="@s.LogoUrl" placeholder="URL avatar (https://...)"
+                                       style="flex:1;min-width:0;padding:6px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;" />
+                                <button type="button" onclick="saveSourceLogo(@s.Id)"
+                                        style="background:#0e7d85;color:#fff;border:none;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;" title="Lưu avatar">
+                                    <i class="fa fa-floppy-disk"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</details>
+
+<!-- DANH SÁCH BÀI (Kênh Bên Ngoài) -->
+<div style="background:#fff;padding:20px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-radius:8px;">
+    @if (!Model.Any())
+    {
+        <div style="padding:30px;text-align:center;color:#6c757d;">Chưa có bài nào từ Kênh Bên Ngoài@(string.IsNullOrWhiteSpace(selectedSource) ? "." : $" khớp nguồn \"{selectedSource}\".")</div>
+    }
+    else
+    {
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead style="background:#f8fafc;color:#6c757d;text-align:left;">
+                <tr>
+                    <th style="padding:10px;">Avatar</th>
+                    <th style="padding:10px;">Tiêu đề</th>
+                    <th style="padding:10px;">Danh mục</th>
+                    <th style="padding:10px;">Nguồn</th>
+                    <th style="padding:10px;">Trạng thái</th>
+                    <th style="padding:10px;">Lượt xem</th>
+                    <th style="padding:10px;">Ngày</th>
+                    <th style="padding:10px;text-align:right;">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in Model)
+                {
+                    var (bg, fg, text) = StatusBadge(a.Status);
+                    <tr style="border-bottom:1px solid #e5e7eb;">
+                        <td style="padding:10px;">
+                            <img src="@Avatar(a.SourceName)" alt="@a.SourceName"
+                                 onerror="this.onerror=null;this.src='/images/default-avatar.png';"
+                                 style="width:32px;height:32px;border-radius:50%;object-fit:cover;background:#f3f4f6;" />
+                        </td>
+                        <td style="padding:10px;font-weight:600;max-width:320px;">@a.Title</td>
+                        <td style="padding:10px;color:#6c757d;">@(a.Category?.Name ?? "—")</td>
+                        <td style="padding:10px;">
+                            <span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">@a.SourceName</span>
+                        </td>
+                        <td style="padding:10px;">
+                            <span style="background:@bg;color:@fg;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">@text</span>
+                        </td>
+                        <td style="padding:10px;font-weight:600;" data-article-views="@a.Id">@a.Views.ToString("N0")</td>
+                        <td style="padding:10px;color:#6c757d;">@(a.PublishedAt?.ToString("dd/MM/yyyy") ?? a.CreatedAt.ToString("dd/MM/yyyy"))</td>
+                        <td style="padding:10px;text-align:right;white-space:nowrap;">
+                            <a href="/bai-viet/@a.Slug" target="_blank" rel="noopener noreferrer" title="Xem bài trên website"
+                               style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#0ea5e9;color:#fff;border-radius:4px;margin-right:4px;text-decoration:none;">
+                                <i class="fa fa-eye"></i>
+                            </a>
+                            @if (!string.IsNullOrWhiteSpace(a.SourceUrl))
+                            {
+                                <a href="@a.SourceUrl" target="_blank" rel="noopener noreferrer" title="Xem bài gốc ở nguồn ngoài"
+                                   style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#64748b;color:#fff;border-radius:4px;margin-right:4px;text-decoration:none;">
+                                    <i class="fa fa-arrow-up-right-from-square"></i>
+                                </a>
+                            }
+                            <a href="@basePath/EditArticle/@a.Id" title="Sửa bài viết"
+                               style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#f59e0b;color:#fff;border-radius:4px;margin-right:4px;text-decoration:none;">
+                                <i class="fa fa-pen"></i>
+                            </a>
+                            <button type="button" onclick="deleteExternalArticle(@a.Id)" title="Xóa bài viết"
+                                    style="width:28px;height:28px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (totalPages > 1)
+        {
+            <div style="display:flex;justify-content:center;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;">
+                @if (page > 1)
+                {
+                    <a href="@basePath/ExternalArticles?source=@selectedSource&page=@(page-1)" style="padding:6px 12px;background:#f3f4f6;text-decoration:none;border-radius:4px;font-size:13px;">Trước</a>
+                }
+                @for (int i = 1; i <= totalPages; i++)
+                {
+                    <a href="@basePath/ExternalArticles?source=@selectedSource&page=@i"
+                       style="padding:6px 12px;text-decoration:none;border-radius:4px;font-size:13px;@(i == page ? "background:#0e7d85;color:#fff;" : "background:#f3f4f6;")">@i</a>
+                }
+                @if (page < totalPages)
+                {
+                    <a href="@basePath/ExternalArticles?source=@selectedSource&page=@(page+1)" style="padding:6px 12px;background:#f3f4f6;text-decoration:none;border-radius:4px;font-size:13px;">Sau</a>
+                }
+            </div>
+        }
+    }
+</div>
+
+<!-- QUẢN LÝ LƯỢT XEM MẪU -->
+<div id="batchPanel" style="background:#fff;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-radius:8px;">
+    <h2 style="font-size:16px;font-weight:600;margin-bottom:16px;"><i class="fa fa-chart-line" style="color:#7c3aed;"></i> Các đợt lượt xem mẫu đã tạo</h2>
+    @if (!batches.Any())
+    {
+        <div style="padding:20px;text-align:center;color:#6c757d;">Chưa có đợt lượt xem mẫu nào.</div>
+    }
+    else
+    {
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead style="background:#f8fafc;color:#6c757d;text-align:left;">
+                <tr>
+                    <th style="padding:10px;">Phạm vi</th>
+                    <th style="padding:10px;">Đối tượng</th>
+                    <th style="padding:10px;">Số bài</th>
+                    <th style="padding:10px;">Khoảng min–max</th>
+                    <th style="padding:10px;">Tổng đã cộng</th>
+                    <th style="padding:10px;">Thời gian</th>
+                    <th style="padding:10px;">Người tạo</th>
+                    <th style="padding:10px;text-align:right;">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var b in batches)
+                {
+                    <tr style="border-bottom:1px solid #e5e7eb;">
+                        <td style="padding:10px;"><span style="background:#ede9fe;color:#5b21b6;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">@ScopeLabel(b.Scope)</span></td>
+                        <td style="padding:10px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="@b.TargetLabel">@b.TargetLabel</td>
+                        <td style="padding:10px;">@b.ArticleCount</td>
+                        <td style="padding:10px;">@b.MinViews.ToString("N0") – @b.MaxViews.ToString("N0")</td>
+                        <td style="padding:10px;font-weight:600;color:#166534;">+@b.TotalAdded.ToString("N0")</td>
+                        <td style="padding:10px;color:#6c757d;">@b.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td style="padding:10px;">@b.EditorName</td>
+                        <td style="padding:10px;text-align:right;white-space:nowrap;">
+                            <button type="button" onclick="openEditBatch(@b.Id, @b.MinViews, @b.MaxViews)" title="Sửa khoảng lượt xem"
+                                    style="width:28px;height:28px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">
+                                <i class="fa fa-pen"></i>
+                            </button>
+                            <button type="button" onclick="deleteBatch(@b.Id)" title="Xóa đợt (hoàn tác lượt xem)"
+                                    style="width:28px;height:28px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;">
+                                <i class="fa fa-rotate-left"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+<!-- MODAL: TẠO LƯỢT XEM MẪU -->
+<div id="seedViewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 12px;">
+    <div style="background:#fff;border-radius:8px;padding:22px 24px;width:560px;max-width:96%;box-shadow:0 10px 40px rgba(0,0,0,.25);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <h2 style="font-size:19px;font-weight:800;"><i class="fa fa-chart-line" style="color:#7c3aed;"></i> Tạo lượt xem mẫu</h2>
+            <span onclick="document.getElementById('seedViewModal').style.display='none'" style="cursor:pointer;font-size:22px;color:#94a3b8;">&times;</span>
+        </div>
+        <p style="color:#64748b;font-size:13px;margin-bottom:16px;">Chỉ áp dụng cho bài thuộc Kênh Bên Ngoài. Có thể sửa/hoàn tác sau ở bảng bên dưới.</p>
+
+        <label style="font-size:13px;font-weight:600;color:#475569;">Phạm vi</label>
+        <select id="seedScope" onchange="onScopeChange()" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;margin-bottom:14px;">
+            <option value="article">Theo bài báo cụ thể</option>
+            <option value="source">Theo nguồn tin</option>
+            <option value="category">Theo danh mục</option>
+            <option value="all">Tất cả bài (Kênh Bên Ngoài)</option>
+        </select>
+
+        <!-- Phạm vi "Theo bài báo cụ thể": danh sách preview để chọn & chỉnh lượt xem trực tiếp -->
+        <div id="seedArticleWrap" style="margin-bottom:14px;">
+            <label style="font-size:13px;font-weight:600;color:#475569;">Tìm bài viết</label>
+            <input type="text" id="seedArticleSearch" placeholder="Gõ tiêu đề hoặc tên nguồn để lọc..." autocomplete="off"
+                   oninput="filterSeedPicker()"
+                   style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;margin-bottom:8px;" />
+
+            <label style="font-size:13px;font-weight:600;color:#475569;">Nguồn nhập</label>
+            <select id="seedPickerSourceFilter" onchange="onSeedSourceFilterChange()" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;margin-bottom:10px;">
+                <option value="">Tất cả nguồn</option>
+                @foreach (var sName in sourceByName.Keys.OrderBy(n => n))
+                {
+                    <option value="@sName">@sName</option>
+                }
+            </select>
+
+            <div id="seedPickerList" style="max-height:340px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;background:#f8fafc;">
+                <div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Đang tải danh sách...</div>
+            </div>
+        </div>
+
+        <div id="seedSourceWrap" style="display:none;margin-bottom:14px;">
+            <label style="font-size:13px;font-weight:600;color:#475569;">Nguồn tin</label>
+            <select id="seedSourceId" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;">
+                @foreach (var s in sources)
+                {
+                    <option value="@s.Id">@s.Name</option>
+                }
+            </select>
+        </div>
+
+        <div id="seedCategoryWrap" style="display:none;margin-bottom:14px;">
+            <label style="font-size:13px;font-weight:600;color:#475569;">Danh mục</label>
+            <select id="seedCategoryId" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;">
+                @foreach (var c in categories)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        </div>
+
+        <!-- Chỉ dùng cho phạm vi Nguồn tin / Danh mục / Tất cả bài — ẩn khi chọn "Theo bài báo cụ thể" -->
+        <div id="seedRangeWrap" style="display:none;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                <div>
+                    <label style="font-size:13px;font-weight:600;color:#475569;">Lượt xem tối thiểu</label>
+                    <input type="number" id="seedMin" min="0" value="100" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+                </div>
+                <div>
+                    <label style="font-size:13px;font-weight:600;color:#475569;">Lượt xem tối đa</label>
+                    <input type="number" id="seedMax" min="0" value="500" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+                </div>
+            </div>
+            <p style="font-size:12px;color:#94a3b8;margin:-8px 0 14px;">Nếu tối thiểu = tối đa → cộng đúng số cố định cho mỗi bài. Khác nhau → mỗi bài cộng ngẫu nhiên trong khoảng.</p>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+                <div>
+                    <label style="font-size:13px;font-weight:600;color:#475569;">Từ ngày đăng (tùy chọn)</label>
+                    <input type="date" id="seedFrom" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+                </div>
+                <div>
+                    <label style="font-size:13px;font-weight:600;color:#475569;">Đến ngày đăng (tùy chọn)</label>
+                    <input type="date" id="seedTo" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+            <button type="button" onclick="document.getElementById('seedViewModal').style.display='none'" style="background:#f0f2f5;color:#475569;border:none;padding:10px 18px;border-radius:6px;font-weight:600;cursor:pointer;">Hủy</button>
+            <button type="button" id="seedSubmitBtn" onclick="submitSeedView()" style="display:none;background:#7c3aed;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:700;cursor:pointer;"><i class="fa fa-bolt"></i> Tạo lượt xem</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: SỬA ĐỢT LƯỢT XEM MẪU -->
+<div id="editBatchModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 12px;">
+    <div style="background:#fff;border-radius:8px;padding:22px 24px;width:420px;max-width:96%;box-shadow:0 10px 40px rgba(0,0,0,.25);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <h2 style="font-size:18px;font-weight:800;"><i class="fa fa-pen" style="color:#f59e0b;"></i> Sửa khoảng lượt xem</h2>
+            <span onclick="document.getElementById('editBatchModal').style.display='none'" style="cursor:pointer;font-size:22px;color:#94a3b8;">&times;</span>
+        </div>
+        <p style="color:#64748b;font-size:13px;margin-bottom:16px;">Hệ thống sẽ gỡ lượt xem cũ rồi cộng lại theo khoảng mới trên đúng các bài của đợt này.</p>
+        <input type="hidden" id="editBatchId" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+            <div>
+                <label style="font-size:13px;font-weight:600;color:#475569;">Tối thiểu</label>
+                <input type="number" id="editBatchMin" min="0" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+            </div>
+            <div>
+                <label style="font-size:13px;font-weight:600;color:#475569;">Tối đa</label>
+                <input type="number" id="editBatchMax" min="0" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;margin-top:5px;" />
+            </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+            <button type="button" onclick="document.getElementById('editBatchModal').style.display='none'" style="background:#f0f2f5;color:#475569;border:none;padding:10px 18px;border-radius:6px;font-weight:600;cursor:pointer;">Hủy</button>
+            <button type="button" onclick="submitEditBatch()" style="background:#f59e0b;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:700;cursor:pointer;"><i class="fa fa-floppy-disk"></i> Lưu</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    var EXT_BASE = '@basePath';
+    function extToken() { return document.querySelector('#extToken input[name="__RequestVerificationToken"]').value; }
+
+    // ===== Avatar nguồn =====
+    async function saveSourceLogo(sourceId) {
+        var input = document.getElementById('srcLogoInput-' + sourceId);
+        var fd = new FormData();
+        fd.append('sourceId', sourceId);
+        fd.append('logoUrl', input.value || '');
+        try {
+            var res = await fetch(EXT_BASE + '/SaveSourceLogo', { method: 'POST', headers: { 'RequestVerificationToken': extToken() }, body: fd });
+            var d = await res.json();
+            if (d.success) {
+                var img = document.getElementById('srcAvatar-' + sourceId);
+                if (img && d.logoUrl) img.src = d.logoUrl;
+                if (window.swalToast) swalToast('success', d.message || 'Đã lưu avatar'); else if (window.Swal) Swal.fire({ toast:true, position:'top-end', timer:1800, showConfirmButton:false, icon:'success', title:'Đã lưu avatar' });
+            } else {
+                Swal.fire('Lỗi', d.message || 'Không lưu được', 'error');
+            }
+        } catch (e) { Swal.fire('Lỗi', 'Lỗi kết nối', 'error'); }
+    }
+
+    // ===== Xóa bài =====
+    async function deleteExternalArticle(id) {
+        var ok = window.confirmSwal ? await confirmSwal('Xóa bài viết này khỏi hệ thống?', 'Xóa bài viết?') : confirm('Xóa bài viết này?');
+        if (!ok) return;
+        try {
+            var res = await fetch(EXT_BASE + '/DeleteImportedArticle/' + id, { method: 'POST', headers: { 'RequestVerificationToken': extToken() } });
+            var d = await res.json();
+            if (d.success) { if (window.swalToast) swalToast('success','Đã xóa bài'); location.reload(); }
+            else Swal.fire('Lỗi', d.message || 'Không xóa được', 'error');
+        } catch (e) { Swal.fire('Lỗi', 'Lỗi kết nối', 'error'); }
+    }
+
+    // ===== Tạo lượt xem mẫu =====
+    function openSeedViewModal() {
+        document.getElementById('seedViewModal').style.display = 'flex';
+        onScopeChange();
+    }
+
+    function onScopeChange() {
+        var scope = document.getElementById('seedScope').value;
+        document.getElementById('seedArticleWrap').style.display = scope === 'article' ? 'block' : 'none';
+        document.getElementById('seedSourceWrap').style.display = scope === 'source' ? 'block' : 'none';
+        document.getElementById('seedCategoryWrap').style.display = scope === 'category' ? 'block' : 'none';
+        // Khoảng min–max + khoảng ngày chỉ áp dụng cho nguồn/danh mục/tất cả bài — bài cụ thể sửa trực tiếp từng dòng
+        document.getElementById('seedRangeWrap').style.display = scope === 'article' ? 'none' : 'block';
+        document.getElementById('seedSubmitBtn').style.display = scope === 'article' ? 'none' : 'inline-block';
+        if (scope === 'article' && !seedPickerLoaded) loadSeedPicker();
+    }
+
+    function onSeedSourceFilterChange() {
+        seedPickerSource = document.getElementById('seedPickerSourceFilter').value || '';
+        var q = document.getElementById('seedArticleSearch').value.trim();
+        loadSeedPicker(q, seedPickerSource);
+    }
+
+    async function submitSeedView() {
+        var scope = document.getElementById('seedScope').value;
+        var min = parseInt(document.getElementById('seedMin').value || '0', 10);
+        var max = parseInt(document.getElementById('seedMax').value || '0', 10);
+        if (isNaN(min) || isNaN(max) || min < 0 || max < 0 || min > max) {
+            Swal.fire('Dữ liệu chưa hợp lệ', 'Khoảng lượt xem không hợp lệ (tối thiểu ≤ tối đa, không âm)', 'warning'); return;
+        }
+        var fd = new FormData();
+        fd.append('scope', scope);
+        fd.append('minViews', min);
+        fd.append('maxViews', max);
+        if (scope === 'source') {
+            fd.append('sourceId', document.getElementById('seedSourceId').value);
+        } else if (scope === 'category') {
+            fd.append('categoryId', document.getElementById('seedCategoryId').value);
+        }
+        var from = document.getElementById('seedFrom').value; if (from) fd.append('fromDate', from);
+        var to = document.getElementById('seedTo').value; if (to) fd.append('toDate', to);
+
+        try {
+            var res = await fetch(EXT_BASE + '/CreateSeedViewBatch', { method: 'POST', headers: { 'RequestVerificationToken': extToken() }, body: fd });
+            var d = await res.json();
+            if (d.success) { Swal.fire('Thành công', d.message, 'success').then(() => location.reload()); }
+            else Swal.fire('Lỗi', d.message || 'Không tạo được', 'error');
+        } catch (e) { Swal.fire('Lỗi', 'Lỗi kết nối', 'error'); }
+    }
+
+    // ===== Phạm vi "Theo bài báo cụ thể": danh sách preview + chỉnh lượt xem trực tiếp =====
+    var seedPickerLoaded = false;
+    var seedPickerData = [];
+    var seedSearchTimer = null;
+    var seedPickerSource = ''; // '' = Tất cả nguồn
+
+    function escSeed(x) { return (x || '').toString().replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+    async function loadSeedPicker(q, source) {
+        if (typeof source === 'undefined') source = seedPickerSource;
+        var listEl = document.getElementById('seedPickerList');
+        listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Đang tải danh sách...</div>';
+        try {
+            var params = [];
+            if (q) params.push('q=' + encodeURIComponent(q));
+            if (source) params.push('source=' + encodeURIComponent(source));
+            var url = EXT_BASE + '/SearchExternalArticlesForSeed' + (params.length ? ('?' + params.join('&')) : '');
+            var res = await fetch(url);
+            var d = await res.json();
+            if (d.success) {
+                seedPickerData = d.items || [];
+                seedPickerLoaded = true;
+                renderSeedPickerList(seedPickerData);
+                listEl.scrollTop = 0;
+            } else {
+                listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#dc2626;font-size:13px;">Không tải được danh sách.</div>';
+            }
+        } catch (e) {
+            listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#dc2626;font-size:13px;">Lỗi kết nối.</div>';
+        }
+    }
+
+    function filterSeedPicker() {
+        var q = document.getElementById('seedArticleSearch').value.trim();
+        // Lọc từ khóa phía client trên danh sách đã tải (đã lọc theo nguồn từ server, nếu có);
+        // nếu chưa tải xong thì gọi lại API theo từ khóa + nguồn (debounce).
+        if (!seedPickerLoaded) {
+            clearTimeout(seedSearchTimer);
+            seedSearchTimer = setTimeout(function () { loadSeedPicker(q, seedPickerSource); }, 250);
+            return;
+        }
+        if (!q) { renderSeedPickerList(seedPickerData); return; }
+        var kw = q.toLowerCase();
+        var filtered = seedPickerData.filter(function (a) {
+            return (a.title && a.title.toLowerCase().indexOf(kw) !== -1) ||
+                   (a.sourceName && a.sourceName.toLowerCase().indexOf(kw) !== -1);
+        });
+        renderSeedPickerList(filtered);
+    }
+
+    function renderSeedPickerList(items) {
+        var listEl = document.getElementById('seedPickerList');
+        if (!items.length) {
+            listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Không tìm thấy bài viết phù hợp.</div>';
+            return;
+        }
+        listEl.innerHTML = items.map(function (a) {
+            var img = a.thumbnail
+                ? '<img src="' + escSeed(a.thumbnail) + '" alt="" onerror="this.onerror=null;this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';" style="width:56px;height:42px;object-fit:cover;border-radius:5px;flex:0 0 auto;background:#e5e7eb;" /><div style="display:none;width:56px;height:42px;border-radius:5px;flex:0 0 auto;background:#e5e7eb;align-items:center;justify-content:center;color:#94a3b8;font-size:16px;"><i class="fa fa-image"></i></div>'
+                : '<div style="width:56px;height:42px;border-radius:5px;flex:0 0 auto;background:#e5e7eb;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:16px;"><i class="fa fa-image"></i></div>';
+            return '<div class="seed-pv-row" data-id="' + a.id + '" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-bottom:1px solid #e5e7eb;background:#fff;">' +
+                img +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-size:13px;font-weight:600;color:#0f172a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;">' + escSeed(a.title) + '</div>' +
+                    '<div style="font-size:11px;color:#6c757d;margin-top:3px;">' + escSeed(a.sourceName || '—') + (a.categoryName ? ' · ' + escSeed(a.categoryName) : '') + '</div>' +
+                '</div>' +
+                '<input type="number" min="0" value="' + a.views + '" id="pv-input-' + a.id + '" style="width:90px;padding:6px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;flex:0 0 auto;" />' +
+                '<button type="button" onclick="saveArticleViews(' + a.id + ')" title="Lưu lượt xem"' +
+                    ' style="background:#0e7d85;color:#fff;border:none;padding:7px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;flex:0 0 auto;">' +
+                    '<i class="fa fa-floppy-disk"></i> Lưu' +
+                '</button>' +
+            '</div>';
+        }).join('');
+    }
+
+    async function saveArticleViews(articleId) {
+        var input = document.getElementById('pv-input-' + articleId);
+        var views = parseInt(input.value, 10);
+        if (isNaN(views) || views < 0) {
+            Swal.fire('Dữ liệu chưa hợp lệ', 'Lượt xem phải là số nguyên không âm', 'warning'); return;
+        }
+        var fd = new FormData();
+        fd.append('articleId', articleId);
+        fd.append('views', views);
+        try {
+            var res = await fetch(EXT_BASE + '/SetArticleViews', { method: 'POST', headers: { 'RequestVerificationToken': extToken() }, body: fd });
+            var d = await res.json();
+            if (d.success) {
+                input.value = d.views;
+                var cached = seedPickerData.find(function (a) { return a.id === articleId; });
+                if (cached) cached.views = d.views;
+                // Đồng bộ luôn số lượt xem hiển thị ở bảng danh sách bài phía sau modal (nếu bài đang hiển thị trên trang hiện tại)
+                var rowCell = document.querySelector('tr [data-article-views="' + articleId + '"]');
+                if (rowCell) rowCell.textContent = d.views.toLocaleString('vi-VN');
+                if (window.swalToast) swalToast('success', 'Đã lưu lượt xem'); else if (window.Swal) Swal.fire({ toast: true, position: 'top-end', timer: 1600, showConfirmButton: false, icon: 'success', title: 'Đã lưu lượt xem' });
+            } else {
+                Swal.fire('Lỗi', d.message || 'Không lưu được', 'error');
+            }
+        } catch (e) { Swal.fire('Lỗi', 'Lỗi kết nối', 'error'); }
+    }
+
+    // ===== Sửa đợt =====
+    function openEditBatch(id, min, max) {
+        document.getElementById('editBatchId').value = id;
+        document.getElementById('editBatchMin').value = min;
+        document.getElementById('editBatchMax').value = max;
+        document.getElementById('editBatchModal').style.display = 'flex';
+    }
+    async function submitEditBatch() {
+        var id = document.getElementById('editBatchId').value;
+        var min = parseInt(document.getElementById('editBatchMin').value || '0', 10);
+        var max = parseInt(document.getElementById('editBatchMax').value || '0', 10);
+        if (isNaN(min) || isNaN(max) || min < 0 || max < 0 || min > max) {
+            Swal.fire('Dữ liệu chưa hợp lệ', 'Khoảng lượt xem không hợp lệ', 'warning'); return;
+        }
+        var fd = new FormData(); fd.append('id', id); fd.append('minViews', min); fd.append('maxViews', max);
+        try {
+            var res = await fetch(EXT_BASE + '/EditSeedViewBatch', { method: 'POST', headers: { 'RequestVerificationToken': extToken() }, body: fd });
+            var d = await res.json();
+            if (d.success) { Swal.fire('Thành công', d.message, 'success').then(() => location.reload()); }
+            else Swal.fire('Lỗi', d.message || 'Không sửa được', 'error');
+        } catch (e) { Swal.fire('Lỗi', 'Lỗi kết nối', 'error'); }
+    }
+
+    // ===== Xóa đợt (hoàn tác) =====
+    async function deleteBatch(id) {
+        var ok = window.confirmSwal
+            ? await confirmSwal('Toàn bộ lượt xem đã cộng ở đợt này sẽ được TRỪ LẠI (hoàn tác). Bài viết và bình luận không bị ảnh hưởng.', 'Xóa đợt lượt xem mẫu?')
+            : confirm('Xóa đợt này (hoàn tác lượt xem)?');
+        if (!ok) return;
+        try {
+            var res = await fetch(EXT_BASE + '/DeleteSeedViewBatch/' + id, { method: 'POST', headers: { 'RequestVerificationToken': extToken() } });
+            var d = await res.json();
+            if (d.success) { Swal.fire('Thành công', d.message, 'success').then(() => location.reload()); }
+            else Swal.fire('Lỗi', d.message || 'Không xóa được', 'error');
+        } catch (e) { Swal.fire('Lỗi', 'Lỗi kết nối', 'error'); }
+    }
+</script>

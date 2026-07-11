@@ -1,0 +1,9 @@
+@using WisdomITNews.Models
+@model List<Article>
+@{
+    Layout = "_ManagerLayout";
+    ViewData["Title"] = "Kênh Bên Ngoài";
+    ViewBag.BasePath = "/nhan-vien";
+}
+
+@await Html.PartialAsync("_ExternalArticlesBody", Model)

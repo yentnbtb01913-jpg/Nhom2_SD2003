@@ -191,6 +191,33 @@
                 margin-left: 240px;
                 flex: 1;
                 min-height: 100vh;
+                min-width: 0;
+            }
+            /* ===== Mobile off-canvas sidebar (≤992px) ===== */
+            .j-hamburger {
+                display: none;
+                position: fixed;
+                top: 14px;
+                left: 14px;
+                z-index: 1100;
+                width: 40px;
+                height: 40px;
+                border-radius: 8px;
+                background: #0a2540;
+                color: #fff;
+                border: none;
+                font-size: 17px;
+                cursor: pointer;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 10px rgba(0,0,0,.25);
+            }
+            .j-backdrop {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,.45);
+                z-index: 199;
             }
 
             .j-topbar {
@@ -312,39 +339,21 @@
                 border: 1px solid #fecaca;
             }
 
-            @@media (max-width:768px) {
+            @@media (max-width:992px) {
+                .j-hamburger { display: flex; }
                 .j-sidebar {
-                    width: 60px;
+                    width: 250px;
+                    transform: translateX(-100%);
+                    transition: transform .25s ease;
+                    z-index: 200;
                 }
-
-                .j-sidebar-brand .text, .j-sidebar-brand .sub,
-                .j-sidebar-user .info, .j-nav .section-label,
-                .j-nav a span, .j-nav a .badge, .j-sidebar-footer {
-                    display: none;
-                }
-
-                .j-sidebar-brand {
-                    padding: 16px;
-                    justify-content: center;
-                }
-
-                .j-sidebar-user {
-                    padding: 12px;
-                    justify-content: center;
-                }
-
-                .j-nav a {
-                    justify-content: center;
-                    padding: 14px;
-                }
-
-                    .j-nav a i {
-                        width: auto;
-                        font-size: 18px;
-                    }
-
+                .j-sidebar.open { transform: translateX(0); }
+                .j-backdrop.show { display: block; }
                 .j-main {
-                    margin-left: 60px;
+                    margin-left: 0;
+                }
+                .j-topbar {
+                    padding-left: 64px;
                 }
             }
     </style>
@@ -352,7 +361,9 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-    <aside class="j-sidebar">
+    <button type="button" class="j-hamburger" onclick="toggleJSidebar()" aria-label="Mở/đóng menu"><i class="fa fa-bars"></i></button>
+    <div class="j-backdrop" id="jBackdrop" onclick="closeJSidebar()"></div>
+    <aside class="j-sidebar" id="jSidebar">
         <div class="j-sidebar-brand">
             <div class="icon"><i class="fa fa-pen-nib"></i></div>
             <div>
@@ -432,6 +443,19 @@
 <script>
   window.confirmSwal=function(msg,title){return Swal.fire({title:title||'Xác nhận?',text:msg,icon:'warning',showCancelButton:true,confirmButtonColor:'#d33',cancelButtonColor:'#6c757d',confirmButtonText:'Đồng ý',cancelButtonText:'Huỷ'}).then(function(r){return r.isConfirmed;});};
   window.swalToast=function(icon,msg){if(window.Swal)Swal.fire({toast:true,position:'top-end',icon:icon,title:msg,showConfirmButton:false,timer:3000,timerProgressBar:true});};
+
+  // ===== Sidebar off-canvas (mobile ≤992px) =====
+  function toggleJSidebar(){
+    document.getElementById('jSidebar').classList.toggle('open');
+    document.getElementById('jBackdrop').classList.toggle('show');
+  }
+  function closeJSidebar(){
+    document.getElementById('jSidebar').classList.remove('open');
+    document.getElementById('jBackdrop').classList.remove('show');
+  }
+  document.querySelectorAll('.j-sidebar .j-nav a').forEach(function(a){
+    a.addEventListener('click', closeJSidebar);
+  });
 
   async function checkJournalistInbox() {
     try {

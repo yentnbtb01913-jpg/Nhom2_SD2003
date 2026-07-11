@@ -7,9 +7,9 @@
     int pending = (int)(ViewBag.PendingCount ?? 0);
     int imp = (int)(ViewBag.TotalImpressions ?? 0);
     int clk = (int)(ViewBag.TotalClicks ?? 0);
-    var posLabel = new Dictionary<string, string> { ["header"] = "Header", ["sidebar"] = "Sidebar", ["in_article"] = "Trong bài" };
+    var posLabel = new Dictionary<string, string> { ["header"] = "Header", ["sidebar"] = "Sidebar", ["in_article"] = "Trong bài", ["home_left"] = "Trang Chủ (trái)", ["home_right"] = "Trang Chủ (phải)" };
     string PosVi(string p) => posLabel.TryGetValue(p ?? "", out var v) ? v : p;
-    (string, string)[] tabs = new[] { ("all", "Tất cả"), ("active", "Đang chạy"), ("pending", "Chờ duyệt"), ("header", "Header"), ("sidebar", "Sidebar"), ("in_article", "Trong bài") };
+    (string, string)[] tabs = new[] { ("all", "Tất cả"), ("active", "Đang chạy"), ("pending", "Chờ duyệt"), ("header", "Header"), ("sidebar", "Sidebar"), ("in_article", "Trong bài"), ("home_left", "Trang Chủ (trái)"), ("home_right", "Trang Chủ (phải)") };
 }
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">

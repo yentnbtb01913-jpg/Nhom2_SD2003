@@ -1,0 +1,1021 @@
+@* =====================================================================
+   Khung Chat NHÚNG trong Hồ sơ cá nhân (Views/Account/MyProfile.cshtml) — cột phải.
+   Toàn bộ HTML/CSS/JS (danh sách hội thoại, khung tin nhắn, SignalR realtime,
+   tạo nhóm, thành viên, lời mời/gợi ý kết bạn...) được CHUYỂN NGUYÊN VẸN từ widget
+   chat nổi cũ trong _Layout.cshtml (đã gỡ khỏi mọi trang public) sang đây.
+   CHỈ đổi phần khung bao ngoài (bỏ nút bong bóng nổi, panel luôn hiển thị thay vì
+   ẩn/hiện khi click) — KHÔNG đổi logic gửi/nhận tin, API, SignalR.
+   ===================================================================== *@
+            <div id="chatApp">
+                <div id="chatPanel" style="display:block;position:relative;width:100%;height:100%;background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.06), 0 6px 24px rgba(0,0,0,.04);border:1px solid #e5e7eb;overflow:hidden;">
+                    <div style="display:flex;height:100%;">
+                        <!-- SIDEBAR -->
+                        <div id="chatSidebar" style="width:240px;border-right:1px solid #e5e7eb;display:flex;flex-direction:column;background:#f8f9fb;">
+                            <div style="padding:14px;border-bottom:1px solid #e5e7eb;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                                    <h3 style="margin:0;font-size:16px;font-weight:700;color:#0a2540;">Tin nhắn</h3>
+                                    <div style="display:flex;gap:6px;">
+                                        <button onclick="chatUI.showFriendRequests()" title="Lời mời kết bạn" style="background:none;border:1px solid #d1d5db;width:30px;height:30px;border-radius:0px;cursor:pointer;font-size:13px;color:#6c757d;position:relative;">
+                                            <i class="fa fa-user-plus"></i>
+                                            <span id="friendReqBadge" style="display:none;position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:#ba1a1a;border-radius:50%;font-size:9px;font-weight:700;line-height:16px;text-align:center;color:#fff;">0</span>
+                                        </button>
+                                        <button onclick="chatUI.showFriendSuggestions()" title="Gợi ý bạn bè" style="background:none;border:1px solid #d1d5db;width:30px;height:30px;border-radius:0px;cursor:pointer;font-size:13px;color:#6c757d;"><i class="fa fa-user-group"></i></button>
+                                        <button onclick="chatUI.showCreateGroup()" title="Tạo nhóm" style="background:#001f3f;color:#fff;border:none;width:30px;height:30px;border-radius:0px;cursor:pointer;font-size:14px;"><i class="fa fa-plus"></i></button>
+                                    </div>
+                                </div>
+                                <div style="position:relative;">
+                                    <input type="text" id="chatSearchInput" placeholder="Tìm người dùng..." oninput="chatUI.searchUsers(this.value)"
+                                           style="width:100%;padding:8px 12px 8px 32px;border:1px solid #d1d5db;border-radius:0px;font-size:13px;outline:none;font-family:inherit;" />
+                                    <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:12px;"></i>
+                                </div>
+                                <div id="chatSearchResults" style="display:none;position:absolute;left:14px;right:14px;background:#fff;border:1px solid #e5e7eb;border-radius:0px;max-height:200px;overflow-y:auto;z-index:10;box-shadow:0 4px 16px rgba(0,0,0,.1);"></div>
+                            </div>
+
+                            <!-- Thanh gợi ý: Bạn bè online + Người khác online -->
+                            <div id="chatOnlineBar" style="display:none;padding:10px 14px;border-bottom:1px solid #e5e7eb;max-height:130px;overflow-y:auto;">
+                                <div id="onlineFriendsSection" style="display:none;margin-bottom:8px;">
+                                    <div style="font-size:11px;font-weight:700;color:#16a34a;margin-bottom:6px;"><i class="fa fa-circle" style="font-size:7px;margin-right:4px;"></i>Bạn bè online</div>
+                                    <div id="onlineFriendsList" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+                                </div>
+                                <div id="onlineOthersSection" style="display:none;">
+                                    <div style="font-size:11px;font-weight:700;color:#6c757d;margin-bottom:6px;"><i class="fa fa-circle" style="font-size:7px;margin-right:4px;color:#9ca3af;"></i>Đang online</div>
+                                    <div id="onlineOthersList" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+                                </div>
+                            </div>
+
+                            <div id="chatGroupList" style="flex:1;overflow-y:auto;"></div>
+                        </div>
+
+                        <!-- MAIN CHAT -->
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+                            <!-- Header -->
+                            <div id="chatHeader" style="padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;min-height:56px;">
+                                <div id="chatHeaderInfo" style="font-size:15px;font-weight:600;color:#6c757d;">Chọn cuộc trò chuyện</div>
+                                <div id="chatHeaderActions" style="display:none;gap:8px;">
+                                    <button onclick="chatUI.showPinned()" title="Tin ghim" style="background:none;border:none;cursor:pointer;font-size:15px;color:#6c757d;padding:4px 8px;border-radius:0px;" onmouseover="this.style.background='#f0f2f5'" onmouseout="this.style.background='none'"><i class="fa fa-thumbtack"></i></button>
+                                    <button onclick="chatUI.showMembers()" title="Thành viên" style="background:none;border:none;cursor:pointer;font-size:15px;color:#6c757d;padding:4px 8px;border-radius:0px;" onmouseover="this.style.background='#f0f2f5'" onmouseout="this.style.background='none'"><i class="fa fa-users"></i></button>
+                                </div>
+                            </div>
+
+                            <!-- Messages -->
+                            <div id="chatMessages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#fafbfc;">
+                                <div style="text-align:center;color:#9ca3af;margin-top:40%;font-size:14px;">
+                                    <i class="fa fa-comments" style="font-size:40px;margin-bottom:10px;display:block;opacity:.3;"></i>
+                                    Chọn cuộc trò chuyện để bắt đầu
+                                </div>
+                            </div>
+
+                            <!-- Typing indicator -->
+                            <div id="chatTyping" style="display:none;padding:4px 16px;font-size:12px;color:#9ca3af;font-style:italic;"></div>
+
+                            <!-- Reply preview -->
+                            <div id="chatReplyBar" style="display:none;padding:8px 16px;background:#d4e3ff;border-top:1px solid #dbeafe;font-size:12px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <div><i class="fa fa-reply" style="color:#476083;margin-right:6px;"></i><span id="chatReplyText"></span></div>
+                                    <button onclick="chatUI.cancelReply()" style="background:none;border:none;cursor:pointer;color:#9ca3af;"><i class="fa fa-xmark"></i></button>
+                                </div>
+                            </div>
+
+                            <!-- Input -->
+                            <div id="chatInputArea" style="display:none;padding:12px 16px;border-top:1px solid #e5e7eb;background:#fff;">
+                                <div style="display:flex;gap:8px;align-items:end;">
+                                    <div style="position:relative;">
+                                        <button onclick="chatUI.toggleEmoji()" title="Emoji" style="background:none;border:none;cursor:pointer;font-size:18px;padding:6px;color:#6c757d;"><i class="fa fa-face-smile"></i></button>
+                                        <div id="emojiPicker" style="display:none;position:absolute;bottom:40px;left:0;background:#fff;border:1px solid #e5e7eb;border-radius:0px;padding:10px;box-shadow:0 4px 16px rgba(0,0,0,.12);width:280px;max-height:200px;overflow-y:auto;z-index:10;"></div>
+                                    </div>
+                                    <label title="Gửi ảnh/file" style="cursor:pointer;font-size:18px;padding:6px;color:#6c757d;">
+                                        <i class="fa fa-paperclip"></i>
+                                        <input type="file" id="chatFileInput" onchange="chatUI.uploadFile(this)" style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar" />
+                                    </label>
+                                    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." onkeydown="if(event.key==='Enter')chatUI.sendMessage()"
+                                           oninput="chatUI.onTyping()"
+                                           style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:0px;font-size:14px;outline:none;font-family:inherit;" />
+                                    <button onclick="chatUI.sendMessage()" style="background:linear-gradient(135deg,#001f3f,#476083);color:#fff;border:none;width:38px;height:38px;border-radius:0px;cursor:pointer;font-size:15px;flex-shrink:0;"><i class="fa fa-paper-plane"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create Group Modal -->
+                <div id="chatCreateModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+                    <div style="background:#fff;border-radius:14px;padding:24px;width:380px;max-height:80vh;overflow-y:auto;box-shadow:0 16px 50px rgba(0,0,0,.2);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                            <h3 style="margin:0;font-size:17px;font-weight:700;">Tạo nhóm chat</h3>
+                            <button onclick="chatUI.hideCreateGroup()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#6c757d;"><i class="fa fa-xmark"></i></button>
+                        </div>
+                        <input type="text" id="newGroupName" placeholder="Tên nhóm..." style="width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:0px;font-size:14px;margin-bottom:12px;outline:none;font-family:inherit;" />
+                        <input type="text" id="newGroupSearch" placeholder="Tìm thành viên để thêm..." oninput="chatUI.searchForGroup(this.value)"
+                               style="width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:0px;font-size:14px;margin-bottom:8px;outline:none;font-family:inherit;" />
+                        <div id="newGroupSearchResults" style="max-height:150px;overflow-y:auto;margin-bottom:10px;"></div>
+                        <div style="margin-bottom:12px;">
+                            <div style="font-size:12px;font-weight:600;color:#6c757d;margin-bottom:6px;">Đã chọn:</div>
+                            <div id="newGroupSelected" style="display:flex;flex-wrap:wrap;gap:6px;min-height:30px;"></div>
+                        </div>
+                        <button onclick="chatUI.createGroup()" style="width:100%;padding:11px;background:linear-gradient(135deg,#001f3f,#476083);color:#fff;border:none;border-radius:0px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
+                            <i class="fa fa-plus"></i> Tạo nhóm
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Members Panel -->
+                <div id="chatMembersPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+                    <div style="background:#fff;border-radius:14px;padding:24px;width:340px;max-height:70vh;overflow-y:auto;box-shadow:0 16px 50px rgba(0,0,0,.2);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                            <h3 style="margin:0;font-size:17px;font-weight:700;">Thành viên nhóm</h3>
+                            <button onclick="document.getElementById('chatMembersPanel').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:18px;color:#6c757d;"><i class="fa fa-xmark"></i></button>
+                        </div>
+                        <div id="chatMembersList"></div>
+                        <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
+                            <input type="text" id="addMemberSearch" placeholder="Thêm thành viên..." oninput="chatUI.searchAddMember(this.value)"
+                                   style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:0px;font-size:13px;outline:none;font-family:inherit;" />
+                            <div id="addMemberResults" style="max-height:120px;overflow-y:auto;margin-top:6px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Friend Requests Modal -->
+                <div id="friendReqModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+                    <div style="background:#fff;border-radius:14px;padding:24px;width:380px;max-height:80vh;overflow-y:auto;box-shadow:0 16px 50px rgba(0,0,0,.2);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                            <h3 style="margin:0;font-size:17px;font-weight:700;"><i class="fa fa-user-plus" style="color:#476083;margin-right:8px;"></i>Lời mời kết bạn</h3>
+                            <button onclick="document.getElementById('friendReqModal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:18px;color:#6c757d;"><i class="fa fa-xmark"></i></button>
+                        </div>
+                        <div id="friendReqList"><div style="text-align:center;color:#9ca3af;padding:20px;font-size:13px;">Đang tải...</div></div>
+                    </div>
+                </div>
+
+                <!-- Friend Suggestions Modal -->
+                <div id="friendSugModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+                    <div style="background:#fff;border-radius:14px;padding:24px;width:400px;max-height:80vh;overflow-y:auto;box-shadow:0 16px 50px rgba(0,0,0,.2);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                            <h3 style="margin:0;font-size:17px;font-weight:700;"><i class="fa fa-user-group" style="color:#476083;margin-right:8px;"></i>Gợi ý bạn bè</h3>
+                            <button onclick="document.getElementById('friendSugModal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:18px;color:#6c757d;"><i class="fa fa-xmark"></i></button>
+                        </div>
+                        <div id="friendSugList"><div style="text-align:center;color:#9ca3af;padding:20px;font-size:13px;">Đang tải...</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                /* Kích thước khung chat = kích thước cột chat bên ngoài (do MyProfile.cshtml quyết định) */
+                #chatApp, #chatApp #chatPanel { width:100%; height:100%; }
+                #chatPanel {
+                animation: chatSlideUp .25s ease;
+                }
+
+                @@keyframes chatSlideUp {
+                from {
+                opacity: 0;
+                transform: translateY(20px);
+                }
+
+                to {
+                opacity: 1;
+                transform: translateY(0);
+                }
+                }
+
+                .chat-group-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 14px;
+                cursor: pointer;
+                transition: background .15s;
+                border-bottom: 1px solid #f0f2f5;
+                }
+
+                .chat-group-item:hover, .chat-group-item.active {
+                background: #d4e3ff;
+                }
+
+                .chat-group-item.active {
+                border-left: 3px solid #476083;
+                }
+
+                .chat-msg {
+                display: flex;
+                gap: 8px;
+                max-width: 85%;
+                }
+
+                .chat-msg.mine {
+                margin-left: auto;
+                flex-direction: row-reverse;
+                }
+
+                .chat-msg-avatar {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                background: #476083;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                font-weight: 700;
+                flex-shrink: 0;
+                overflow: hidden;
+                }
+
+                .chat-msg-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                }
+
+                .chat-msg-bubble {
+                padding: 8px 14px;
+                border-radius: 14px;
+                font-size: 13px;
+                line-height: 1.5;
+                position: relative;
+                word-break: break-word;
+                }
+
+                .chat-msg:not(.mine) .chat-msg-bubble {
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                border-top-left-radius: 4px;
+                }
+
+                .chat-msg.mine .chat-msg-bubble {
+                background: linear-gradient(135deg,#001f3f,#476083);
+                color: #fff;
+                border-top-right-radius: 4px;
+                }
+
+                .chat-msg-name {
+                font-size: 11px;
+                font-weight: 600;
+                color: #476083;
+                margin-bottom: 2px;
+                }
+
+                .chat-msg-time {
+                font-size: 10px;
+                color: #9ca3af;
+                margin-top: 4px;
+                }
+
+                .chat-msg.mine .chat-msg-time {
+                text-align: right;
+                }
+
+                .chat-msg-actions {
+                display: none;
+                position: absolute;
+                top: -6px;
+                right: 4px;
+                gap: 2px;
+                }
+
+                .chat-msg:hover .chat-msg-actions {
+                display: flex;
+                }
+
+                .chat-msg.mine .chat-msg-actions {
+                right: auto;
+                left: 4px;
+                }
+
+                .chat-msg-actions button {
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                border-radius: 4px;
+                width: 22px;
+                height: 22px;
+                font-size: 10px;
+                cursor: pointer;
+                color: #6c757d;
+                }
+
+                .chat-msg-actions button:hover {
+                background: #f0f2f5;
+                color: #476083;
+                }
+
+                .chat-msg-reply {
+                background: rgba(0,0,0,.05);
+                border-radius: 0px;
+                padding: 4px 8px;
+                margin-bottom: 4px;
+                font-size: 11px;
+                border-left: 2px solid #476083;
+                }
+
+                .chat-msg.mine .chat-msg-reply {
+                background: rgba(255,255,255,.2);
+                border-left-color: rgba(255,255,255,.5);
+                }
+
+                .chat-msg-pinned {
+                background: #fef3c7;
+                border: 1px solid #fcd34d;
+                }
+
+                .chat-msg-image img {
+                max-width: 200px;
+                max-height: 200px;
+                border-radius: 0px;
+                cursor: pointer;
+                }
+
+                .chat-msg-file {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 12px;
+                background: rgba(0,0,0,.05);
+                border-radius: 0px;
+                font-size: 12px;
+                }
+
+                .chat-msg.mine .chat-msg-file {
+                background: rgba(255,255,255,.2);
+                }
+
+                .online-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #16a34a;
+                display: inline-block;
+                margin-right: 4px;
+                }
+
+                .offline-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #d1d5db;
+                display: inline-block;
+                margin-right: 4px;
+                }
+
+                .online-avatar {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                cursor: pointer;
+                position: relative;
+                transition: transform .15s;
+                }
+
+                .online-avatar:hover {
+                transform: scale(1.1);
+                }
+
+                .online-avatar img {
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                object-fit: cover;
+                border: 2px solid #16a34a;
+                }
+
+                .online-avatar .oa-letter {
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                background: linear-gradient(135deg,#001f3f,#476083);
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 13px;
+                font-weight: 700;
+                border: 2px solid #16a34a;
+                }
+
+                .online-avatar .oa-name {
+                position: absolute;
+                bottom: -16px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 9px;
+                white-space: nowrap;
+                color: #6c757d;
+                max-width: 50px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                }
+
+                .friend-req-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 0;
+                border-bottom: 1px solid #f0f2f5;
+                }
+
+                .friend-sug-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 0;
+                border-bottom: 1px solid #f0f2f5;
+                }
+            </style>
+
+            <script>
+                const chatUI = {
+                connection: null,
+                currentGroup: null,
+                currentUser: null,
+                replyToId: null,
+                selectedMembers: [],
+                typingTimeout: null,
+
+                async init() {
+                const res = await fetch('/api/chat/me');
+                if (!res.ok) return;
+                this.currentUser = await res.json();
+
+                // SignalR
+                this.connection = new signalR.HubConnectionBuilder().withUrl('/chatHub').withAutomaticReconnect().build();
+                this.connection.on('ReceiveMessage', msg => this.onReceiveMessage(msg));
+                this.connection.on('UserTyping', (gid, name) => this.onUserTyping(gid, name));
+                this.connection.on('UserOnline', key => { this.onUserStatus(key, true); this.loadOnlineBar(); });
+                this.connection.on('UserOffline', key => { this.onUserStatus(key, false); this.loadOnlineBar(); });
+                this.connection.on('MessagePinned', data => this.onMessagePinned(data));
+                this.connection.on('MessageDeleted', data => this.onMessageDeleted(data));
+                this.connection.on('FriendEvent', data => this.onFriendEvent(data));
+                await this.connection.start();
+
+                this.loadGroups();
+                this.loadOnlineBar();
+                this.loadFriendReqCount();
+                this.initEmoji();
+                },
+
+                async loadGroups() {
+                const res = await fetch('/api/chat/groups');
+                const groups = await res.json();
+                const list = document.getElementById('chatGroupList');
+                if (!groups.length) {
+                list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:13px;">Chưa có cuộc trò chuyện nào<br><br><button onclick="chatUI.showCreateGroup()" style="background:#476083;color:#fff;border:none;padding:8px 16px;border-radius:0px;cursor:pointer;font-size:13px;font-family:inherit;"><i class="fa fa-plus"></i> Tạo nhóm</button></div>';
+                return;
+                }
+                this._groupCache = {};
+                list.innerHTML = groups.map(g => {
+                this._groupCache[g.id] = g;
+                const lastMsg = g.lastMessage;
+                const preview = lastMsg ? (lastMsg.messageType === 'image' ? '📷 Ảnh' : lastMsg.senderName + ': ' + (lastMsg.content || '').substring(0, 30)) : 'Chưa có tin nhắn';
+                const time = lastMsg ? this.timeAgo(lastMsg.sentAt) : '';
+
+                let avatarHtml;
+                if (g.isDirectMessage && g.otherAvatar) {
+                avatarHtml = '<img src="' + g.otherAvatar + '" style="width:100%;height:100%;object-fit:cover;">';
+                } else if (g.isDirectMessage && g.otherName) {
+                avatarHtml = g.otherName.substring(0, 1).toUpperCase();
+                } else if (g.isDirectMessage) {
+                avatarHtml = '<i class="fa fa-user"></i>';
+                } else {
+                avatarHtml = g.name.substring(0, 1).toUpperCase();
+                }
+
+                const displayName = g.isDirectMessage && g.otherName ? g.otherName : g.name;
+
+                return '<div class="chat-group-item ' + (this.currentGroup === g.id ? 'active' : '') + '" onclick="chatUI.openGroup(' + g.id + ')">' +
+                '<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#001f3f,#476083);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;overflow:hidden;">' + avatarHtml + '</div>' +
+                '<div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;"><span style="font-weight:600;font-size:13px;color:#0a2540;">' + this.escHtml(displayName) + '</span><span style="font-size:10px;color:#9ca3af;">' + time + '</span></div>' +
+                '<div style="font-size:12px;color:#6c757d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + this.escHtml(preview) + '</div></div></div>';
+                }).join('');
+
+                },
+
+                async openGroup(groupId) {
+                if (this.currentGroup) await this.connection.invoke('LeaveGroup', this.currentGroup);
+                this.currentGroup = groupId;
+                await this.connection.invoke('JoinGroup', groupId);
+
+                const g = (this._groupCache || {})[groupId];
+                let headerAvatarHtml = '';
+                let headerName = '';
+
+                if (g && g.isDirectMessage) {
+                headerName = g.otherName || g.name;
+                if (g.otherAvatar) {
+                headerAvatarHtml = '<div style="width:36px;height:36px;border-radius:50%;background:#476083;overflow:hidden;flex-shrink:0;"><img src="' + g.otherAvatar + '" style="width:100%;height:100%;object-fit:cover;"></div>';
+                } else {
+                headerAvatarHtml = '<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#001f3f,#476083);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">' + (headerName || 'U').substring(0, 1).toUpperCase() + '</div>';
+                }
+                } else {
+                headerName = g ? g.name : 'Nhóm';
+                headerAvatarHtml = '<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#001f3f,#476083);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">' + headerName.substring(0, 1).toUpperCase() + '</div>';
+                }
+
+                const onlineKeys = this._onlineKeys || [];
+                const isOnline = g && g.isDirectMessage && g.otherType && g.otherId ? onlineKeys.includes(g.otherType + '_' + g.otherId) : false;
+                const statusDot = g && g.isDirectMessage ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (isOnline ? '#22c55e' : '#9ca3af') + ';margin-left:6px;"></span>' : '';
+
+                document.getElementById('chatHeaderInfo').innerHTML =
+                '<div style="display:flex;align-items:center;gap:10px;">' + headerAvatarHtml +
+                '<div><div style="font-weight:700;font-size:15px;">' + this.escHtml(headerName) + statusDot + '</div>' +
+                (g && g.isDirectMessage ? '<div style="font-size:11px;color:' + (isOnline ? '#22c55e' : '#9ca3af') + ';">' + (isOnline ? 'Đang hoạt động' : 'Ngoại tuyến') + '</div>' : '<div style="font-size:11px;color:#9ca3af;">' + (g ? g.memberCount : '') + ' thành viên</div>') +
+                '</div></div>';
+
+                document.getElementById('chatHeaderActions').style.display = 'flex';
+                document.getElementById('chatInputArea').style.display = 'block';
+                document.getElementById('chatReplyBar').style.display = 'none';
+                this.replyToId = null;
+
+                const res = await fetch('/api/chat/groups/' + groupId + '/messages');
+                const messages = await res.json();
+                this.renderMessages(messages);
+                this.loadGroups();
+                },
+
+                renderMessages(messages) {
+                const container = document.getElementById('chatMessages');
+                if (!messages.length) {
+                container.innerHTML = '<div style="text-align:center;color:#9ca3af;margin:auto;font-size:13px;"><i class="fa fa-hand-peace" style="font-size:30px;margin-bottom:8px;display:block;opacity:.4;"></i>Hãy gửi tin nhắn đầu tiên!</div>';
+                return;
+                }
+                const myKey = this.currentUser.type + '_' + this.currentUser.id;
+                container.innerHTML = messages.map(m => {
+                const isMine = m.senderType + '_' + m.senderId === myKey;
+                const avatar = m.senderAvatar ? '<img src="' + m.senderAvatar + '">' : m.senderName.substring(0, 1).toUpperCase();
+                let content = '';
+                if (m.replyTo) content += '<div class="chat-msg-reply"><strong>' + this.escHtml(m.replyTo.senderName) + ':</strong> ' + this.escHtml((m.replyTo.content || '').substring(0, 50)) + '</div>';
+                if (m.messageType === 'image') content += '<div class="chat-msg-image"><img src="' + m.fileUrl + '" onclick="window.open(\'' + m.fileUrl + '\',\'_blank\')"></div>';
+                else if (m.messageType === 'file') content += '<div class="chat-msg-file"><i class="fa fa-file"></i><a href="' + m.fileUrl + '" target="_blank" style="color:inherit;">' + this.escHtml(m.fileName || 'File') + '</a></div>';
+                else content += this.escHtml(m.content);
+
+                return '<div class="chat-msg ' + (isMine ? 'mine' : '') + (m.isPinned ? ' chat-msg-pinned' : '') + '" data-id="' + m.id + '">' +
+                '<div class="chat-msg-avatar">' + avatar + '</div>' +
+                '<div><div class="chat-msg-bubble">' +
+                (!isMine ? '<div class="chat-msg-name">' + this.escHtml(m.senderName) + '</div>' : '') +
+                content +
+                '<div class="chat-msg-actions">' +
+                '<button onclick="chatUI.replyTo(' + m.id + ',\'' + this.escHtml(m.senderName) + '\',\'' + this.escHtml((m.content || '').substring(0, 30)) + '\')" title="Trả lời"><i class="fa fa-reply"></i></button>' +
+                '<button onclick="chatUI.pinMessage(' + m.id + ')" title="Ghim"><i class="fa fa-thumbtack"></i></button>' +
+                (isMine ? '<button onclick="chatUI.deleteMessage(' + m.id + ')" title="Xóa"><i class="fa fa-trash"></i></button>' : '') +
+                '</div></div>' +
+                '<div class="chat-msg-time">' + (m.isPinned ? '<i class="fa fa-thumbtack" style="color:#d97706;margin-right:3px;"></i>' : '') + this.formatTime(m.sentAt) + '</div></div></div>';
+                }).join('');
+                container.scrollTop = container.scrollHeight;
+                },
+
+                async sendMessage() {
+                const input = document.getElementById('chatInput');
+                const text = input.value.trim();
+                if (!text || !this.currentGroup) return;
+                input.value = '';
+                await fetch('/api/chat/groups/' + this.currentGroup + '/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: text, messageType: 'text', replyToId: this.replyToId })
+                });
+                this.cancelReply();
+                },
+
+                async uploadFile(input) {
+                const file = input.files[0];
+                if (!file || !this.currentGroup) return;
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await fetch('/api/chat/upload', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (!data.success) { Swal.fire(data.message || 'Lỗi upload'); return; }
+                await fetch('/api/chat/groups/' + this.currentGroup + '/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: data.type === 'image' ? '📷 Ảnh' : '📎 ' + data.name, messageType: data.type, fileUrl: data.url, fileName: data.name })
+                });
+                input.value = '';
+                },
+
+                replyTo(msgId, name, text) {
+                this.replyToId = msgId;
+                document.getElementById('chatReplyBar').style.display = 'block';
+                document.getElementById('chatReplyText').innerHTML = '<strong>' + this.escHtml(name) + ':</strong> ' + this.escHtml(text);
+                document.getElementById('chatInput').focus();
+                },
+
+                cancelReply() {
+                this.replyToId = null;
+                document.getElementById('chatReplyBar').style.display = 'none';
+                },
+
+                async pinMessage(msgId) {
+                await fetch('/api/chat/messages/' + msgId + '/pin', { method: 'POST' });
+                },
+
+                async deleteMessage(msgId) {
+                if (!await confirmSwal('Xóa tin nhắn này?')) return;
+                await fetch('/api/chat/messages/' + msgId, { method: 'DELETE' });
+                },
+
+                onReceiveMessage(msg) {
+                if (msg.groupId === this.currentGroup) {
+                const container = document.getElementById('chatMessages');
+                if (container.querySelector('.fa-hand-peace')) container.innerHTML = '';
+                const myKey = this.currentUser.type + '_' + this.currentUser.id;
+                const isMine = msg.senderType + '_' + msg.senderId === myKey;
+                const avatar = msg.senderAvatar ? '<img src="' + msg.senderAvatar + '">' : msg.senderName.substring(0, 1).toUpperCase();
+                let content = '';
+                if (msg.replyTo) content += '<div class="chat-msg-reply"><strong>' + this.escHtml(msg.replyTo.senderName) + ':</strong> ' + this.escHtml((msg.replyTo.content || '').substring(0, 50)) + '</div>';
+                if (msg.messageType === 'image') content += '<div class="chat-msg-image"><img src="' + msg.fileUrl + '" onclick="window.open(\'' + msg.fileUrl + '\',\'_blank\')"></div>';
+                else if (msg.messageType === 'file') content += '<div class="chat-msg-file"><i class="fa fa-file"></i><a href="' + msg.fileUrl + '" target="_blank" style="color:inherit;">' + this.escHtml(msg.fileName || 'File') + '</a></div>';
+                else content += this.escHtml(msg.content);
+
+                const html = '<div class="chat-msg ' + (isMine ? 'mine' : '') + '" data-id="' + msg.id + '">' +
+                '<div class="chat-msg-avatar">' + avatar + '</div><div><div class="chat-msg-bubble">' +
+                (!isMine ? '<div class="chat-msg-name">' + this.escHtml(msg.senderName) + '</div>' : '') + content +
+                '<div class="chat-msg-actions"><button onclick="chatUI.replyTo(' + msg.id + ',\'' + this.escHtml(msg.senderName) + '\',\'' + this.escHtml((msg.content || '').substring(0, 30)) + '\')" title="Trả lời"><i class="fa fa-reply"></i></button><button onclick="chatUI.pinMessage(' + msg.id + ')" title="Ghim"><i class="fa fa-thumbtack"></i></button>' + (isMine ? '<button onclick="chatUI.deleteMessage(' + msg.id + ')" title="Xóa"><i class="fa fa-trash"></i></button>' : '') + '</div></div>' +
+                '<div class="chat-msg-time">' + this.formatTime(msg.sentAt) + '</div></div></div>';
+                container.insertAdjacentHTML('beforeend', html);
+                container.scrollTop = container.scrollHeight;
+                }
+                this.loadGroups();
+                document.getElementById('chatTyping').style.display = 'none';
+                },
+
+                onUserTyping(gid, name) {
+                if (gid !== this.currentGroup) return;
+                const el = document.getElementById('chatTyping');
+                el.textContent = name + ' đang nhập...';
+                el.style.display = 'block';
+                clearTimeout(this._typingHide);
+                this._typingHide = setTimeout(() => el.style.display = 'none', 3000);
+                },
+
+                onTyping() {
+                if (!this.currentGroup) return;
+                clearTimeout(this.typingTimeout);
+                this.typingTimeout = setTimeout(() => {
+                this.connection.invoke('Typing', this.currentGroup, this.currentUser.name);
+                }, 300);
+                },
+
+                onUserStatus(key, isOnline) {
+                if (!this._onlineKeys) this._onlineKeys = [];
+                if (isOnline && !this._onlineKeys.includes(key)) this._onlineKeys.push(key);
+                if (!isOnline) this._onlineKeys = this._onlineKeys.filter(k => k !== key);
+                document.querySelectorAll('[data-user-key="' + key + '"]').forEach(el => {
+                el.className = isOnline ? 'online-dot' : 'offline-dot';
+                });
+                // Cập nhật header nếu đang chat DM với người này
+                if (this.currentGroup) {
+                const g = (this._groupCache || {})[this.currentGroup];
+                if (g && g.isDirectMessage && g.otherType + '_' + g.otherId === key) {
+                this.openGroup(this.currentGroup);
+                }
+                }
+
+                },
+
+                onMessagePinned(data) {
+                if (data.groupId === this.currentGroup) {
+                const el = document.querySelector('.chat-msg[data-id="' + data.id + '"]');
+                if (el) {
+                if (data.isPinned) el.classList.add('chat-msg-pinned');
+                else el.classList.remove('chat-msg-pinned');
+                }
+                }
+                },
+
+                onMessageDeleted(data) {
+                if (data.groupId === this.currentGroup) {
+                const el = document.querySelector('.chat-msg[data-id="' + data.id + '"]');
+                if (el) el.remove();
+                }
+                },
+
+                async showMembers() {
+                if (!this.currentGroup) return;
+                const res = await fetch('/api/chat/groups/' + this.currentGroup + '/members');
+                const members = await res.json();
+                document.getElementById('chatMembersList').innerHTML = members.map(m =>
+                '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f2f5;">' +
+                '<div style="width:34px;height:34px;border-radius:50%;background:#476083;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;overflow:hidden;">' + (m.avatar ? '<img src="' + m.avatar + '" style="width:100%;height:100%;object-fit:cover;">' : m.name.substring(0, 1).toUpperCase()) + '</div>' +
+                '<div style="flex:1;"><div style="font-weight:600;font-size:13px;"><span class="' + (m.isOnline ? 'online-dot' : 'offline-dot') + '"></span>' + this.escHtml(m.name) + '</div>' +
+                '<div style="font-size:11px;color:#9ca3af;">' + (m.role === 'admin' ? 'Quản trị viên' : 'Thành viên') + ' · ' + m.memberType + '</div></div></div>'
+                ).join('');
+                document.getElementById('chatMembersPanel').style.display = 'flex';
+                },
+
+                async searchAddMember(q) {
+                if (q.length < 2) { document.getElementById('addMemberResults').innerHTML = ''; return; }
+                const res = await fetch('/api/chat/users/search?q=' + encodeURIComponent(q));
+                const users = await res.json();
+                document.getElementById('addMemberResults').innerHTML = users.map(u =>
+                '<div style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;border-radius:0px;" onmouseover="this.style.background=\'#f0f2f5\'" onmouseout="this.style.background=\'none\'" onclick="chatUI.addMemberToGroup(' + u.id + ')">' +
+                '<span class="' + (u.isOnline ? 'online-dot' : 'offline-dot') + '"></span>' +
+                '<span style="font-size:13px;">' + this.escHtml(u.fullName) + '</span>' +
+                '<span style="font-size:10px;color:#9ca3af;">@@' + this.escHtml(u.username) + '</span>' +
+                '<button style="margin-left:auto;background:#476083;color:#fff;border:none;padding:3px 10px;border-radius:5px;font-size:11px;cursor:pointer;">Thêm</button></div>'
+                ).join('') || '<div style="padding:8px;color:#9ca3af;font-size:12px;">Không tìm thấy</div>';
+                },
+
+                async addMemberToGroup(userId) {
+                if (!this.currentGroup) return;
+                const res = await fetch('/api/chat/groups/' + this.currentGroup + '/members', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId })
+                });
+                const data = await res.json();
+                if (data.success) { Swal.fire('Đã thêm thành viên!'); this.showMembers(); }
+                else Swal.fire(data.message || 'Lỗi');
+                },
+
+                async showPinned() {
+                if (!this.currentGroup) return;
+                const res = await fetch('/api/chat/groups/' + this.currentGroup + '/pinned');
+                const msgs = await res.json();
+                if (!msgs.length) { Swal.fire('Chưa có tin nhắn được ghim'); return; }
+                Swal.fire('Tin ghim:\n\n' + msgs.map(m => m.senderName + ': ' + m.content).join('\n'));
+                },
+
+                // Tạo nhóm
+                showCreateGroup() {
+                this.selectedMembers = [];
+                document.getElementById('newGroupName').value = '';
+                document.getElementById('newGroupSearch').value = '';
+                document.getElementById('newGroupSearchResults').innerHTML = '';
+                document.getElementById('newGroupSelected').innerHTML = '';
+                document.getElementById('chatCreateModal').style.display = 'flex';
+                },
+
+                hideCreateGroup() {
+                document.getElementById('chatCreateModal').style.display = 'none';
+                },
+
+                async searchForGroup(q) {
+                if (q.length < 2) { document.getElementById('newGroupSearchResults').innerHTML = ''; return; }
+                const res = await fetch('/api/chat/users/search?q=' + encodeURIComponent(q));
+                const users = await res.json();
+                document.getElementById('newGroupSearchResults').innerHTML = users.filter(u => !this.selectedMembers.find(s => s.id === u.id && s.type === u.type)).map(u =>
+                '<div style="display:flex;align-items:center;gap:8px;padding:8px;cursor:pointer;border-radius:0px;" onmouseover="this.style.background=\'#f0f2f5\'" onmouseout="this.style.background=\'none\'" onclick="chatUI.selectMember(' + u.id + ',\'' + this.escHtml(u.fullName) + '\',\'' + u.type + '\')">' +
+                '<span class="' + (u.isOnline ? 'online-dot' : 'offline-dot') + '"></span>' + this.escHtml(u.fullName) +
+                '<span style="font-size:11px;color:#9ca3af;">@@' + this.escHtml(u.username) + '</span>'
+                ).join('') || '<div style="padding:8px;color:#9ca3af;font-size:12px;">Không tìm thấy</div>';
+                },
+
+                selectMember(id, name, type) {
+                if (this.selectedMembers.find(s => s.id === id && s.type === type)) return;
+                this.selectedMembers.push({ id, name, type });
+                this.renderSelected();
+                document.getElementById('newGroupSearch').value = '';
+                document.getElementById('newGroupSearchResults').innerHTML = '';
+                },
+
+                removeMember(id) {
+                this.selectedMembers = this.selectedMembers.filter(s => s.id !== id);
+                this.renderSelected();
+                },
+
+                renderSelected() {
+                document.getElementById('newGroupSelected').innerHTML = this.selectedMembers.map(s =>
+                '<span style="background:#d4e3ff;color:#476083;padding:4px 10px;border-radius:0px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;">' + this.escHtml(s.name) +
+                '<button onclick="chatUI.removeMember(' + s.id + ')" style="background:none;border:none;cursor:pointer;color:#6c757d;font-size:11px;"><i class="fa fa-xmark"></i></button></span>'
+                ).join('');
+                },
+
+                async createGroup() {
+                const name = document.getElementById('newGroupName').value.trim();
+                if (!name) { Swal.fire('Vui lòng nhập tên nhóm'); return; }
+                const res = await fetch('/api/chat/groups', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, memberIds: this.selectedMembers.map(s => s.id) })
+                });
+                const data = await res.json();
+                if (data.success) { this.hideCreateGroup(); this.loadGroups(); this.openGroup(data.groupId); }
+                else Swal.fire('Lỗi tạo nhóm');
+                },
+
+                // Tìm user trên sidebar
+                async searchUsers(q) {
+                const el = document.getElementById('chatSearchResults');
+                if (q.length < 2) { el.style.display = 'none'; return; }
+                const res = await fetch('/api/chat/users/search?q=' + encodeURIComponent(q));
+                const users = await res.json();
+                el.style.display = 'block';
+                el.innerHTML = users.map(u =>
+                '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f2f5;" onmouseover="this.style.background=\'#f0f2f5\'" onmouseout="this.style.background=\'none\'" onclick="chatUI.startDm(\'' + u.type + '\',' + u.id + ')">' +
+                '<span class="' + (u.isOnline ? 'online-dot' : 'offline-dot') + '"></span>' +
+                '<div><div style="font-weight:600;font-size:13px;">' + this.escHtml(u.fullName) + '</div>' +
+                '<div style="font-size:11px;color:#9ca3af;">@@' + this.escHtml(u.username) + ' · ' + u.role + '</div></div></div>'
+                ).join('') || '<div style="padding:12px;color:#9ca3af;font-size:12px;">Không tìm thấy</div>';
+                },
+
+                async startDm(type, id) {
+                document.getElementById('chatSearchResults').style.display = 'none';
+                document.getElementById('chatSearchInput').value = '';
+                const res = await fetch('/api/chat/dm', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetType: type, targetId: id })
+                });
+                const data = await res.json();
+                if (data.success) { this.loadGroups(); this.openGroup(data.groupId); }
+                },
+
+                // Emoji
+                initEmoji() {
+                const emojis = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😢', '😡', '👍', '👎', '❤️', '🔥', '🎉', '👏', '💯', '🙏', '😊', '🤗', '😏', '🥺', '😭', '😱', '🤣', '😘', '🥳', '✨', '💪', '🤝', '👋', '🙌'];
+                document.getElementById('emojiPicker').innerHTML = emojis.map(e =>
+                '<span style="font-size:22px;cursor:pointer;padding:4px;display:inline-block;border-radius:4px;" onmouseover="this.style.background=\'#f0f2f5\'" onmouseout="this.style.background=\'none\'" onclick="chatUI.insertEmoji(\'' + e + '\')">' + e + '</span>'
+                ).join('');
+                },
+
+                insertEmoji(emoji) {
+                document.getElementById('chatInput').value += emoji;
+                document.getElementById('emojiPicker').style.display = 'none';
+                document.getElementById('chatInput').focus();
+                },
+
+                toggleEmoji() {
+                const el = document.getElementById('emojiPicker');
+                el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+                if (el.style.display === 'flex') el.style.flexWrap = 'wrap';
+                },
+
+                // ===== ONLINE BAR =====
+                async loadOnlineBar() {
+                try {
+                const res = await fetch('/api/friends/online');
+                if (!res.ok) return;
+                const data = await res.json();
+                const bar = document.getElementById('chatOnlineBar');
+                const friendsSection = document.getElementById('onlineFriendsSection');
+                const othersSection = document.getElementById('onlineOthersSection');
+
+                if (!data.friends.length && !data.others.length) {
+                bar.style.display = 'none';
+                return;
+                }
+                bar.style.display = 'block';
+
+                if (data.friends.length) {
+                friendsSection.style.display = 'block';
+                document.getElementById('onlineFriendsList').innerHTML = data.friends.map(u =>
+                '<div class="online-avatar" onclick="chatUI.startDm(\'user\',' + u.id + ')" title="' + this.escHtml(u.fullName) + '">' +
+                (u.avatarUrl ? '<img src="' + u.avatarUrl + '">' : '<div class="oa-letter">' + u.fullName.substring(0, 1).toUpperCase() + '</div>') +
+                '<span class="oa-name">' + this.escHtml(u.fullName.split(' ').pop()) + '</span></div>'
+                ).join('');
+                } else { friendsSection.style.display = 'none'; }
+
+                if (data.others.length) {
+                othersSection.style.display = 'block';
+                document.getElementById('onlineOthersList').innerHTML = data.others.map(u =>
+                '<div class="online-avatar" onclick="chatUI.startDm(\'user\',' + u.id + ')" title="' + this.escHtml(u.fullName) + '">' +
+                (u.avatarUrl ? '<img src="' + u.avatarUrl + '" style="border-color:#9ca3af;">' : '<div class="oa-letter" style="border-color:#9ca3af;">' + u.fullName.substring(0, 1).toUpperCase() + '</div>') +
+                '<span class="oa-name">' + this.escHtml(u.fullName.split(' ').pop()) + '</span></div>'
+                ).join('');
+                } else { othersSection.style.display = 'none'; }
+                } catch (e) { console.warn('loadOnlineBar', e); }
+                },
+
+                // ===== FRIEND REQUESTS =====
+                async loadFriendReqCount() {
+                try {
+                const res = await fetch('/api/friends/requests/count');
+                const data = await res.json();
+                const badge = document.getElementById('friendReqBadge');
+                if (data.count > 0) {
+                badge.textContent = data.count;
+                badge.style.display = 'block';
+                } else {
+                badge.style.display = 'none';
+                }
+                } catch (e) { }
+                },
+
+                async showFriendRequests() {
+                document.getElementById('friendReqModal').style.display = 'flex';
+                const res = await fetch('/api/friends/requests');
+                const requests = await res.json();
+                const el = document.getElementById('friendReqList');
+                if (!requests.length) {
+                el.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px;font-size:13px;"><i class="fa fa-check-circle" style="font-size:30px;margin-bottom:8px;display:block;opacity:.3;"></i>Không có lời mời nào</div>';
+                return;
+                }
+                el.innerHTML = requests.map(r =>
+                '<div class="friend-req-item" id="freq-' + r.id + '">' +
+                '<div style="width:40px;height:40px;border-radius:50%;background:#476083;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;overflow:hidden;flex-shrink:0;">' +
+                (r.avatarUrl ? '<img src="' + r.avatarUrl + '" style="width:100%;height:100%;object-fit:cover;">' : r.fullName.substring(0, 1).toUpperCase()) + '</div>' +
+                '<div style="flex:1;"><div style="font-weight:600;font-size:14px;">' + this.escHtml(r.fullName) + '</div>' +
+                '<div style="font-size:11px;color:#9ca3af;">@@' + this.escHtml(r.username) + ' · ' + this.timeAgo(r.createdAt) + '</div></div>' +
+                '<div style="display:flex;gap:6px;">' +
+                '<button onclick="chatUI.acceptFriend(' + r.id + ')" style="background:#16a34a;color:#fff;border:none;padding:6px 12px;border-radius:0px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fa fa-check"></i> Chấp nhận</button>' +
+                '<button onclick="chatUI.rejectFriend(' + r.id + ')" style="background:#e5e7eb;color:#6c757d;border:none;padding:6px 12px;border-radius:0px;font-size:12px;cursor:pointer;"><i class="fa fa-xmark"></i></button>' +
+                '</div></div>'
+                ).join('');
+                },
+
+                async acceptFriend(requesterId) {
+                const res = await fetch('/api/friends/accept/' + requesterId, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                const el = document.getElementById('freq-' + requesterId);
+                if (el) el.innerHTML = '<div style="padding:10px;color:#16a34a;font-size:13px;width:100%;"><i class="fa fa-check-circle"></i> Đã chấp nhận!</div>';
+                this.loadFriendReqCount();
+                this.loadOnlineBar();
+                }
+                },
+
+                async rejectFriend(requesterId) {
+                const res = await fetch('/api/friends/reject/' + requesterId, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                const el = document.getElementById('freq-' + requesterId);
+                if (el) el.remove();
+                this.loadFriendReqCount();
+                }
+                },
+
+                // ===== FRIEND SUGGESTIONS =====
+                async showFriendSuggestions() {
+                document.getElementById('friendSugModal').style.display = 'flex';
+                const res = await fetch('/api/friends/suggestions');
+                const suggestions = await res.json();
+                const el = document.getElementById('friendSugList');
+                if (!suggestions.length) {
+                el.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px;font-size:13px;"><i class="fa fa-users" style="font-size:30px;margin-bottom:8px;display:block;opacity:.3;"></i>Chưa có gợi ý nào</div>';
+                return;
+                }
+                el.innerHTML = suggestions.map(s =>
+                '<div class="friend-sug-item" id="fsug-' + s.id + '">' +
+                '<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#001f3f,#476083);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;overflow:hidden;flex-shrink:0;">' +
+                (s.avatarUrl ? '<img src="' + s.avatarUrl + '" style="width:100%;height:100%;object-fit:cover;">' : s.fullName.substring(0, 1).toUpperCase()) + '</div>' +
+                '<div style="flex:1;">' +
+                '<div style="font-weight:600;font-size:14px;">' + (s.isOnline ? '<span class="online-dot"></span>' : '') + this.escHtml(s.fullName) + '</div>' +
+                '<div style="font-size:11px;color:#9ca3af;">@@' + this.escHtml(s.username) +
+                (s.mutualFriends > 0 ? ' · <i class="fa fa-users" style="font-size:9px;"></i> ' + s.mutualFriends + ' bạn chung' : '') + '</div></div>' +
+                '<div style="display:flex;gap:6px;">' +
+                '<button onclick="chatUI.sendFriendReq(' + s.id + ')" style="background:#476083;color:#fff;border:none;padding:6px 10px;border-radius:0px;font-size:11px;cursor:pointer;font-weight:600;" title="Kết bạn"><i class="fa fa-user-plus"></i></button>' +
+                '<button onclick="chatUI.followUser(' + s.id + ')" style="background:none;border:1px solid #d1d5db;padding:6px 10px;border-radius:0px;font-size:11px;cursor:pointer;color:#6c757d;" title="Theo dõi"><i class="fa fa-rss"></i></button>' +
+                '<button onclick="chatUI.startDm(\'user\',' + s.id + ');document.getElementById(\'friendSugModal\').style.display=\'none\'" style="background:none;border:1px solid #d1d5db;padding:6px 10px;border-radius:0px;font-size:11px;cursor:pointer;color:#6c757d;" title="Nhắn tin"><i class="fa fa-comment"></i></button>' +
+                '</div></div>'
+                ).join('');
+                },
+
+                async sendFriendReq(userId) {
+                const res = await fetch('/api/friends/request/' + userId, { method: 'POST' });
+                const data = await res.json();
+                const el = document.getElementById('fsug-' + userId);
+                if (el) {
+                const btn = el.querySelector('button');
+                if (data.success) {
+                btn.innerHTML = '<i class="fa fa-check"></i> Đã gửi';
+                btn.style.background = '#16a34a';
+                btn.disabled = true;
+                } else {
+                btn.innerHTML = data.message || 'Lỗi';
+                btn.style.background = '#e5e7eb';
+                btn.style.color = '#6c757d';
+                }
+                }
+                },
+
+                async followUser(userId) {
+                const res = await fetch('/api/friends/follow/' + userId, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                const el = document.getElementById('fsug-' + userId);
+                if (el) {
+                const btns = el.querySelectorAll('button');
+                if (btns[1]) { btns[1].innerHTML = '<i class="fa fa-check"></i> Đã theo dõi'; btns[1].style.color = '#16a34a'; btns[1].style.borderColor = '#16a34a'; btns[1].disabled = true; }
+                }
+                }
+                },
+
+                onFriendEvent(data) {
+                if (!this.currentUser) return;
+                if (data.toId == this.currentUser.id) {
+                if (data.type === 'friend_request') {
+                this.loadFriendReqCount();
+                } else if (data.type === 'friend_accepted') {
+                this.loadOnlineBar();
+                }
+                }
+                },
+
+                // Helpers
+                escHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML.replace(/'/g, "&#39;"); },
+                formatTime(t) { const d = new Date(t); return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0'); },
+                timeAgo(t) {
+                const diff = (Date.now() - new Date(t).getTime()) / 1000;
+                if (diff < 60) return 'vừa xong';
+                if (diff < 3600) return Math.floor(diff / 60) + ' phút';
+                if (diff < 86400) return Math.floor(diff / 3600) + ' giờ';
+                return Math.floor(diff / 86400) + ' ngày';
+                }
+                };
+
+
+                // Panel luôn hiển thị (nhúng trong Hồ sơ cá nhân) -> khởi tạo chat ngay khi tải trang.
+                chatUI.init();
+
+                // Close search results when clicking outside
+                document.addEventListener('click', function (e) {
+                if (!e.target.closest('#chatSearchInput') && !e.target.closest('#chatSearchResults'))
+                document.getElementById('chatSearchResults') && (document.getElementById('chatSearchResults').style.display = 'none');
+                if (!e.target.closest('.fa-face-smile') && !e.target.closest('#emojiPicker'))
+                document.getElementById('emojiPicker') && (document.getElementById('emojiPicker').style.display = 'none');
+                });
+
+            </script>

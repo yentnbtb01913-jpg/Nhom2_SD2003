@@ -23,6 +23,8 @@ builder.Services.AddScoped<NewsImportService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<PodcastService>();
 builder.Services.AddScoped<EmailConfirmationService>();
+builder.Services.AddScoped<ExternalArticleService>();
+builder.Services.AddScoped<FeaturedArticleService>();
 builder.Services.AddHostedService<WisdomITNews.Services.SubscriptionBackgroundService>();
 builder.Services.AddHostedService<WisdomITNews.Services.AutoImportBackgroundService>();
 builder.Services.AddSignalR();

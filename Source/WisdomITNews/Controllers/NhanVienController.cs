@@ -19,8 +19,10 @@ public class NhanVienController : Controller
     private readonly VideoUploadService _videoUpload;
     private readonly ILogger<NhanVienController> _logger;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ExternalArticleService _external;
+    private readonly FeaturedArticleService _featuredSvc;
 
-    public NhanVienController(AppDbContext db, ImageUploadService imageUpload, AIService ai, VideoUploadService videoUpload, ILogger<NhanVienController> logger, IServiceProvider serviceProvider)
+    public NhanVienController(AppDbContext db, ImageUploadService imageUpload, AIService ai, VideoUploadService videoUpload, ILogger<NhanVienController> logger, IServiceProvider serviceProvider, ExternalArticleService external, FeaturedArticleService featuredSvc)
     {
         _db = db;
         _imageUpload = imageUpload;
@@ -28,6 +30,8 @@ public class NhanVienController : Controller
         _videoUpload = videoUpload;
         _logger = logger;
         _serviceProvider = serviceProvider;
+        _external = external;
+        _featuredSvc = featuredSvc;
     }
 
     private bool IsLoggedIn => HttpContext.Session.GetString("AdminId") != null;
@@ -626,6 +630,84 @@ public class NhanVienController : Controller
         return Json(new { success = true });
     }
 
+    // ===== KÊNH BÊN NGOÀI (trang riêng — chỉ bài IsExternal = true) — dùng chung ExternalArticleService với Admin =====
+
+    public async Task<IActionResult> ExternalArticles(string? source, int page = 1)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+
+        var (items, total, totalPages) = await _external.GetListAsync(source, page);
+        var sources = await _external.GetSourcesAsync();
+
+        ViewBag.Sources = sources;
+        ViewBag.SelectedSource = source;
+        ViewBag.Page = page;
+        ViewBag.Total = total;
+        ViewBag.TotalPages = totalPages;
+        ViewBag.Batches = await _external.GetBatchesAsync();
+        ViewBag.Categories = await _db.Categories.Where(c => c.IsVisible).OrderBy(c => c.Name).ToListAsync();
+        return View(items);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SaveSourceLogo(int sourceId, string? logoUrl)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var (ok, msg) = await _external.SaveSourceLogoAsync(sourceId, logoUrl);
+        return Json(new { success = ok, message = msg, logoUrl = ExternalArticleService.ResolveAvatarUrl(await _db.RssSources.FindAsync(sourceId)) });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateSeedViewBatch(string scope, int? articleId, int? sourceId, int? categoryId, int minViews, int maxViews, DateTime? fromDate, DateTime? toDate)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var editor = HttpContext.Session.GetString("AdminName") ?? "Nhân viên";
+        var (ok, msg, batch) = await _external.CreateSeedBatchAsync(scope, articleId, sourceId, categoryId, minViews, maxViews, fromDate, toDate, editor);
+        return Json(new { success = ok, message = msg });
+    }
+
+    // Modal "Tạo lượt xem mẫu" — phạm vi "Theo bài báo cụ thể": danh sách preview để chọn + sửa trực tiếp
+    [HttpGet]
+    public async Task<IActionResult> SearchExternalArticlesForSeed(string? q, string? source)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var items = await _external.SearchForSeedPickerAsync(q, source);
+        var list = items.Select(a => new
+        {
+            id = a.Id,
+            title = a.Title,
+            thumbnail = a.Thumbnail,
+            sourceName = a.SourceName,
+            categoryName = a.Category?.Name,
+            views = a.Views
+        });
+        return Json(new { success = true, items = list });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SetArticleViews(int articleId, int views)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var (ok, msg, newViews) = await _external.SetArticleViewsAsync(articleId, views);
+        return Json(new { success = ok, message = msg, views = newViews });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EditSeedViewBatch(int id, int minViews, int maxViews)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var (ok, msg) = await _external.EditSeedBatchAsync(id, minViews, maxViews);
+        return Json(new { success = ok, message = msg });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteSeedViewBatch(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var (ok, msg) = await _external.DeleteSeedBatchAsync(id);
+        return Json(new { success = ok, message = msg });
+    }
+
     // Xóa hàng loạt bài đã import
     [HttpPost]
     public async Task<IActionResult> DeleteImportedArticles([FromBody] List<int> ids)
@@ -644,6 +726,48 @@ public class NhanVienController : Controller
         _db.Articles.RemoveRange(articles);
         await _db.SaveChangesAsync();
         return Json(new { success = true, deleted = articles.Count });
+    }
+
+    // ===== TIN NỔI BẬT TỰ ĐỘNG (Trang chủ) — tab quản lý chỉ xem + can thiệp Ghim/Loại =====
+
+    public async Task<IActionResult> FeaturedArticles()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        ViewBag.Ranking = await _featuredSvc.GetRankingListAsync(50);
+        ViewBag.Hidden = await _featuredSvc.GetHiddenListAsync();
+        return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> PinFeatured(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var (ok, msg) = await _featuredSvc.PinAsync(id);
+        return Json(new { success = ok, message = msg });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UnpinFeatured(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var (ok, msg) = await _featuredSvc.UnpinAsync(id);
+        return Json(new { success = ok, message = msg });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> HideFeatured(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var (ok, msg) = await _featuredSvc.HideAsync(id);
+        return Json(new { success = ok, message = msg });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UnhideFeatured(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var (ok, msg) = await _featuredSvc.UnhideAsync(id);
+        return Json(new { success = ok, message = msg });
     }
 
     // ===== HELPERS =====
@@ -1039,7 +1163,7 @@ public class NhanVienController : Controller
         var query = _db.Advertisements.AsQueryable();
         if (filter == "pending") query = query.Where(a => a.Status == "pending");
         else if (filter == "active") query = query.Where(a => a.Status == "approved" && a.IsActive);
-        else if (filter == "header" || filter == "sidebar" || filter == "in_article") query = query.Where(a => a.Position == filter);
+        else if (filter == "header" || filter == "sidebar" || filter == "in_article" || filter == "home_left" || filter == "home_right") query = query.Where(a => a.Position == filter);
         var ads = await query.OrderByDescending(a => a.CreatedAt).ToListAsync();
         ViewBag.Filter = filter ?? "all";
         ViewBag.PendingCount = await _db.Advertisements.CountAsync(a => a.Status == "pending");
@@ -1063,7 +1187,7 @@ public class NhanVienController : Controller
         string? img = form.ImageUrl;
         if (imageFile != null && imageFile.Length > 0)
         { var up = await _imageUpload.SaveAsync(imageFile); if (up.Success) img = up.RelativePath; }
-        var validPos = new[] { "header", "sidebar", "in_article" };
+        var validPos = new[] { "header", "sidebar", "in_article", "home_left", "home_right" };
         _db.Advertisements.Add(new Advertisement
         {
             Title = form.Title.Trim(), ImageUrl = img, TargetUrl = form.TargetUrl.Trim(),
@@ -1097,7 +1221,7 @@ public class NhanVienController : Controller
         else if (!string.IsNullOrWhiteSpace(form.ImageUrl)) ad.ImageUrl = form.ImageUrl.Trim();
         ad.Title = (form.Title ?? "").Trim();
         ad.TargetUrl = (form.TargetUrl ?? "").Trim();
-        var validPos = new[] { "header", "sidebar", "in_article" };
+        var validPos = new[] { "header", "sidebar", "in_article", "home_left", "home_right" };
         ad.Position = validPos.Contains(form.Position) ? form.Position : ad.Position;
         ad.StartDate = form.StartDate; ad.EndDate = form.EndDate; ad.IsActive = form.IsActive;
         await _db.SaveChangesAsync();

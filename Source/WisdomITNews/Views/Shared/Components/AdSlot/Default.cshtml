@@ -1,10 +1,29 @@
 @model WisdomITNews.Models.Advertisement
+@{
+    // Vị trí "Trang Chủ (trái/phải)" là dải quảng cáo dọc (skyscraper) trong gutter — cần khung cao cố định
+    // + ảnh lấp đầy (object-fit:cover) để "kéo dài xuống" thay vì chỉ cao bằng 1 ảnh nhỏ như các vị trí khác.
+    // Các vị trí khác (header/sidebar/in_article...) giữ NGUYÊN markup/style như cũ, không bị ảnh hưởng.
+    bool isHomeRail = Model != null && (Model.Position == "home_left" || Model.Position == "home_right");
+}
 @if (Model != null && !string.IsNullOrEmpty(Model.ImageUrl))
 {
-    <div class="ad-slot ad-@Model.Position" style="text-align:center;margin:12px 0;">
-        <a href="/ad/click/@Model.Id" target="_blank" rel="nofollow sponsored noopener" title="@Model.Title">
-            <img src="@Model.ImageUrl" alt="@Model.Title" style="max-width:100%;height:auto;border-radius:6px;display:inline-block;" />
-        </a>
-        <div style="font-size:10px;color:#9ca3af;margin-top:2px;letter-spacing:.3px;">Quảng cáo</div>
-    </div>
+    if (isHomeRail)
+    {
+        <div class="ad-slot ad-@Model.Position" style="text-align:center;margin:0;width:100%;">
+            <a href="/ad/click/@Model.Id" target="_blank" rel="nofollow sponsored noopener" title="@Model.Title"
+               style="display:block;width:100%;height:600px;min-height:600px;border-radius:8px;overflow:hidden;">
+                <img src="@Model.ImageUrl" alt="@Model.Title" style="width:100%;height:100%;object-fit:cover;display:block;" />
+            </a>
+            <div style="font-size:10px;color:#9ca3af;margin-top:6px;letter-spacing:.3px;">Quảng cáo</div>
+        </div>
+    }
+    else
+    {
+        <div class="ad-slot ad-@Model.Position" style="text-align:center;margin:12px 0;">
+            <a href="/ad/click/@Model.Id" target="_blank" rel="nofollow sponsored noopener" title="@Model.Title">
+                <img src="@Model.ImageUrl" alt="@Model.Title" style="max-width:100%;height:auto;border-radius:6px;display:inline-block;" />
+            </a>
+            <div style="font-size:10px;color:#9ca3af;margin-top:2px;letter-spacing:.3px;">Quảng cáo</div>
+        </div>
+    }
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WisdomITNews.Data;
 using WisdomITNews.Models;
+using WisdomITNews.Services;
 
 namespace WisdomITNews.Controllers;
 
@@ -9,10 +10,12 @@ public class HomeController : Controller
 {
     private readonly AppDbContext _db;
     private readonly ILogger<HomeController> _logger;
-    public HomeController(AppDbContext db, ILogger<HomeController> logger)
+    private readonly FeaturedArticleService _featured;
+    public HomeController(AppDbContext db, ILogger<HomeController> logger, FeaturedArticleService featured)
     {
         _db = db;
         _logger = logger;
+        _featured = featured;
     }
 
     public async Task<IActionResult> Index()
@@ -30,21 +33,9 @@ public class HomeController : Controller
             .Include(a => a.Category)
             .Where(a => a.Status == "published");
 
-        // Featured: ưu tiên bài vùng đó, nếu thiếu thì lấy thêm bài chung
-        var featuredRegion = await regionQuery
-            .Where(a => a.IsFeatured)
-            .OrderByDescending(a => a.PublishedAt)
-            .Take(3).ToListAsync();
-
-        if (featuredRegion.Count < 3)
-        {
-            var existIds = featuredRegion.Select(a => a.Id).ToList();
-            var more = await allQuery
-                .Where(a => a.IsFeatured && !existIds.Contains(a.Id))
-                .OrderByDescending(a => a.PublishedAt)
-                .Take(3 - featuredRegion.Count).ToListAsync();
-            featuredRegion.AddRange(more);
-        }
+        // Tin nổi bật tự động (khu vực lớn Trang chủ) — TOP 4 theo Ghim > Lượt xem > Ngày đăng > Ngày cập nhật,
+        // tính lúc đọc (không lưu vị trí cố định) nên tự đồng bộ ngay khi lượt xem thay đổi.
+        var featuredRegion = await _featured.GetHomepageTop4Async();
 
         // Latest: ưu tiên vùng, fallback chung
         var latestRegion = await regionQuery

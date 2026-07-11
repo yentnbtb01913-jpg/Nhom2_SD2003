@@ -1,0 +1,181 @@
+@{
+    // Layout tối giản (standalone) — KHÔNG có header/nav/topbar/footer của site công khai.
+    // Dùng cho các trang dạng "app screen" như Hồ sơ cá nhân (MyProfile).
+    // Vẫn giữ: font/css chung, SweetAlert2, SignalR script, script confirmSwal/swalToast dùng chung,
+    // dark-mode (áp theo lựa chọn đã lưu, không có nút bật/tắt ở đây), và nút nổi Báo lỗi/Góp ý.
+    var userId = Context.Session.GetInt32("UserId");
+    var userName = Context.Session.GetString("UserName");
+    var userAvatar = Context.Session.GetString("UserAvatar");
+    var currentTheme = "default";
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] != null ? ViewData["Title"] + " — " : "")Wisdom IT News</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600;1,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="~/css/site.css?v=20260527e" />
+    <link rel="stylesheet" href="~/css/baomoi-skin.css?v=20260710b" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    @RenderSection("Head", required: false)
+    <style>
+        .sa-topbar {
+            position: sticky; top: 0; z-index: 500;
+            background: #000613;
+            color: #fff;
+            padding: 0 20px;
+            height: 56px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,.15);
+        }
+        .sa-topbar-logo {
+            display: flex; align-items: center; gap: 10px;
+            color: #fff; text-decoration: none;
+        }
+        .sa-topbar-logo .sa-logo-icon {
+            width: 30px; height: 30px; border-radius: 8px;
+            background: linear-gradient(135deg,#c1121f,#e63946,#ba1a1a);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .sa-topbar-logo span {
+            font-family: 'Playfair Display', serif; font-weight: 700; font-size: 16px;
+        }
+        .sa-topbar-actions { display: flex; align-items: center; gap: 10px; }
+        .sa-topbar-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+            text-decoration: none; color: #fff; background: rgba(255,255,255,.1);
+            transition: background .2s; border: none; cursor: pointer; font-family: inherit;
+        }
+        .sa-topbar-btn:hover { background: rgba(255,255,255,.2); }
+        .sa-topbar-btn.sa-danger { background: rgba(230,57,70,.25); }
+        .sa-topbar-btn.sa-danger:hover { background: rgba(230,57,70,.45); }
+        .sa-topbar-user { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,.85); }
+        .sa-topbar-avatar {
+            width: 26px; height: 26px; border-radius: 50%; overflow: hidden;
+            background: rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 700; flex-shrink: 0;
+        }
+        .sa-topbar-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* ===== Responsive (điện thoại): thu gọn thanh top để không tràn ngang ===== */
+        @@media (max-width: 480px) {
+            .sa-topbar { padding: 0 10px; gap: 6px; }
+            .sa-topbar-logo span { display: none; }
+            .sa-username-label { display: none; }
+            .sa-btn-label { display: none; }
+            .sa-topbar-btn { padding: 8px 10px; }
+        }
+    </style>
+</head>
+<body data-theme="@currentTheme">
+    <!-- Thanh trên cùng tối giản (standalone) -->
+    <div class="sa-topbar">
+        <a href="/" class="sa-topbar-logo">
+            <div class="sa-logo-icon">&#9889;</div>
+            <span>Wisdom IT News</span>
+        </a>
+        <div class="sa-topbar-actions">
+            @if (userId.HasValue)
+            {
+                <div class="sa-topbar-user">
+                    <div class="sa-topbar-avatar">
+                        @if (!string.IsNullOrEmpty(userAvatar))
+                        {
+                            <img src="@userAvatar" alt="@userName" />
+                        }
+                        else
+                        {
+                            <span>@(string.IsNullOrWhiteSpace(userName) ? "?" : userName.Substring(0, 1).ToUpper())</span>
+                        }
+                    </div>
+                    <span class="sa-username-label">@userName</span>
+                </div>
+            }
+            <a href="/" class="sa-topbar-btn"><i class="fa fa-house"></i> <span class="sa-btn-label">Về trang chủ</span></a>
+            @if (userId.HasValue)
+            {
+                <a href="/Account/Logout" class="sa-topbar-btn sa-danger"><i class="fa fa-right-from-bracket"></i> <span class="sa-btn-label">Đăng xuất</span></a>
+            }
+        </div>
+    </div>
+
+    @RenderBody()
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    @RenderSection("Scripts", required: false)
+
+    <script>
+        window.confirmSwal = function (msg, title) { return Swal.fire({ title: title || 'Xác nhận?', text: msg, icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Đồng ý', cancelButtonText: 'Huỷ' }).then(function (r) { return r.isConfirmed; }); };
+        window.swalToast = function (icon, msg) { if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: icon, title: msg, showConfirmButton: false, timer: 3000, timerProgressBar: true }); };
+    </script>
+    <!-- Áp dụng chế độ tối/sáng đã lưu (không có nút bật/tắt trên trang standalone) -->
+    <script>
+        (function () {
+            var saved = localStorage.getItem('wisdomTheme') || 'light';
+            if (saved === 'dark') document.documentElement.setAttribute('data-mode', 'dark');
+            else document.documentElement.removeAttribute('data-mode');
+        })();
+    </script>
+
+    <!-- Feedback Widget (giữ nguyên, không đụng tới) -->
+    <div id="feedbackWidget" style="position:fixed;bottom:24px;right:24px;z-index:8000;">
+        <button id="feedbackToggle" title="Báo lỗi / Góp ý"
+                style="width:48px;height:48px;border-radius:50%;background:#ba1a1a;color:#fff;border:none;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(230,57,70,.4);">
+            &#128172;
+        </button>
+        <div id="feedbackPanel" style="display:none;position:absolute;bottom:60px;right:0;background:#fff;border-radius:0px;padding:20px;width:300px;box-shadow:0 8px 32px rgba(0,0,0,.15);">
+            <h4 style="margin:0 0 12px;font-size:15px;">Báo lỗi / Góp ý</h4>
+            <select id="fbType" style="width:100%;padding:8px;border:1px solid #e0e4e8;border-radius:0px;font-size:13px;margin-bottom:10px;">
+                <option value="bug">Báo lỗi</option>
+                <option value="content">Nội dung sai</option>
+                <option value="suggestion">Góp ý cải thiện</option>
+                <option value="other">Khác</option>
+            </select>
+            <textarea id="fbDesc" placeholder="Mô tả vấn đề..." rows="3"
+                      style="width:100%;padding:8px;border:1px solid #e0e4e8;border-radius:0px;font-size:13px;resize:vertical;font-family:inherit;margin-bottom:10px;"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <button onclick="submitFeedback()"
+                        style="background:#ba1a1a;color:#fff;border:none;padding:8px 18px;border-radius:0px;font-size:13px;font-weight:600;cursor:pointer;">
+                    Gửi
+                </button>
+                <span id="fbMsg" style="font-size:12px;"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('feedbackToggle').addEventListener('click', function () {
+            const panel = document.getElementById('feedbackPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        });
+
+        async function submitFeedback() {
+            const type = document.getElementById('fbType').value;
+            const desc = document.getElementById('fbDesc').value.trim();
+            const msg = document.getElementById('fbMsg');
+            if (!desc) { msg.innerHTML = '<span style="color:#ba1a1a">Vui lòng nhập mô tả!</span>'; return; }
+            try {
+                const res = await fetch('/gop-y', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, description: desc })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    msg.innerHTML = '<span style="color:#16a34a">Cảm ơn bạn!</span>';
+                    document.getElementById('fbDesc').value = '';
+                    setTimeout(() => { document.getElementById('feedbackPanel').style.display = 'none'; msg.textContent = ''; }, 2000);
+                } else {
+                    msg.innerHTML = '<span style="color:#ba1a1a">' + (data.message || 'Lỗi') + '</span>';
+                }
+            } catch { msg.innerHTML = '<span style="color:#ba1a1a">Lỗi kết nối</span>'; }
+        }
+    </script>
+</body>
+</html>

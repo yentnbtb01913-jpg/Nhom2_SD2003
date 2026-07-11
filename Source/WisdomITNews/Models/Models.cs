@@ -73,6 +73,10 @@ public class Article
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
+    // Tin nổi bật tự động (Trang chủ) — can thiệp thủ công tùy chọn, loại trừ lẫn nhau
+    public bool FeaturedPinned { get; set; } = false;  // ghim luôn đứng đầu khu nổi bật
+    public bool FeaturedHidden { get; set; } = false;  // loại khỏi khu nổi bật (không xóa bài)
+
     public Category? Category { get; set; }
     public Admin? Author { get; set; }
     public User? AuthorUser { get; set; }
@@ -232,6 +236,26 @@ public class RssSource
     public int MaxImport { get; set; } = 30;
     public DateTime? LastImportAt { get; set; }
     public int TotalImported { get; set; } = 0;
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? LogoUrl { get; set; }   // Avatar/logo hiển thị cho nguồn ở trang "Kênh Bên Ngoài" (ưu tiên trước favicon)
+}
+
+/// <summary>
+/// Một đợt tạo lượt xem mẫu (view ảo) cho bài viết ở trang "Kênh Bên Ngoài" — lưu delta của TỪNG bài
+/// trong DetailsJson để có thể sửa/hoàn tác chính xác mà không ảnh hưởng bài viết hay bình luận.
+/// </summary>
+public class SeedViewBatch
+{
+    public int Id { get; set; }
+    [Required] public string Scope { get; set; } = "all"; // article / source / category / all
+    [Required] public string TargetLabel { get; set; } = "";
+    public int ArticleCount { get; set; }
+    public int MinViews { get; set; }
+    public int MaxViews { get; set; }
+    public long TotalAdded { get; set; }
+    /// <summary>JSON: {"articleId": delta, ...} — delta lượt xem đã cộng cho từng bài, dùng để sửa/hoàn tác.</summary>
+    [Required] public string DetailsJson { get; set; } = "{}";
+    public string EditorName { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
 

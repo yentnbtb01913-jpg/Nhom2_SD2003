@@ -51,6 +51,7 @@ public class AppDbContext : DbContext
     public DbSet<CategoryMapping> CategoryMappings { get; set; }
     public DbSet<AiCategoryCorrectionLog> AiCategoryCorrectionLogs { get; set; }
     public DbSet<SearchHistory> SearchHistories { get; set; }
+    public DbSet<SeedViewBatch> SeedViewBatches { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -89,6 +90,14 @@ public class AppDbContext : DbContext
         mb.Entity<SearchHistory>().HasIndex(s => s.SessionId);
         mb.Entity<SearchHistory>().HasIndex(s => s.UserId);
         mb.Entity<SearchHistory>().HasIndex(s => s.SearchedAt);
+
+        // Đợt lượt xem mẫu (Kênh Bên Ngoài)
+        mb.Entity<SeedViewBatch>().HasIndex(b => b.CreatedAt);
+        mb.Entity<SeedViewBatch>().HasIndex(b => b.Scope);
+
+        // Tin nổi bật tự động (Trang chủ)
+        mb.Entity<Article>().HasIndex(a => a.FeaturedPinned);
+        mb.Entity<Article>().HasIndex(a => a.FeaturedHidden);
 
         mb.Entity<Category>()
             .HasOne(c => c.ParentCategory).WithMany(c => c.Children).HasForeignKey(c => c.ParentCategoryId).OnDelete(DeleteBehavior.Restrict);
