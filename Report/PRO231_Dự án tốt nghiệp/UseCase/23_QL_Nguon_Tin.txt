@@ -1,0 +1,26 @@
+@startuml 23_QL_Nguon_Tin
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+title QL Nguồn Tin (RSS)
+
+actor "Nhân Viên" as NhanVien
+actor "Admin" as Admin
+Admin --|> NhanVien
+
+rectangle "uc QL Nguồn Tin (RSS)" {
+  usecase "QL Nguồn Tin" as UC
+  usecase "Thêm Nguồn mới" as UC1
+  usecase "Xóa Nguồn" as UC2
+  usecase "Tìm Danh Sách Các Nguồn" as UC3
+  usecase "Nhập Bài từ nguồn" as UC4
+  usecase "Đăng nhập" as INC1
+}
+NhanVien -- UC
+UC1 ..> UC : <<extend>>
+UC2 ..> UC : <<extend>>
+UC3 ..> UC : <<extend>>
+UC4 ..> UC : <<extend>>
+UC ..> INC1 : <<include>>
+@enduml

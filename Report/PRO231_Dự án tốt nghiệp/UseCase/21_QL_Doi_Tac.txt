@@ -1,0 +1,28 @@
+@startuml 21_QL_Doi_Tac
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+title QL Đối Tác (Nhà báo)
+
+actor "Nhân Viên" as NhanVien
+actor "Admin" as Admin
+Admin --|> NhanVien
+
+rectangle "uc QL Đối Tác (Nhà báo)" {
+  usecase "QL Đối tác" as UC
+  usecase "Thêm" as UC1
+  usecase "Xóa" as UC2
+  usecase "Tìm kiếm" as UC3
+  usecase "Khóa & Mở khóa" as UC4
+  usecase "Duyệt nhà báo" as UC5
+  usecase "Đăng nhập" as INC1
+}
+NhanVien -- UC
+UC1 ..> UC : <<extend>>
+UC2 ..> UC : <<extend>>
+UC3 ..> UC : <<extend>>
+UC4 ..> UC : <<extend>>
+UC5 ..> UC : <<extend>>
+UC ..> INC1 : <<include>>
+@enduml

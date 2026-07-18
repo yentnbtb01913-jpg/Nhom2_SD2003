@@ -1,0 +1,97 @@
+@startuml UC_Tong_Quan
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+title UC - Tổng Quan Hệ Thống (QL Tổng Quát) — WisdomITNews
+
+' ===== TÁC NHÂN + PHÂN CẤP KẾ THỪA =====
+actor "Guest"      as Guest
+actor "User"       as User
+actor "Nhà báo"    as NhaBao
+actor "Nhân Viên"  as NhanVien
+actor "Admin"      as Admin
+actor "API AI"     as AI
+User    --|> Guest
+NhaBao  --|> User
+NhanVien --|> NhaBao
+Admin   --|> NhanVien
+
+rectangle "uc QL Tổng Quát" {
+  ' --- Khách/Độc giả ---
+  usecase "QL Đăng Ký"            as UC01
+  usecase "QL Đăng Nhập"          as UC02
+  usecase "QL Truy Cập Nội Dung"  as UC03
+  usecase "QL Tìm Kiếm"           as UC04
+  usecase "QL Hồ Sơ Cá Nhân"      as UC05
+  usecase "QL Kết Bạn & Theo Dõi" as UC06
+  usecase "QL Trò Chuyện"         as UC07
+  usecase "QL Bình Luận"          as UC08
+  usecase "QL Đăng Ký Nhận Tin"   as UC09
+  usecase "QL Phản Hồi"           as UC10
+  ' --- Nhà báo ---
+  usecase "QL Bài Viết (Nhà báo)" as UC11
+  usecase "QL Hồ Sơ Nhà Báo"      as UC12
+  usecase "QL Video"              as UC13
+  usecase "QL Quảng Cáo"          as UC14
+  usecase "QL Podcast"            as UC15
+  ' --- Toà soạn / Nhân viên / Admin ---
+  usecase "QL Bài Viết (Toà soạn)" as UC16
+  usecase "QL Danh Mục"           as UC18
+  usecase "QL Người Dùng"         as UC19
+  usecase "QL Nhân Viên"          as UC20
+  usecase "QL Đối Tác"            as UC21
+  usecase "QL Khách Hàng"         as UC22
+  usecase "QL Nguồn Tin (RSS)"    as UC23
+  usecase "QL Nhập Bài Báo"       as UC24
+  usecase "QL Kênh Bên Ngoài"     as UC25
+  usecase "QL Tăng Lượt Xem Mẫu"  as UC26
+  usecase "QL Bài Nổi Bật"        as UC27
+  usecase "QL Thông Báo"          as UC28
+  usecase "QL Sản Phẩm"           as UC29
+  usecase "QL Giao Dịch"          as UC30
+  usecase "QL Newsletter"         as UC31
+  usecase "QL Cài Đặt AI"         as UC32
+  usecase "QL Nhật Ký AI"         as UC33
+  usecase "QL Dashboard"          as UC36
+}
+
+' ===== LIÊN KẾT TÁC NHÂN - NHÓM CHỨC NĂNG =====
+Guest    -- UC01
+Guest    -- UC02
+Guest    -- UC03
+Guest    -- UC04
+User     -- UC05
+User     -- UC06
+User     -- UC07
+User     -- UC08
+User     -- UC09
+User     -- UC10
+NhaBao   -- UC11
+NhaBao   -- UC12
+NhaBao   -- UC13
+NhaBao   -- UC14
+NhaBao   -- UC15
+NhanVien -- UC16
+NhanVien -- UC18
+NhanVien -- UC21
+NhanVien -- UC22
+NhanVien -- UC23
+NhanVien -- UC24
+NhanVien -- UC25
+NhanVien -- UC26
+NhanVien -- UC27
+NhanVien -- UC28
+NhanVien -- UC31
+NhanVien -- UC36
+Admin    -- UC19
+Admin    -- UC20
+Admin    -- UC29
+Admin    -- UC30
+Admin    -- UC32
+Admin    -- UC33
+' AI hỗ trợ kiểm duyệt / tóm tắt / phân loại
+AI ..> UC08 : <<AI hỗ trợ>>
+AI ..> UC16 : <<AI hỗ trợ>>
+AI ..> UC33 : <<AI hỗ trợ>>
+@enduml

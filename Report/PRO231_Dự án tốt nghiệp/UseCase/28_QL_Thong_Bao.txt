@@ -1,0 +1,26 @@
+@startuml 28_QL_Thong_Bao
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+title QL Thông Báo
+
+actor "Nhân Viên" as NhanVien
+actor "Admin" as Admin
+Admin --|> NhanVien
+
+rectangle "uc QL Thông Báo" {
+  usecase "Ql Thông Báo" as UC
+  usecase "Thêm thông báo" as UC1
+  usecase "Tìm kiếm thông báo" as UC2
+  usecase "Xóa Thông báo" as UC3
+  usecase "Gửi thông báo" as UC4
+  usecase "Đăng nhập" as INC1
+}
+NhanVien -- UC
+UC1 ..> UC : <<extend>>
+UC2 ..> UC : <<extend>>
+UC3 ..> UC : <<extend>>
+UC4 ..> UC : <<extend>>
+UC ..> INC1 : <<include>>
+@enduml

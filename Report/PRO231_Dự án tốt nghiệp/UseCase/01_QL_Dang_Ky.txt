@@ -1,0 +1,24 @@
+@startuml 01_QL_Dang_Ky
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+title QL Đăng Ký
+
+actor "Guest" as Guest
+actor "Nhân Viên" as NhanVien
+actor "Admin" as Admin
+NhanVien --|> Guest
+Admin --|> NhanVien
+
+rectangle "uc QL Đăng Ký" {
+  usecase "QL Đăng ký" as UC
+  usecase "Đăng ký thường" as UC1
+  usecase "ĐK bằng Facebook" as UC2
+  usecase "ĐK bằng GG" as UC3
+}
+Guest -- UC
+UC1 ..> UC : <<extend>>
+UC2 ..> UC : <<extend>>
+UC3 ..> UC : <<extend>>
+@enduml

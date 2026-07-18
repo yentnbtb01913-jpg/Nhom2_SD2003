@@ -1,0 +1,24 @@
+@startuml 05_QL_Ho_So_Ca_Nhan
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+title QL Hồ Sơ Cá Nhân
+
+actor "User" as User
+
+rectangle "uc QL Hồ Sơ Cá Nhân" {
+  usecase "QL Hồ Sơ Cá Nhân" as UC
+  usecase "Xem hồ sơ" as UC1
+  usecase "Cập nhật hồ sơ" as UC2
+  usecase "Đổi ảnh đại diện" as UC3
+  usecase "Đổi ảnh bìa" as UC4
+  usecase "Đăng nhập" as INC1
+}
+User -- UC
+UC1 ..> UC : <<extend>>
+UC2 ..> UC : <<extend>>
+UC3 ..> UC : <<extend>>
+UC4 ..> UC : <<extend>>
+UC ..> INC1 : <<include>>
+@enduml

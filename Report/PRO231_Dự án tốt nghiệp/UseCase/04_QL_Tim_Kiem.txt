@@ -1,0 +1,22 @@
+@startuml 04_QL_Tim_Kiem
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+title QL Tìm Kiếm
+
+actor "Guest" as Guest
+
+rectangle "uc QL Tìm Kiếm" {
+  usecase "QL Tìm Kiếm" as UC
+  usecase "Gợi ý tức thời" as UC1
+  usecase "Tìm kiếm đầy đủ" as UC2
+  usecase "Xem lịch sử tìm kiếm" as UC3
+  usecase "Xóa lịch sử tìm kiếm" as UC4
+}
+Guest -- UC
+UC1 ..> UC : <<extend>>
+UC2 ..> UC : <<extend>>
+UC3 ..> UC : <<extend>>
+UC4 ..> UC : <<extend>>
+@enduml

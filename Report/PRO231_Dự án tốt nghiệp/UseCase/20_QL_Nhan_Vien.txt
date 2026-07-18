@@ -1,0 +1,30 @@
+@startuml 20_QL_Nhan_Vien
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+title QL Nhân Viên
+
+actor "Admin" as Admin
+
+rectangle "uc QL Nhân Viên" {
+  usecase "QL Nhân Viên" as UC
+  usecase "Thêm Nhân Viên" as UC1
+  usecase "Sửa Nhân Viên" as UC2
+  usecase "Xóa Nhân Viên" as UC3
+  usecase "Tìm Kiếm Nhân Viên" as UC4
+  usecase "Đặt trạng thái làm việc" as UC5
+  usecase "Reset mật khẩu" as UC6
+  usecase "Hồ sơ nhân sự" as UC7
+  usecase "Đăng nhập" as INC1
+}
+Admin -- UC
+UC1 ..> UC : <<extend>>
+UC2 ..> UC : <<extend>>
+UC3 ..> UC : <<extend>>
+UC4 ..> UC : <<extend>>
+UC5 ..> UC : <<extend>>
+UC6 ..> UC : <<extend>>
+UC7 ..> UC : <<extend>>
+UC ..> INC1 : <<include>>
+@enduml

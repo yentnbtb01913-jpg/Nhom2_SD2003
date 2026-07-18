@@ -1,0 +1,34 @@
+@startuml 22_QL_Khach_Hang
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+title QL Khách Hàng
+
+actor "Nhân Viên" as NhanVien
+actor "Admin" as Admin
+Admin --|> NhanVien
+
+rectangle "uc QL Khách Hàng" {
+  usecase "QL Khách Hàng" as UC
+  usecase "Thêm" as UC1
+  usecase "Sửa TT" as UC2
+  usecase "Xóa" as UC3
+  usecase "Tìm kiếm" as UC4
+  usecase "Cấp gói Premium" as UC5
+  usecase "Gia hạn Premium" as UC6
+  usecase "Chuyển Trial sang Premium" as UC7
+  usecase "Khóa/Mở tài khoản" as UC8
+  usecase "Đăng nhập" as INC1
+}
+NhanVien -- UC
+UC1 ..> UC : <<extend>>
+UC2 ..> UC : <<extend>>
+UC3 ..> UC : <<extend>>
+UC4 ..> UC : <<extend>>
+UC5 ..> UC : <<extend>>
+UC6 ..> UC : <<extend>>
+UC7 ..> UC : <<extend>>
+UC8 ..> UC : <<extend>>
+UC ..> INC1 : <<include>>
+@enduml

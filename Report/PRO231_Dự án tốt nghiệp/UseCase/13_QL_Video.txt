@@ -1,0 +1,28 @@
+@startuml 13_QL_Video
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+title QL Video
+
+actor "Nhà báo" as NhaBao
+actor "Nhân Viên" as NhanVien
+actor "Admin" as Admin
+NhanVien --|> NhaBao
+Admin --|> NhanVien
+
+rectangle "uc QL Video" {
+  usecase "QL Video" as UC
+  usecase "Thêm Video" as UC1
+  usecase "Sửa TT cơ bản" as UC2
+  usecase "Xóa Video" as UC3
+  usecase "Tìm Kiếm Video" as UC4
+  usecase "Đăng nhập" as INC1
+}
+NhaBao -- UC
+UC1 ..> UC : <<extend>>
+UC2 ..> UC : <<extend>>
+UC3 ..> UC : <<extend>>
+UC4 ..> UC : <<extend>>
+UC ..> INC1 : <<include>>
+@enduml
