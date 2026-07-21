@@ -57,7 +57,6 @@ public class Article
     public string Status { get; set; } = "draft";
     public bool IsFeatured { get; set; } = false;
     public bool IsBreaking { get; set; } = false;
-    public bool IsPremiumOnly { get; set; } = false; // chỉ hiển thị đầy đủ cho Premium (Gói Premium)
     public DateTime? PublishedAt { get; set; }
     public string? AiSummary { get; set; }
     public string? SourceName { get; set; }   // nguồn (vd: The Hacker News)
@@ -84,6 +83,7 @@ public class Article
     public ICollection<ArticleTag> ArticleTags { get; set; } = new List<ArticleTag>();
     public ICollection<AILog> AILogs { get; set; } = new List<AILog>();
     public ICollection<ViewHistory> ViewHistories { get; set; } = new List<ViewHistory>();
+    public ICollection<Video> Videos { get; set; } = new List<Video>();
 }
 
 public class Tag
@@ -143,17 +143,7 @@ public class AILog
     public Article? Article { get; set; }
 }
 
-public class NewsletterSubscriber
-{
-    public int Id { get; set; }
-    [Required] public string Email { get; set; } = "";
-    public string? FullName { get; set; }
-    public string? Phone { get; set; }
-    public string? Source { get; set; }
-    public string? InterestedCategory { get; set; }   // danh mục quan tâm (phân nhóm)
-    public string Status { get; set; } = "active";
-    public DateTime SubscribedAt { get; set; } = DateTime.Now;
-}
+// [ĐÃ GỠ] NewsletterSubscriber đã được loại bỏ (bỏ Newsletter).
 
 public class CommentVote
 {
@@ -197,6 +187,9 @@ public class FeedbackReport
     [Required] public string Description { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public bool IsResolved { get; set; } = false;
+    // Domain User: người gửi phản hồi (NULL nếu khách vãng lai chưa đăng nhập). SetNull khi xóa User.
+    public int? UserId { get; set; }
+    public User? User { get; set; }
 }
 
 public class User
@@ -290,15 +283,4 @@ public class Notification
     public DateTime? ReadAt { get; set; }
 }
 
-// Lịch sử email đã gửi cho khách hàng (GĐ2 CRM)
-public class NewsletterEmailLog
-{
-    public int Id { get; set; }
-    public int SubscriberId { get; set; }
-    public string Email { get; set; } = "";
-    public string Subject { get; set; } = "";
-    public string Segment { get; set; } = "";      // nhóm gửi: all / category:X / source:Y / active
-    public bool IsSuccess { get; set; } = true;
-    public string? Error { get; set; }
-    public DateTime SentAt { get; set; } = DateTime.Now;
-}
+// [ĐÃ GỠ] NewsletterEmailLog đã được loại bỏ (bỏ Newsletter).

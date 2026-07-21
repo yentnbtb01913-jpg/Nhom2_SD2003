@@ -24,6 +24,8 @@ public class AiSetting
     public string ChatTemplate { get; set; } = AiDefaults.Chat;
 
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    // Domain Admin: admin chỉnh cấu hình AI gần nhất (audit). NULL = chưa rõ/seed.
+    public int? UpdatedByAdminId { get; set; }
 }
 
 // ===== Options pattern (Mức 1): bind từ appsettings "AI" — mặc định/dự phòng =====

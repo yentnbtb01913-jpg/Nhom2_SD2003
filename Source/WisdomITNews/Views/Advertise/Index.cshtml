@@ -1,0 +1,49 @@
+@using WisdomITNews.Models
+@model List<AdSlot>
+@{
+    ViewData["Title"] = "Bảng giá quảng cáo";
+    bool canPost = ViewBag.CanPost ?? false;
+}
+<div style="max-width:1100px;margin:0 auto;padding:24px 16px;">
+    <div style="text-align:center;margin-bottom:18px;">
+        <h1 style="font-size:30px;font-weight:900;color:#0f172a;">Đăng quảng cáo trên Wisdom IT News</h1>
+        <p style="color:#64748b;font-size:15px;">Chọn vị trí phù hợp, thuê theo ngày, tiếp cận độc giả công nghệ.</p>
+    </div>
+
+    @if (TempData["AdErr"] != null)
+    { <div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["AdErr"]</div> }
+
+    @if (!canPost)
+    {
+        <div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:14px 18px;border-radius:10px;margin-bottom:18px;text-align:center;">
+            Chỉ <b>Nhà báo / Ban quản trị</b> mới đặt mua quảng cáo trực tiếp. Bạn muốn quảng cáo? Liên hệ:
+            <b>wisdom@@itnews.vn</b> · <b>0123 456 789</b>.
+        </div>
+    }
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+        @foreach (var s in Model)
+        {
+            <div style="background:#fff;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.07);overflow:hidden;display:flex;flex-direction:column;">
+                <div style="padding:18px 20px;border-bottom:1px solid #eef1f4;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:18px;font-weight:800;color:#0f172a;">@s.Name</span>
+                    <span style="background:#2563eb;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;">@s.Size</span>
+                </div>
+                <div style="padding:18px 20px;flex:1;">
+                    <p style="color:#475569;font-size:14px;min-height:42px;">@s.Description</p>
+                    <div style="font-size:26px;font-weight:900;color:#dc2626;">@s.PricePerDay.ToString("#,##0") đ<span style="font-size:14px;color:#94a3b8;font-weight:600;">/ngày</span></div>
+                </div>
+                <div style="padding:0 20px 18px;">
+                    @if (canPost)
+                    {
+                        <a href="/Advertise/Order?slotId=@s.Id" style="display:block;text-align:center;background:#0e7d85;color:#fff;padding:11px;border-radius:8px;font-weight:700;text-decoration:none;">Đặt mua</a>
+                    }
+                    else
+                    {
+                        <div style="text-align:center;background:#f1f5f9;color:#64748b;padding:11px;border-radius:8px;font-weight:600;">Liên hệ để đăng</div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

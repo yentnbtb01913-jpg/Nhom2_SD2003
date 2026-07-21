@@ -19,6 +19,7 @@ public class ChatController : Controller
         _hub = hub;
     }
 
+    // Đây là luồng xử lý xác định người dùng chat hiện tại từ Session (user hoặc admin)
     private (string type, int id, string name, string? avatar)? GetCurrentUser()
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -37,6 +38,7 @@ public class ChatController : Controller
     }
 
     // Lấy thông tin user hiện tại
+    // Đây là luồng xử lý lấy thông tin người dùng chat hiện tại (id/tên/avatar)
     [HttpGet("me")]
     public IActionResult GetMe()
     {
@@ -46,6 +48,10 @@ public class ChatController : Controller
     }
 
     // Danh sách nhóm chat của tôi
+    // Đây là luồng xử lý lấy danh sách nhóm chat của tôi
+    // Luồng: lấy nhóm mình là thành viên -> kèm tin nhắn cuối; với DM thì lấy tên/avatar đối phương
+    //        -> sắp theo tin nhắn mới nhất
+    // Bảng: ChatMembers, ChatGroups, ChatMessages, Users/Admins
     [HttpGet("groups")]
     public async Task<IActionResult> GetGroups()
     {
@@ -133,6 +139,9 @@ public class ChatController : Controller
     }
 
     // Tạo nhóm mới
+    // Đây là luồng xử lý tạo nhóm chat mới
+    // Luồng: tạo ChatGroup -> thêm người tạo (role admin) + các thành viên được mời
+    // Bảng: ChatGroups, ChatMembers
     [HttpPost("groups")]
     public async Task<IActionResult> CreateGroup([FromBody] CreateGroupRequest req)
     {
@@ -178,6 +187,9 @@ public class ChatController : Controller
     }
 
     // Chat 1-1 (tạo hoặc mở)
+    // Đây là luồng xử lý mở/tạo chat 1-1 (DM)
+    // Luồng: tìm nhóm DM chung giữa 2 người; có rồi -> mở; chưa có -> tạo ChatGroup DM + 2 thành viên
+    // Bảng: ChatMembers, ChatGroups
     [HttpPost("dm")]
     public async Task<IActionResult> DirectMessage([FromBody] DmRequest req)
     {
@@ -225,6 +237,9 @@ public class ChatController : Controller
     }
 
     // Lấy tin nhắn của nhóm
+    // Đây là luồng xử lý lấy tin nhắn của nhóm (phân trang lùi để cuộn lên)
+    // Luồng: kiểm tra là thành viên -> lấy 50 tin (Id < before nếu tải thêm) -> trả theo thứ tự thời gian
+    // Bảng: ChatMembers, ChatMessages
     [HttpGet("groups/{groupId}/messages")]
     public async Task<IActionResult> GetMessages(int groupId, int before = 0, int take = 50)
     {
@@ -266,6 +281,10 @@ public class ChatController : Controller
     }
 
     // Gửi tin nhắn
+    // Đây là luồng xử lý gửi tin nhắn nhóm
+    // Luồng: kiểm tra là thành viên -> tạo ChatMessage (text/ảnh/file, có thể trả lời) -> lưu DB
+    //        -> phát realtime "ReceiveMessage" tới group
+    // Bảng: ChatMembers, ChatMessages
     [HttpPost("groups/{groupId}/messages")]
     public async Task<IActionResult> SendMessage(int groupId, [FromBody] SendMessageRequest req)
     {
@@ -317,6 +336,8 @@ public class ChatController : Controller
     }
 
     // Upload ảnh/file trong chat
+    // Đây là luồng xử lý upload ảnh/file trong chat
+    // Luồng: kiểm tra file ≤10MB -> lưu wwwroot/uploads/chat -> phân loại image/file -> trả URL
     [HttpPost("upload")]
     public async Task<IActionResult> UploadFile(IFormFile file)
     {
@@ -346,6 +367,8 @@ public class ChatController : Controller
     }
 
     // Ghim/bỏ ghim tin nhắn
+    // Đây là luồng xử lý ghim / bỏ ghim tin nhắn
+    // Luồng: đảo IsPinned -> lưu -> phát realtime "MessagePinned"
     [HttpPost("messages/{msgId}/pin")]
     public async Task<IActionResult> TogglePin(int msgId)
     {
@@ -363,6 +386,7 @@ public class ChatController : Controller
     }
 
     // Lấy thành viên nhóm
+    // Đây là luồng xử lý lấy danh sách thành viên nhóm (kèm tên/avatar + trạng thái online)
     [HttpGet("groups/{groupId}/members")]
     public async Task<IActionResult> GetMembers(int groupId)
     {
@@ -400,6 +424,7 @@ public class ChatController : Controller
     }
 
     // Thêm thành viên
+    // Đây là luồng xử lý thêm thành viên vào nhóm (chặn trùng)
     [HttpPost("groups/{groupId}/members")]
     public async Task<IActionResult> AddMember(int groupId, [FromBody] AddMemberRequest req)
     {
@@ -422,6 +447,7 @@ public class ChatController : Controller
     }
 
     // Rời nhóm
+    // Đây là luồng xử lý rời nhóm chat (xóa bản ghi ChatMember của mình)
     [HttpPost("groups/{groupId}/leave")]
     public async Task<IActionResult> LeaveGroup(int groupId)
     {
@@ -438,6 +464,7 @@ public class ChatController : Controller
     }
 
     // Tìm kiếm user để thêm vào nhóm / nhắn tin
+    // Đây là luồng xử lý tìm người dùng để thêm vào nhóm / nhắn tin (cả User lẫn Admin, kèm online)
     [HttpGet("users/search")]
     public async Task<IActionResult> SearchUsers(string q = "")
     {
@@ -472,6 +499,7 @@ public class ChatController : Controller
     }
 
     // Lấy tin nhắn ghim
+    // Đây là luồng xử lý lấy danh sách tin nhắn đã ghim của nhóm
     [HttpGet("groups/{groupId}/pinned")]
     public async Task<IActionResult> GetPinnedMessages(int groupId)
     {
@@ -484,6 +512,8 @@ public class ChatController : Controller
     }
 
     // Xóa tin nhắn (chỉ người gửi)
+    // Đây là luồng xử lý xóa tin nhắn (chỉ người gửi mới được xóa)
+    // Luồng: kiểm tra đúng người gửi -> xóa -> phát realtime "MessageDeleted"
     [HttpDelete("messages/{msgId}")]
     public async Task<IActionResult> DeleteMessage(int msgId)
     {

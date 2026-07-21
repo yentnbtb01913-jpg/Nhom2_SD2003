@@ -17,7 +17,17 @@ public class Advertisement
     public int? CreatedByUserId { get; set; }             // nhà báo (User) tạo
     public int? CreatedByAdminId { get; set; }            // admin tạo
     public string CreatedByName { get; set; } = "";
+    public int DisplayOrder { get; set; } = 0;            // thứ tự xoay vòng trong 1 khu (nhỏ chạy trước)
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    // ===== Đơn đặt quảng cáo (Bán quảng cáo) =====
+    public int? AdSlotId { get; set; }                    // slot đã đặt
+    public int Days { get; set; } = 0;                    // số ngày thuê
+    public decimal Amount { get; set; } = 0;              // tổng tiền = PricePerDay * Days
+    public string? BuyerPhone { get; set; }               // SĐT liên hệ người mua
+    public string PaymentStatus { get; set; } = "unpaid"; // unpaid / paid
+
+    public AdSlot? AdSlot { get; set; }
 
     // Đang hiệu lực để hiển thị?
     public bool IsLive(DateTime now) =>
@@ -27,18 +37,4 @@ public class Advertisement
 }
 
 
-// Tin nhắn chat nội bộ giữa Nhà báo (chủ QC) và Quản trị (admin/nhân viên) để gia hạn QC.
-public class AdRenewalMessage
-{
-    public int Id { get; set; }
-    public int AdvertisementId { get; set; }
-    public string SenderRole { get; set; } = "";   // journalist / admin / nhanvien
-    public int SenderId { get; set; }
-    public string SenderName { get; set; } = "";
-    public string Content { get; set; } = "";
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public bool IsReadByAdmin { get; set; } = false;
-    public bool IsReadByJournalist { get; set; } = false;
-
-    public Advertisement? Advertisement { get; set; }
-}
+// [ĐÃ GỠ] Model AdRenewalMessage (chat gia hạn quảng cáo) đã được loại bỏ.

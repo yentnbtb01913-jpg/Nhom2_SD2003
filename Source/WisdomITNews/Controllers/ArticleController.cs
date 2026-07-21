@@ -18,6 +18,7 @@ public class ArticleController : Controller
         _logger = logger;
     }
 
+    // Đây là luồng xử lý chatbot AI trên trang bài viết (gọi AIService.ChatAsync)
     [HttpPost]
     [Route("/article/chat")]
     public async Task<IActionResult> Chat([FromBody] ChatRequest req)
@@ -34,6 +35,11 @@ public class ArticleController : Controller
         }
     }
 
+    // Đây là luồng xử lý xem chi tiết bài viết
+    // Luồng: 1) Tìm bài published theo slug -> tăng Views++ + lưu ViewHistory (giữ tối đa 20/phiên)
+    //        2) Nạp tag, bình luận đã duyệt, bài liên quan, bài xem nhiều, podcast, hồ sơ tác giả
+    //        3) Gating Premium: bài IsPremiumOnly chỉ mở đầy đủ nếu user có gói hiệu lực
+    // Bảng: Articles, ViewHistories, Comments, ArticleTags, SavedArticles, Podcasts, JournalistProfiles
     public async Task<IActionResult> Detail(string slug)
     {
         if (string.IsNullOrEmpty(slug)) return RedirectToAction("Index", "Home");
@@ -124,10 +130,9 @@ public class ArticleController : Controller
             .Where(p => p.ArticleId == article.Id)
             .OrderByDescending(p => p.CreatedAt).FirstOrDefaultAsync();
 
-        // Gating Premium: bài IsPremiumOnly chỉ mở đầy đủ cho người có gói hiệu lực.
-        bool hasPremium = await WisdomITNews.Services.PremiumAccess.HasAsync(_db, hubUserId);
-        ViewBag.HasPremiumAccess = hasPremium;
-        ViewBag.IsPremiumLocked = article.IsPremiumOnly && !hasPremium;
+        // [ĐÃ GỠ] Gating Premium — mọi bài đọc tự do.
+        ViewBag.HasPremiumAccess = true;
+        ViewBag.IsPremiumLocked = false;
                 return View(new ArticleViewModel
         {
             Article = article,
@@ -139,6 +144,7 @@ public class ArticleController : Controller
     }
 
     // Tự load thêm bài cùng thể loại (infinite scroll ở trang chi tiết)
+    // Đây là luồng xử lý nạp thêm bài cùng thể loại (cuộn vô hạn ở trang chi tiết)
     public async Task<IActionResult> LoadRelated(int categoryId, int excludeId, int skip)
     {
         const int take = 6;
@@ -154,6 +160,7 @@ public class ArticleController : Controller
     }
 
     // "Bài báo bạn có thể thích" — liệt kê toàn bộ bài (trừ bài hiện tại), ưu tiên xem nhiều
+    // Đây là luồng xử lý nạp thêm "bài báo bạn có thể thích" (ưu tiên xem nhiều)
     public async Task<IActionResult> LoadSuggested(int excludeId, int skip)
     {
         const int take = 6;
@@ -171,13 +178,18 @@ public class ArticleController : Controller
     // ====================== [F] Like / Dislike / Reply ======================
 
     [HttpPost]
+    // Đây là luồng xử lý thích (like) bình luận
     [Route("/article/like-comment/{id:int}")]
     public Task<IActionResult> LikeComment(int id) => VoteCommentAsync(id, "Like");
 
     [HttpPost]
+    // Đây là luồng xử lý không thích (dislike) bình luận
     [Route("/article/dislike-comment/{id:int}")]
     public Task<IActionResult> DislikeComment(int id) => VoteCommentAsync(id, "Dislike");
 
+    // Đây là luồng xử lý bình chọn bình luận (dùng chung cho like/dislike)
+    // Luồng: mỗi phiên (SessionId) chỉ vote 1 lần/bình luận -> tạo CommentVote + tăng LikeCount/DislikeCount
+    // Bảng: CommentVotes, Comments
     private async Task<IActionResult> VoteCommentAsync(int commentId, string voteType)
     {
         try
@@ -230,6 +242,11 @@ public class ArticleController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý trả lời bình luận (kèm kiểm duyệt ngôn từ AI)
+    // Luồng: 1) Kiểm tra bình luận gốc tồn tại
+    //        2) Tạo Comment (pending) -> AI kiểm duyệt: score>70 -> "rejected"; GHI ngôn từ vi phạm vào AILogs
+    //        3) Lưu DB -> trả JSON
+    // Bảng: Comments, AILogs
     [Route("/article/reply-comment")]
     public async Task<IActionResult> ReplyComment([FromBody] ReplyRequest req)
     {
@@ -302,6 +319,7 @@ public class ArticleController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý người dùng tự xóa bình luận của mình (kèm các trả lời + vote)
     [Route("/article/delete-comment/{id:int}")]
     public async Task<IActionResult> DeleteComment(int id)
     {
@@ -349,6 +367,7 @@ public class ArticleController : Controller
             _email = email;
         }
 
+        // Đây là luồng xử lý tóm tắt bài viết bằng AI (API) + cache AiSummary vào bài
         [HttpPost("summarize")]
         public async Task<IActionResult> Summarize([FromBody] SummarizeRequest req)
         {
@@ -362,6 +381,7 @@ public class ArticleController : Controller
             return Ok(result);
         }
 
+        // Đây là luồng xử lý gợi ý tiêu đề bài viết bằng AI (API)
         [HttpPost("suggest-title")]
         public async Task<IActionResult> SuggestTitle([FromBody] SummarizeRequest req)
         {
@@ -369,6 +389,11 @@ public class ArticleController : Controller
             return Ok(result);
         }
 
+        // Đây là luồng xử lý gửi bình luận bài viết (kèm kiểm duyệt ngôn từ AI)
+        // Luồng: 1) Kiểm tra thông tin + chặn nếu user chưa xác nhận email
+        //        2) Tạo Comment (pending) -> AI kiểm duyệt: score>70 -> "rejected"; GHI ngôn từ vi phạm vào AILogs
+        //        3) Lưu DB -> trả JSON (bị từ chối / chờ duyệt)
+        // Bảng: Comments, AILogs, Users
         [HttpPost("comment")]
         public async Task<IActionResult> Comment([FromBody] CommentRequest req)
         {
@@ -425,92 +450,7 @@ public class ArticleController : Controller
                             message = "Bình luận đã được gửi, chờ duyệt!" });
         }
 
-        [HttpPost("newsletter")]
-        public async Task<IActionResult> Newsletter([FromBody] NewsletterRequest req)
-        {
-            if (string.IsNullOrWhiteSpace(req.Email) || !req.Email.Contains('@'))
-                return BadRequest(new { success = false, message = "Email không hợp lệ" });
-
-            var email = req.Email.Trim();
-            var exists = await _db.NewsletterSubscribers.AnyAsync(n => n.Email == email);
-            if (exists) return Ok(new { success = false, message = "Email đã đăng ký rồi!" });
-
-            // [TRANSACTIONAL] Lưu subscriber trước; nếu SMTP lỗi thì rollback để dữ liệu nhất quán
-            var subscriber = new NewsletterSubscriber { Email = email };
-            _db.NewsletterSubscribers.Add(subscriber);
-            await _db.SaveChangesAsync();
-
-            bool emailOk = false;
-            string? emailErr = null;
-            try
-            {
-                var (ok, err) = await _email.SendWelcomeAsync(email);
-                emailOk = ok;
-                emailErr = err;
-            }
-            catch (Exception ex) { emailErr = ex.Message; }
-
-            if (!emailOk)
-            {
-                // Rollback: xóa subscriber vừa thêm để user có thể thử lại
-                _db.NewsletterSubscribers.Remove(subscriber);
-                await _db.SaveChangesAsync();
-                return Ok(new {
-                    success = false,
-                    message = "Không gửi được email xác nhận. Vui lòng thử lại sau."
-                });
-            }
-
-            return Ok(new {
-                success = true,
-                message = "Đăng ký thành công! Vui lòng kiểm tra email chào mừng."
-            });
-        }
-
-        [HttpPost("newsletter/subscribe-me")]
-        public async Task<IActionResult> SubscribeMe()
-        {
-            var userId = HttpContext.Session.GetInt32("UserId");
-            if (userId == null)
-                return Unauthorized(new { success = false, message = "Vui lòng đăng nhập trước." });
-
-            var user = await _db.Users.FindAsync(userId.Value);
-            if (user == null || string.IsNullOrWhiteSpace(user.Email))
-                return BadRequest(new { success = false, message = "Tài khoản chưa có email hợp lệ." });
-
-            var email = user.Email.Trim();
-            var exists = await _db.NewsletterSubscribers.AnyAsync(n => n.Email == email);
-            if (exists)
-                return Ok(new { success = false, message = $"Email {email} đã đăng ký nhận tin rồi!" });
-
-            // [TRANSACTIONAL] Lưu subscriber trước; nếu SMTP lỗi thì rollback
-            var subscriber = new NewsletterSubscriber { Email = email };
-            _db.NewsletterSubscribers.Add(subscriber);
-            await _db.SaveChangesAsync();
-
-            bool emailOk = false;
-            try
-            {
-                var (ok, _) = await _email.SendWelcomeAsync(email);
-                emailOk = ok;
-            }
-            catch { /* coi như fail, sẽ rollback */ }
-
-            if (!emailOk)
-            {
-                _db.NewsletterSubscribers.Remove(subscriber);
-                await _db.SaveChangesAsync();
-                return Ok(new {
-                    success = false,
-                    message = $"Không gửi được email xác nhận tới {email}. Vui lòng thử lại sau."
-                });
-            }
-
-            return Ok(new {
-                success = true,
-                message = $"Đăng ký thành công! Email chào mừng đã gửi tới {email}."
-            });
-        }
+        // [ĐÃ GỠ] Newsletter / SubscribeMe (đăng ký nhận tin) đã được loại bỏ.
     }
 
     public class SummarizeRequest

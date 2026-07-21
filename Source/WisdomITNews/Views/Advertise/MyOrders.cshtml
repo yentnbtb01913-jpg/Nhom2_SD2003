@@ -1,0 +1,51 @@
+@using WisdomITNews.Models
+@model List<Advertisement>
+@{
+    ViewData["Title"] = "Đơn quảng cáo của tôi";
+    var now = DateTime.Now;
+    (string, string) StatusOf(Advertisement a)
+    {
+        if (a.Status == "rejected") return ("Bị từ chối", "#dc2626");
+        if (a.EndDate != null && a.EndDate < now && a.Status == "approved") return ("Hết hạn", "#94a3b8");
+        if (a.Status == "approved" && a.IsActive) return ("Đang chạy", "#16a34a");
+        if (a.PaymentStatus == "paid") return ("Đã TT, chờ duyệt", "#2563eb");
+        return ("Chờ thanh toán", "#ca8a04");
+    }
+}
+<div style="max-width:960px;margin:24px auto;padding:0 16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h1 style="font-size:24px;font-weight:800;">Đơn quảng cáo của tôi</h1>
+        <a href="/Advertise" style="background:#0e7d85;color:#fff;padding:9px 16px;border-radius:8px;font-weight:600;text-decoration:none;"><i class="fa fa-plus"></i> Đặt quảng cáo mới</a>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div style="background:#fff;border-radius:10px;padding:40px;text-align:center;color:#64748b;box-shadow:0 2px 10px rgba(0,0,0,.05);">Bạn chưa có đơn quảng cáo nào.</div>
+    }
+    else
+    {
+        <div style="background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.06);overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                <thead><tr style="background:#f5f6f8;color:#64748b;text-align:left;">
+                    <th style="padding:12px;">#</th><th style="padding:12px;">Vị trí</th><th style="padding:12px;">Tiêu đề</th>
+                    <th style="padding:12px;">Ngày</th><th style="padding:12px;">Tổng tiền</th><th style="padding:12px;">Trạng thái</th><th style="padding:12px;">Ngày đặt</th>
+                </tr></thead>
+                <tbody>
+                @foreach (var a in Model)
+                {
+                    var (label, color) = StatusOf(a);
+                    <tr style="border-top:1px solid #eef1f4;">
+                        <td style="padding:12px;">@a.Id</td>
+                        <td style="padding:12px;">@(a.AdSlot?.Name ?? a.Position)</td>
+                        <td style="padding:12px;">@a.Title</td>
+                        <td style="padding:12px;">@a.Days ngày</td>
+                        <td style="padding:12px;font-weight:700;color:#dc2626;">@a.Amount.ToString("#,##0") đ</td>
+                        <td style="padding:12px;"><span style="background:@color;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:6px;">@label</span></td>
+                        <td style="padding:12px;color:#64748b;">@a.CreatedAt.ToString("dd/MM/yyyy")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

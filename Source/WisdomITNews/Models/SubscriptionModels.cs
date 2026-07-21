@@ -2,82 +2,32 @@ using System.ComponentModel.DataAnnotations;
 
 namespace WisdomITNews.Models;
 
-// ====================== ENUM ======================
-public enum SubscriptionStatus
-{
-    Trial = 0,      // đang dùng thử (đã kích hoạt qua email)
-    Active = 1,     // đã mua, còn hiệu lực
-    Expired = 2,    // hết hạn
-    Cancelled = 3   // đã hủy (tay hoặc auto do trial không xác nhận)
-}
+// ====================== [ĐÃ GỠ PREMIUM] ======================
+// SubscriptionPlan / PlanFeature / UserSubscription / SubscriptionStatus đã được loại bỏ.
+// Giữ lại Transaction (tái dùng làm ĐƠN THANH TOÁN QUẢNG CÁO) + TransactionStatus + RevenueCompareRow.
 
 public enum TransactionStatus
 {
-    Pending = 0,    // vừa tạo, chờ xác nhận qua email
-    Success = 1,    // đã xác nhận thanh toán
-    Failed = 2,     // thất bại / hết hạn xác nhận
-    Cancelled = 3   // hủy bởi người dùng
+    Pending = 0,    // vừa tạo, chờ thanh toán
+    Success = 1,    // đã thanh toán
+    Failed = 2,     // thất bại / hết hạn
+    Cancelled = 3   // hủy
 }
 
-// ====================== GÓI ======================
-public class SubscriptionPlan
-{
-    public int Id { get; set; }
-    [Required] public string Name { get; set; } = "";
-    public string? Description { get; set; }
-    public decimal Price { get; set; }
-    public int DurationDays { get; set; }
-    public int TrialDays { get; set; } = 0;      // 0 = không có dùng thử
-    public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
-
-    public ICollection<PlanFeature> Features { get; set; } = new List<PlanFeature>();
-}
-
-public class PlanFeature
-{
-    public int Id { get; set; }
-    public int PlanId { get; set; }
-    [Required] public string FeatureText { get; set; } = "";
-    public int SortOrder { get; set; } = 0;
-
-    public SubscriptionPlan? Plan { get; set; }
-}
-
-// ====================== ĐĂNG KÝ CỦA NGƯỜI DÙNG ======================
-public class UserSubscription
-{
-    public int Id { get; set; }
-    public int UserId { get; set; }
-    public int PlanId { get; set; }
-    public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Trial;
-    public DateTime StartDate { get; set; } = DateTime.Now;
-    public DateTime EndDate { get; set; }
-    public DateTime? ConfirmedAt { get; set; }          // null = trial chưa xác nhận qua email
-    public string? Notes { get; set; }                  // ghi chú (hủy tay / auto-cancel...)
-    public DateTime? ExpiryReminderSentAt { get; set; } // đã gửi mail nhắc hết hạn (1 lần)
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-
-    public SubscriptionPlan? Plan { get; set; }
-}
-
-// ====================== GIAO DỊCH (giả lập) ======================
+// ====================== GIAO DỊCH (đơn thanh toán quảng cáo) ======================
 public class Transaction
 {
     public int Id { get; set; }
     public int UserId { get; set; }
-    public int PlanId { get; set; }
-    public int? UserSubscriptionId { get; set; }        // null nếu giao dịch chưa tạo được sub
+    public int? AdvertisementId { get; set; }            // đơn thanh toán cho quảng cáo nào
     public decimal Amount { get; set; }
-    public string PaymentMethodLabel { get; set; } = ""; // chỉ để hiển thị, VD "VNPay (giả lập)"
+    public string PaymentMethodLabel { get; set; } = ""; // VD "Chuyển khoản ngân hàng"
     public TransactionStatus Status { get; set; } = TransactionStatus.Pending;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
-    public SubscriptionPlan? Plan { get; set; }
+    public Advertisement? Advertisement { get; set; }
 }
-
 
 // Một dòng đối chiếu doanh thu (kỳ hiện tại vs kỳ trước) — dùng cho Dashboard doanh thu.
 public class RevenueCompareRow

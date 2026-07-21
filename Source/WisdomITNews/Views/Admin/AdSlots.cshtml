@@ -1,0 +1,64 @@
+@using WisdomITNews.Models
+@model List<AdSlot>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Slot Quảng cáo";
+    var q = (string)(ViewBag.Q ?? "");
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+    <h1 style="font-size:24px;font-weight:800;">Slot Quảng cáo</h1>
+    <a href="/admin/CreateAdSlot" style="background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus-circle"></i> Tạo slot mới</a>
+</div>
+
+@if (TempData["Ok"] != null)
+{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+
+<form method="get" action="/admin/AdSlots" style="margin-bottom:18px;display:flex;gap:8px;max-width:520px;">
+    <input type="text" name="q" value="@q" placeholder="Tìm theo tên / mã vị trí / kích thước..."
+           style="flex:1;padding:10px 14px;border:1px solid #d7dde3;border-radius:8px;font-size:14px;outline:none;" />
+    <button type="submit" style="background:#0e7d85;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-weight:600;cursor:pointer;"><i class="fa fa-search"></i> Tìm</button>
+</form>
+
+@if (!Model.Any())
+{
+    <div style="background:#fff;border-radius:10px;padding:40px;text-align:center;color:#64748b;box-shadow:0 2px 10px rgba(0,0,0,.05);">Chưa có slot quảng cáo nào.</div>
+}
+else
+{
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+        @foreach (var s in Model)
+        {
+            <div style="background:#fff;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid #eef1f4;">
+                    <span style="font-size:17px;font-weight:800;color:#0f172a;">@s.Name</span>
+                    <span style="background:#2563eb;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;">@s.SlotKey</span>
+                </div>
+                <div style="padding:16px 18px;flex:1;">
+                    <p style="color:#475569;font-size:14px;margin:0 0 16px;">@s.Description</p>
+                    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:10px;"><span style="color:#64748b;">Kích thước:</span><span style="font-weight:600;color:#0f172a;">@s.Size</span></div>
+                    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:10px;"><span style="color:#64748b;">Giá/ngày:</span><span style="font-weight:800;color:#dc2626;">@s.PricePerDay.ToString("#,##0") đ</span></div>
+                    <div style="display:flex;justify-content:space-between;font-size:14px;align-items:center;"><span style="color:#64748b;">Trạng thái:</span>
+                        @if (s.IsActive)
+                        { <span style="background:#16a34a;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:6px;">Đang hoạt động</span> }
+                        else
+                        { <span style="background:#94a3b8;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:6px;">Tạm ẩn</span> }
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;padding:0 18px 16px;">
+                    <a href="/admin/EditAdSlot/@s.Id" style="flex:1;text-align:center;border:1px solid #2563eb;color:#2563eb;padding:9px;border-radius:8px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-pen"></i> Chỉnh sửa</a>
+                    <button type="button" onclick="delSlot(@s.Id)" style="border:1px solid #dc2626;color:#dc2626;background:#fff;padding:9px 14px;border-radius:8px;font-weight:600;cursor:pointer;"><i class="fa fa-trash"></i></button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@Html.AntiForgeryToken()
+<script>
+function delSlot(id){
+    if(!confirm('Xóa slot quảng cáo này?')) return;
+    fetch('/admin/DeleteAdSlot/'+id,{method:'POST',headers:{'RequestVerificationToken':document.querySelector('input[name="__RequestVerificationToken"]').value}})
+      .then(r=>r.json()).then(d=>{ if(d.success) location.reload(); else alert('Không xóa được.'); });
+}
+</script>

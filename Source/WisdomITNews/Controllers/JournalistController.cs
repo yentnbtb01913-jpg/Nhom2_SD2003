@@ -918,89 +918,43 @@ public class JournalistController : Controller
         return Json(new { count });
     }
 
-    // ===== QUẢNG CÁO (GĐ1) — nhà báo tạo, chờ Admin duyệt =====
+    // ===== QUẢNG CÁO CỦA TÔI — preview vị trí đang chạy + đơn hàng =====
+    // Đây là luồng xử lý trang quảng cáo của nhà báo
+    // Luồng: lấy mọi khu (AdSlot) -> mỗi khu chỉ gom QC ĐANG CHẠY của tôi để dựng mockup xem trước;
+    //        kèm danh sách TẤT CẢ đơn QC của tôi (ngày giờ đặt, hạn kết thúc, trạng thái).
+    // Bảng: AdSlots, AdZoneSettings, Advertisements
     public async Task<IActionResult> Ads()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
-        var mine = await _db.Advertisements
-            .Where(a => a.CreatedByUserId == CurrentUserId)
-            .OrderByDescending(a => a.CreatedAt).ToListAsync();
-        return View(mine);
-    }
-
-    [HttpGet]
-    public IActionResult CreateAd()
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        return View(new Advertisement());
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> CreateAd(Advertisement form)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var user = await GetCurrentJournalist();
-        if (user == null) return RedirectToAction("Login");
-        if (string.IsNullOrWhiteSpace(form.Title) || string.IsNullOrWhiteSpace(form.TargetUrl) || string.IsNullOrWhiteSpace(form.ImageUrl))
-        {
-            ViewBag.Error = "Vui lòng nhập tiêu đề, link đích và link ảnh banner.";
-            return View(form);
-        }
-        var validPos = new[] { "header", "sidebar", "in_article" };
-        _db.Advertisements.Add(new Advertisement
-        {
-            Title = form.Title.Trim(),
-            ImageUrl = form.ImageUrl.Trim(),
-            TargetUrl = form.TargetUrl.Trim(),
-            Position = validPos.Contains(form.Position) ? form.Position : "sidebar",
-            StartDate = form.StartDate,
-            EndDate = form.EndDate,
-            IsActive = false,
-            Status = "pending",
-            CreatedByUserId = CurrentUserId,
-            CreatedByName = user.FullName,
-            CreatedAt = DateTime.Now
-        });
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = "Đã gửi quảng cáo, chờ Admin duyệt.";
-        return RedirectToAction("Ads");
-    }
-
-    // ===== GIA HẠN QUẢNG CÁO (chat với quản trị) =====
-    public async Task<IActionResult> RenewAds()
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
+        var me = CurrentUserId;
         var now = DateTime.Now;
-        var expired = await _db.Advertisements
-            .Where(a => a.CreatedByUserId == CurrentUserId && a.EndDate != null && a.EndDate < now)
-            .OrderByDescending(a => a.EndDate).ToListAsync();
-        var ids = expired.Select(a => a.Id).ToList();
-        var unread = await _db.AdRenewalMessages
-            .Where(m => ids.Contains(m.AdvertisementId) && m.SenderRole != "journalist" && !m.IsReadByJournalist)
-            .GroupBy(m => m.AdvertisementId)
-            .Select(g => new { AdId = g.Key, C = g.Count() }).ToListAsync();
-        ViewBag.Unread = unread.ToDictionary(x => x.AdId, x => x.C);
-        return View(expired);
+        var slots = await _db.AdSlots.OrderBy(s => s.Id).ToListAsync();
+        var settings = await _db.AdZoneSettings.ToListAsync();
+        var myAds = await _db.Advertisements
+            .Include(a => a.AdSlot)
+            .Where(a => a.CreatedByUserId == me)
+            .OrderBy(a => a.DisplayOrder).ThenBy(a => a.Id).ToListAsync();
+
+        var zones = slots.Select(s => new AdLayoutZoneVm
+        {
+            Position = s.SlotKey,
+            Name = s.Name,
+            Size = s.Size,
+            RotationSeconds = settings.FirstOrDefault(z => z.Position == s.SlotKey)?.RotationSeconds ?? 5,
+            // chỉ QC của tôi đang thực sự chạy (đã duyệt + còn hạn + đang bật)
+            Ads = myAds.Where(a => a.Position == s.SlotKey && a.IsActive && a.Status == "approved"
+                        && (a.StartDate == null || a.StartDate <= now)
+                        && (a.EndDate == null || a.EndDate >= now)).ToList()
+        }).ToList();
+
+        return View(new JournalistAdsVm { Zones = zones, Orders = myAds.OrderByDescending(a => a.Id).ToList() });
     }
 
-    public async Task<IActionResult> AdChat(int id)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var ad = await _db.Advertisements.FirstOrDefaultAsync(a => a.Id == id && a.CreatedByUserId == CurrentUserId);
-        if (ad == null) return RedirectToAction("RenewAds");
-        var msgs = await _db.AdRenewalMessages
-            .Where(m => m.AdvertisementId == id).OrderBy(m => m.Id).ToListAsync();
-        // đánh dấu tin từ quản trị là đã đọc
-        var unread = msgs.Where(m => m.SenderRole != "journalist" && !m.IsReadByJournalist).ToList();
-        if (unread.Count > 0)
-        {
-            foreach (var m in unread) m.IsReadByJournalist = true;
-            await _db.SaveChangesAsync();
-        }
-        ViewBag.Ad = ad;
-        ViewBag.Messages = msgs;
-        return View();
-    }
+    // [ĐÃ GỠ] Nhà báo không tạo QC trực tiếp nữa — chuyển sang luồng mua quảng cáo tại /quang-cao.
+    [HttpGet]
+    public IActionResult CreateAd() => Redirect("/quang-cao");
+
+    // [ĐÃ GỠ] Khu Gia hạn quảng cáo (RenewAds/AdChat) đã được loại bỏ.
 
     // ===== PODCAST / AUDIO (của tôi) =====
     public async Task<IActionResult> Podcasts()
@@ -1074,14 +1028,5 @@ public class JournalistController : Controller
     }
 
     // ===== CHAT NỘI BỘ BAN QUẢN LÝ (phòng chung) =====
-    public async Task<IActionResult> TeamChat()
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var msgs = await _db.TeamChatMessages.Where(m => m.ConversationKey == "team")
-            .OrderBy(m => m.Id).Take(200).ToListAsync();
-        ViewBag.Messages = msgs;
-        ViewBag.MeRole = "journalist";
-        ViewBag.MeId = CurrentUserId ?? 0;
-        return View();
-    }
+    // [ĐÃ GỠ] Action TeamChat (Chat nội bộ) đã được loại bỏ.
 }

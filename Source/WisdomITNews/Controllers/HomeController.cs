@@ -18,6 +18,12 @@ public class HomeController : Controller
         _featured = featured;
     }
 
+    // Đây là luồng xử lý hiển thị trang chủ
+    // Luồng: 1) Đọc vùng hiện tại từ session (ưu tiên bài cùng vùng, thiếu thì bù bài chung)
+    //        2) Nạp các khu: Tin nổi bật tự động (Top 4), Mới nhất (12), AI (danh mục 3),
+    //           Nóng 24H (theo ViewHistory 24 giờ, thiếu thì bù theo tổng Views)
+    //        3) Nạp danh mục + tag -> HomeViewModel
+    // Bảng: Articles, ViewHistories, Categories, Tags
     public async Task<IActionResult> Index()
     {
         // Đọc vùng hiện tại từ session
@@ -112,6 +118,9 @@ public class HomeController : Controller
         return View(vm);
     }
 
+    // Đây là luồng xử lý hiển thị trang danh mục (chuyên mục)
+    // Luồng: tìm Category theo slug -> lấy bài published của danh mục (phân trang 10) -> CategoryViewModel
+    // Bảng: Articles, Categories
     public async Task<IActionResult> Category(string slug, int page = 1)
     {
         const int pageSize = 10;
@@ -184,6 +193,10 @@ public class HomeController : Controller
         return (userId, sessionId);
     }
 
+    // Đây là luồng xử lý lưu lịch sử tìm kiếm
+    // Luồng: chuẩn hóa từ khóa -> trùng thì cập nhật thời gian, chưa có thì thêm mới
+    //        -> giới hạn tối đa 50 mục/người-phiên (xóa bớt cũ)
+    // Bảng: SearchHistories
     private async Task SaveSearchHistoryAsync(string keyword)
     {
         var norm = NormalizeKeyword(keyword);
@@ -226,6 +239,10 @@ public class HomeController : Controller
     }
 
     /// <summary>Danh sách bài published khớp từ khóa theo Title/Summary/Content/Tag/Category (fuzzy, không phân biệt hoa-thường/dấu).</summary>
+    // Đây là luồng xử lý tìm bài theo từ khóa (lõi tìm kiếm)
+    // Luồng: 1) Khớp Title/Summary/Content/Category/Tag (chứa từ khóa)
+    //        2) Chưa đủ -> quét gần đúng BỎ DẤU trên 400 bài gần đây (bắt trường hợp gõ không dấu)
+    // Bảng: Articles, Tags, Categories
     private async Task<List<Article>> SearchArticlesAsync(string q, int take)
     {
         var kwLower = q.Trim().ToLower();
@@ -270,6 +287,7 @@ public class HomeController : Controller
     }
 
     /// <summary>Trạng thái rỗng của ô tìm kiếm: lịch sử gần đây + từ khóa phổ biến.</summary>
+    // Đây là luồng xử lý hiển thị ô tìm kiếm khi rỗng (lịch sử gần đây + từ khóa phổ biến)
     [HttpGet]
     public async Task<IActionResult> SearchPanel()
     {
@@ -303,6 +321,8 @@ public class HomeController : Controller
     }
 
     // Gợi ý tìm kiếm real-time (autocomplete) — trả JSON: từ khóa gợi ý, danh mục liên quan, bài viết liên quan
+    // Đây là luồng xử lý gợi ý tìm kiếm real-time (autocomplete)
+    // Luồng: theo từ khóa -> trả từ khóa gợi ý + danh mục liên quan + bài viết liên quan (JSON)
     [HttpGet]
     public async Task<IActionResult> SearchSuggest(string q)
     {
@@ -346,6 +366,7 @@ public class HomeController : Controller
     }
 
     /// <summary>Xóa một từ khóa khỏi lịch sử tìm kiếm (chỉ xóa đúng chủ sở hữu).</summary>
+    // Đây là luồng xử lý xóa 1 từ khóa khỏi lịch sử tìm kiếm (đúng chủ sở hữu)
     [HttpPost]
     public async Task<IActionResult> DeleteSearchHistory(int id)
     {
@@ -359,6 +380,7 @@ public class HomeController : Controller
     }
 
     /// <summary>Xóa toàn bộ lịch sử tìm kiếm của người dùng/phiên hiện tại.</summary>
+    // Đây là luồng xử lý xóa toàn bộ lịch sử tìm kiếm của người/phiên hiện tại
     [HttpPost]
     public async Task<IActionResult> ClearSearchHistory()
     {
@@ -369,6 +391,8 @@ public class HomeController : Controller
         return Json(new { success = true });
     }
 
+    // Đây là luồng xử lý trang kết quả tìm kiếm đầy đủ (/tim-kiem)
+    // Luồng: có từ khóa -> lưu lịch sử + tìm 30 bài -> SearchViewModel
     public async Task<IActionResult> Search(string q = "")
     {
         var results = new List<Article>();
@@ -384,6 +408,9 @@ public class HomeController : Controller
     /// <summary>
     /// [H] Lịch sử bài viết đã xem theo session — route /lich-su.
     /// </summary>
+    // Đây là luồng xử lý hiển thị lịch sử bài đã xem (theo SessionId)
+    // Luồng: lấy 20 ViewHistory gần nhất của phiên -> ghép Article -> danh sách ViewHistoryItem
+    // Bảng: ViewHistories, Articles
     [Route("/lich-su")]
     public async Task<IActionResult> ViewHistory()
     {
@@ -430,6 +457,9 @@ public class HomeController : Controller
     }
 
     // Tự nạp thêm bài (infinite scroll) + chèn 1 video ngẫu nhiên như một tin
+    // Đây là luồng xử lý nạp thêm bài (cuộn vô hạn)
+    // Luồng: lấy 6 bài tiếp theo + chèn 1 video ngẫu nhiên xen kẽ -> partial "_FeedMore"
+    // Bảng: Articles, Videos
     public async Task<IActionResult> LoadMore(int skip = 0)
     {
         const int take = 6;

@@ -16,6 +16,10 @@ public class NotificationService
         _hub = hub;
     }
 
+    // Đây là luồng xử lý gửi thông báo hệ thống cho tất cả người dùng
+    // Luồng: 1) Tạo Notification (Type="system", mã NTBxxxx)  2) Lưu DB
+    //        3) Phát realtime "ReceiveNotification" tới Clients.All
+    // Bảng: Notifications
     public async Task SendSystemAsync(string title, string content, string icon = "bell", string iconColor = "#159aa3")
     {
         var notif = new Notification
@@ -35,6 +39,10 @@ public class NotificationService
         await _hub.Clients.All.SendAsync("ReceiveNotification", notif);
     }
 
+    // Đây là luồng xử lý gửi thông báo bình luận vi phạm (AI phát hiện)
+    // Luồng: 1) Tạo Notification Type="ai_violation", TargetUserId=userId, lưu nội dung vi phạm
+    //        2) Lưu DB  3) Phát realtime tới group "user_{userId}"
+    // Bảng: Notifications
     public async Task SendAiViolationAsync(int userId, string violationContent, int? commentId = null)
     {
         var notif = new Notification
@@ -57,6 +65,10 @@ public class NotificationService
         await _hub.Clients.Group($"user_{userId}").SendAsync("ReceiveNotification", notif);
     }
 
+    // Đây là luồng xử lý gửi thông báo bài viết bị từ chối
+    // Luồng: 1) Tạo Notification Type="article_rejected", TargetUserId=authorUserId, RelatedArticleId
+    //        2) Lưu DB  3) Phát realtime tới group "user_{authorUserId}"
+    // Bảng: Notifications
     public async Task SendArticleRejectedAsync(int authorUserId, int articleId, string articleTitle, string reason)
     {
         var notif = new Notification
@@ -79,6 +91,9 @@ public class NotificationService
         await _hub.Clients.Group($"user_{authorUserId}").SendAsync("ReceiveNotification", notif);
     }
 
+    // Đây là luồng xử lý gửi thông báo video bị từ chối
+    // Luồng: tạo Notification Type="video_rejected", RelatedVideoId -> lưu DB -> phát tới "user_{adminId}"
+    // Bảng: Notifications
     public async Task SendVideoRejectedAsync(int adminId, int videoId, string videoTitle, string reason)
     {
         var notif = new Notification
@@ -101,6 +116,9 @@ public class NotificationService
         await _hub.Clients.Group($"user_{adminId}").SendAsync("ReceiveNotification", notif);
     }
 
+    // Đây là luồng xử lý gửi thông báo tới một email cụ thể
+    // Luồng: tạo Notification -> lưu DB -> phát realtime tới group "email_{email}"
+    // Bảng: Notifications
     public async Task SendToEmailAsync(string email, string title, string content)
     {
         var notif = new Notification
@@ -121,6 +139,9 @@ public class NotificationService
         await _hub.Clients.Group($"email_{email}").SendAsync("ReceiveNotification", notif);
     }
 
+    // Đây là luồng xử lý gửi thông báo cho tất cả nhà báo
+    // Luồng: tạo Notification -> lưu DB -> phát realtime tới group "journalists"
+    // Bảng: Notifications
     public async Task SendToJournalistsAsync(string title, string content)
     {
         var notif = new Notification
@@ -141,6 +162,7 @@ public class NotificationService
         await _hub.Clients.Group("journalists").SendAsync("ReceiveNotification", notif);
     }
 
+    // Đây là luồng xử lý sinh mã thông báo (NTBxxxx)
     private string GenerateCode()
     {
         var count = _db.Notifications.Count() + 1;

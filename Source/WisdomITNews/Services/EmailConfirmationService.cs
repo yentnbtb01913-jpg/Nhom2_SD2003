@@ -58,6 +58,8 @@ public class EmailConfirmationService
     }
 
     // Tạo token + gửi email xác nhận đăng ký. Best-effort (không throw ra ngoài để không chặn đăng ký).
+    // Đây là luồng xử lý gửi email xác nhận khi đăng ký tài khoản
+    // Luồng: tạo token (GUID, có hạn) -> lưu EmailConfirmationTokens -> gửi email chứa link xác nhận
     public async Task<(bool ok, string? error)> SendRegistrationAsync(User user, string baseUrl)
     {
         try
@@ -80,6 +82,7 @@ public class EmailConfirmationService
     }
 
     // Gửi lại email xác nhận — cooldown tối thiểu 60s theo UserId.
+    // Đây là luồng xử lý gửi lại email xác nhận đăng ký (khi token cũ hết hạn/chưa nhận được)
     public async Task<(bool ok, string message)> ResendRegistrationAsync(int userId, string baseUrl)
     {
         var user = await _db.Users.FindAsync(userId);
@@ -104,6 +107,10 @@ public class EmailConfirmationService
 
     // Xác nhận thật (khi người dùng bấm nút). Idempotent: bấm lại link cũ không gây lỗi.
     // Single-use theo nghĩa KHÔNG kích hoạt trạng thái lần 2 (đã xác nhận -> chỉ trả AlreadyConfirmed).
+    // Đây là luồng xử lý xác nhận token email (khi người dùng bấm link trong email)
+    // Luồng: 1) Tìm token còn hạn & chưa dùng
+    //        2) Theo Purpose: xác nhận đăng ký (User.EmailVerified=true) / kích hoạt trial / mua gói
+    //        3) Đánh dấu token.ConfirmedAt=now -> trả kết quả
     public async Task<ConfirmResult> ConfirmAsync(string token, string? baseUrl = null)
     {
         if (string.IsNullOrWhiteSpace(token))
@@ -124,151 +131,12 @@ public class EmailConfirmationService
             var user = await _db.Users.FindAsync(t.UserId);
             if (user != null) user.EmailVerified = true;
         }
-        else if (t.Purpose == EmailTokenPurpose.TrialActivation)
-        {
-            // Trường hợp DUY NHẤT link email được kích hoạt quyền lợi (dùng thử không liên quan tiền).
-            var sub = t.SubscriptionId != null ? await _db.UserSubscriptions.FindAsync(t.SubscriptionId.Value) : null;
-            if (sub != null && sub.Status == SubscriptionStatus.Trial && sub.ConfirmedAt == null)
-            {
-                var plan = await _db.SubscriptionPlans.FindAsync(sub.PlanId);
-                int trialDays = plan?.TrialDays ?? 0;
-                sub.ConfirmedAt = DateTime.Now;
-                sub.StartDate = DateTime.Now;                       // tính từ lúc xác nhận thật
-                sub.EndDate = DateTime.Now.AddDays(trialDays > 0 ? trialDays : 0);
-                var user = await _db.Users.FindAsync(t.UserId);
-                if (user != null) user.HasUsedTrial = true;
-            }
-        }
-        else if (t.Purpose == EmailTokenPurpose.PurchaseConfirmation)
-        {
-            // "Webhook giả lập": chính cú bấm xác nhận email này là bước kích hoạt gói đã mua.
-            var tx = t.TransactionId != null ? await _db.Transactions.FindAsync(t.TransactionId.Value) : null;
-            if (tx != null && tx.Status != TransactionStatus.Success)   // idempotent
-            {
-                var plan = await _db.SubscriptionPlans.FindAsync(tx.PlanId);
-                int durationDays = plan?.DurationDays ?? 0;
-                var now = DateTime.Now;
-
-                // Nếu đang có Active cùng plan còn hiệu lực -> cộng dồn ngày, không tạo bản ghi song song.
-                var active = await _db.UserSubscriptions.FirstOrDefaultAsync(x =>
-                    x.UserId == tx.UserId && x.PlanId == tx.PlanId &&
-                    x.Status == SubscriptionStatus.Active && x.EndDate > now);
-                UserSubscription sub;
-                if (active != null)
-                {
-                    active.EndDate = active.EndDate.AddDays(durationDays);
-                    active.ConfirmedAt ??= now;
-                    sub = active;
-                }
-                else
-                {
-                    sub = new UserSubscription
-                    {
-                        UserId = tx.UserId,
-                        PlanId = tx.PlanId,
-                        Status = SubscriptionStatus.Active,
-                        StartDate = now,
-                        EndDate = now.AddDays(durationDays),
-                        ConfirmedAt = now,
-                        CreatedAt = now
-                    };
-                    _db.UserSubscriptions.Add(sub);
-                    await _db.SaveChangesAsync();   // lấy sub.Id
-                }
-
-                tx.Status = TransactionStatus.Success;
-                tx.UserSubscriptionId = sub.Id;
-                tx.UpdatedAt = now;
-
-                // Gửi email xác nhận mua thành công (best-effort, sau khi đã kích hoạt).
-                try
-                {
-                    var user = await _db.Users.FindAsync(tx.UserId);
-                    if (user != null)
-                    {
-                        var html = BuildEmail(user.FullName,
-                            $"Thanh toán gói <strong>{System.Net.WebUtility.HtmlEncode(plan?.Name ?? "Premium")}</strong> đã thành công. Gói của bạn có hiệu lực đến {sub.EndDate:dd/MM/yyyy}.",
-                            "Xem gói của tôi", (baseUrl ?? "") + "/Subscription/MySubscription",
-                            "Cảm ơn bạn đã ủng hộ Wisdom IT News.");
-                        await _email.SendAsync(user.Email, "Xác nhận mua gói Premium — Wisdom IT News", html, user.FullName);
-                    }
-                }
-                catch (Exception ex) { _logger.LogWarning(ex, "Gửi email mua thành công lỗi (txId={TxId})", tx.Id); }
-            }
-        }
-        // SubscriptionReceipt: KHÔNG đổi trạng thái ở đây.
+        // [ĐÃ GỠ] Các nhánh Premium (TrialActivation/PurchaseConfirmation/SubscriptionReceipt) đã được loại bỏ.
         await _db.SaveChangesAsync();
         return new ConfirmResult { Status = ConfirmStatus.Confirmed, Purpose = t.Purpose, UserId = t.UserId, TransactionId = t.TransactionId };
     }
 
-    // Tạo token dùng thử + gửi email kích hoạt (nút xác nhận). Best-effort.
-    public async Task<(bool ok, string? error)> SendTrialActivationAsync(User user, int subscriptionId, int trialDays, string baseUrl)
-    {
-        try
-        {
-            var token = await CreateTokenAsync(user.Id, EmailTokenPurpose.TrialActivation, subscriptionId: subscriptionId);
-            var link = $"{baseUrl}/Account/ConfirmEmail?token={Uri.EscapeDataString(token)}";
-            var html = BuildEmail(user.FullName,
-                $"Bạn vừa yêu cầu dùng thử miễn phí {trialDays} ngày gói Premium của Wisdom IT News. Bấm nút bên dưới để kích hoạt bản dùng thử của bạn.",
-                "Kích hoạt dùng thử", link,
-                "Nếu bạn không yêu cầu dùng thử, vui lòng bỏ qua email này.");
-            var (ok, err) = await _email.SendAsync(user.Email, "Kích hoạt dùng thử Premium — Wisdom IT News", html, user.FullName);
-            if (!ok) _logger.LogWarning("Gửi email dùng thử thất bại: {Err}", err);
-            return (ok, err);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "SendTrialActivationAsync failed (userId={UserId})", user.Id);
-            return (false, ex.Message);
-        }
-    }
-
-    // Tạo token xác nhận thanh toán + gửi email nút "Xác nhận thanh toán". Best-effort.
-    public async Task<(bool ok, string? error)> SendPurchaseConfirmationAsync(User user, int transactionId, string planName, decimal amount, string baseUrl)
-    {
-        try
-        {
-            var token = await CreateTokenAsync(user.Id, EmailTokenPurpose.PurchaseConfirmation, transactionId: transactionId);
-            var link = $"{baseUrl}/Account/ConfirmEmail?token={Uri.EscapeDataString(token)}";
-            var html = BuildEmail(user.FullName,
-                $"Bạn vừa tạo yêu cầu mua gói <strong>{System.Net.WebUtility.HtmlEncode(planName)}</strong> với số tiền {amount:#,##0}đ (thanh toán mô phỏng). Bấm nút bên dưới để xác nhận và kích hoạt gói.",
-                "Xác nhận thanh toán", link,
-                "Nếu bạn không thực hiện giao dịch này, vui lòng bỏ qua email.");
-            var (ok, err) = await _email.SendAsync(user.Email, "Xác nhận thanh toán gói Premium — Wisdom IT News", html, user.FullName);
-            if (!ok) _logger.LogWarning("Gửi email xác nhận thanh toán thất bại: {Err}", err);
-            return (ok, err);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "SendPurchaseConfirmationAsync failed (userId={UserId})", user.Id);
-            return (false, ex.Message);
-        }
-    }
-
-    // ⚠️ QUAN TRỌNG: CHỈ gọi hàm này SAU KHI webhook thanh toán đã xác nhận mua gói thành công.
-    // Nút xác nhận trong email loại này KHÔNG được phép kích hoạt hay thay đổi bất kỳ trạng thái Premium nào;
-    // chỉ dùng để điều hướng người dùng và ghi nhận ConfirmedAt (thống kê người dùng đã xem email hay chưa).
-    public async Task<bool> SendSubscriptionReceiptEmailAsync(int userId, string baseUrl)
-    {
-        var user = await _db.Users.FindAsync(userId);
-        if (user == null) return false;
-        try
-        {
-            var token = await CreateTokenAsync(userId, EmailTokenPurpose.SubscriptionReceipt);
-            var link = $"{baseUrl}/Account/ConfirmEmail?token={Uri.EscapeDataString(token)}&purpose=subscription";
-            var html = BuildEmail(user.FullName,
-                "Cảm ơn bạn đã đăng ký gói Premium của Wisdom IT News. Đây là biên nhận của bạn.",
-                "Xem gói của tôi", link,
-                "Đây là email biên nhận, không yêu cầu thao tác thanh toán thêm.");
-            var (ok, _) = await _email.SendAsync(user.Email, "Biên nhận gói Premium — Wisdom IT News", html, user.FullName);
-            return ok;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "SendSubscriptionReceiptEmailAsync failed (userId={UserId})", userId);
-            return false;
-        }
-    }
+    // [ĐÃ GỠ] SendTrialActivationAsync / SendPurchaseConfirmationAsync / SendSubscriptionReceiptEmailAsync (Premium) đã được loại bỏ.
 
     private static string BuildEmail(string name, string intro, string buttonText, string link, string footer)
     {

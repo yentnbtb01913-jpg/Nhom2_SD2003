@@ -2,6 +2,9 @@ namespace WisdomITNews.Services;
 
 public static class SlugHelper
 {
+    // Đây là luồng xử lý tạo slug tiếng Việt không dấu (cho URL bài/danh mục/tag)
+    // Luồng: 1) Đưa về chữ thường, thay ký tự có dấu -> không dấu (đ->d)
+    //        2) Bỏ ký tự lạ, gộp khoảng trắng/gạch thành 1 dấu "-", cắt "-" ở đầu/cuối
     public static string MakeSlug(string text)
     {
         var from = "àáảãạăắặằẳẵâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ";
@@ -22,11 +25,13 @@ public static class SlugHelper
         ["da-nang"] = "Đà Nẵng", ["hai-phong"] = "Hải Phòng", ["can-tho"] = "Cần Thơ"
     };
 
+    // Đây là luồng xử lý đổi slug vùng miền sang tên hiển thị (null/rỗng -> "Toàn quốc")
     // Slug vùng -> tên hiển thị. Null/rỗng -> "Toàn quốc".
     public static string RegionName(string? slug) =>
         string.IsNullOrWhiteSpace(slug) ? "Toàn quốc"
         : (_regionNames.TryGetValue(slug, out var n) ? n : slug);
 
+    // Đây là luồng xử lý định dạng số lượt xem gọn (1.2K, 3.4M)
     public static string FormatViews(int views)
     {
         if (views >= 1_000_000) return $"{views / 1_000_000.0:0.#}M";
@@ -34,6 +39,7 @@ public static class SlugHelper
         return views.ToString("N0");
     }
 
+    // Đây là luồng xử lý định dạng thời gian tương đối ("Vừa xong", "3 giờ trước", "Hôm qua"...)
     public static string FormatDate(DateTime? dt, bool relative = true)
     {
         if (dt == null) return "";

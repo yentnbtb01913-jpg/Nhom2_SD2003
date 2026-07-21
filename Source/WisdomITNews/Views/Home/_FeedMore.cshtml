@@ -26,7 +26,6 @@
     var a = Model[i];
     <div class="bm-list-item" onclick="location.href='/bai-viet/@a.Slug'">
         <div class="bm-thumb" style="position:relative;">
-            @if (a.IsPremiumOnly) { <span style="position:absolute;top:6px;left:6px;z-index:2;background:#0e7d85;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.25);"><i class="fa fa-crown"></i> PREMIUM</span> }
             @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
             {
                 <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />

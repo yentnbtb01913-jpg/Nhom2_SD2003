@@ -1,0 +1,92 @@
+@using WisdomITNews.Models
+@using WisdomITNews.Services
+@model WisdomITNews.Models.User
+@{
+    ViewData["Title"] = "Hồ sơ nhà báo";
+    Layout = "_ManagerLayout";
+    var p = ViewBag.Profile as JournalistProfile;
+    int artCount = ViewBag.ArticleCount ?? 0;
+    int totalViews = ViewBag.TotalViews ?? 0;
+    var recent = ViewBag.RecentArticles as List<Article> ?? new List<Article>();
+}
+@functions {
+    string row(string label, string? val) => string.IsNullOrWhiteSpace(val) ? "" : $"<div style='padding:6px 0;font-size:13.5px;'><span style='color:#94a3b8;display:inline-block;width:150px;'>{label}</span><b>{System.Net.WebUtility.HtmlEncode(val)}</b></div>";
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-id-badge" style="color:#159aa3;"></i> Hồ sơ nhà báo</h1>
+    <div>
+        <a href="/nhan-vien/EditJournalist/@Model.Id" style="background:#159aa3;color:#fff;padding:8px 16px;border-radius:6px;font-size:13px;text-decoration:none;"><i class="fa fa-pen"></i> Sửa</a>
+        <a href="/nhan-vien/Partners" style="margin-left:6px;color:#6c757d;text-decoration:none;font-size:13px;">← Danh sách</a>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:320px 1fr;gap:18px;align-items:start;">
+    <div>
+        <div style="background:#fff;border-radius:8px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.06);text-align:center;">
+            <img src="@(string.IsNullOrEmpty(Model.AvatarUrl) ? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Model.FullName)}&background=159aa3&color=fff&size=140" : Model.AvatarUrl)" style="width:110px;height:110px;border-radius:50%;object-fit:cover;border:4px solid #e6f4f5;" />
+            <div style="font-weight:800;font-size:18px;margin-top:10px;">@Model.FullName</div>
+            @if (!string.IsNullOrWhiteSpace(p?.PenName)) { <div style="color:#0e7d85;font-size:13px;">Bút danh: @p.PenName</div> }
+            <div style="color:#94a3b8;font-size:12px;">JP@(Model.Id.ToString("D4")) · @@@Model.Username</div>
+            @if (!string.IsNullOrWhiteSpace(p?.JobTitle)) { <div style="margin-top:6px;font-size:13px;font-weight:600;color:#374151;">@p.JobTitle@(string.IsNullOrWhiteSpace(p?.Organization) ? "" : " · " + p.Organization)</div> }
+            <div style="margin-top:8px;">
+                @if (Model.IsDeleted) { <span style="padding:3px 12px;border-radius:20px;font-size:11px;background:#fee2e2;color:#991b1b;font-weight:700;">Đã xóa</span> }
+                else if (Model.IsActive) { <span style="padding:3px 12px;border-radius:20px;font-size:11px;background:#dcfce7;color:#16a34a;font-weight:700;">Đang hoạt động</span> }
+                else { <span style="padding:3px 12px;border-radius:20px;font-size:11px;background:#fef9c3;color:#ca8a04;font-weight:700;">Chờ duyệt</span> }
+            </div>
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:14px;">
+                @if (!string.IsNullOrWhiteSpace(p?.Facebook)) { <a href="@p.Facebook" target="_blank" style="color:#1877f2;font-size:18px;"><i class="fa-brands fa-facebook"></i></a> }
+                @if (!string.IsNullOrWhiteSpace(p?.LinkedIn)) { <a href="@p.LinkedIn" target="_blank" style="color:#0a66c2;font-size:18px;"><i class="fa-brands fa-linkedin"></i></a> }
+                @if (!string.IsNullOrWhiteSpace(p?.Twitter)) { <a href="@p.Twitter" target="_blank" style="color:#111;font-size:18px;"><i class="fa-brands fa-x-twitter"></i></a> }
+                @if (!string.IsNullOrWhiteSpace(p?.Website)) { <a href="@p.Website" target="_blank" style="color:#0e7d85;font-size:18px;"><i class="fa fa-globe"></i></a> }
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+            <div style="flex:1;background:#e6f4f5;border-radius:8px;padding:12px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#0e7d85;">@artCount</div><div style="font-size:11px;color:#6c757d;">Bài viết</div></div>
+            <div style="flex:1;background:#e6f4f5;border-radius:8px;padding:12px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#0e7d85;">@totalViews.ToString("N0")</div><div style="font-size:11px;color:#6c757d;">Lượt xem</div></div>
+        </div>
+    </div>
+
+    <div>
+        <div style="background:#fff;border-radius:8px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:16px;">
+            <h2 style="font-size:15px;font-weight:700;color:#0e7d85;margin-bottom:8px;">Thông tin</h2>
+            @Html.Raw(row("Email", Model.Email))
+            @Html.Raw(row("Điện thoại", p?.Phone))
+            @Html.Raw(row("Giới tính", p?.Gender))
+            @Html.Raw(row("Ngày sinh", p?.DateOfBirth?.ToString("dd/MM/yyyy")))
+            @Html.Raw(row("Quốc tịch", p?.Nationality))
+            @Html.Raw(row("Địa chỉ", string.Join(", ", new[]{p?.Address,p?.City,p?.Country}.Where(x=>!string.IsNullOrWhiteSpace(x)))))
+            @Html.Raw(row("Chuyên mục", p?.AssignedCategory))
+            @Html.Raw(row("Kinh nghiệm", p?.YearsExperience?.ToString() is string ye ? ye + " năm" : null))
+            @Html.Raw(row("Thẻ nhà báo", p?.PressCardNo))
+            @Html.Raw(row("Hiệu lực thẻ", (p?.PressCardIssued?.ToString("dd/MM/yyyy")) + (p?.PressCardExpiry != null ? " → " + p.PressCardExpiry?.ToString("dd/MM/yyyy") : "")))
+            @if (!string.IsNullOrWhiteSpace(p?.Expertise))
+            {
+                <div style="padding:8px 0;">
+                    <span style="color:#94a3b8;font-size:13.5px;">Chuyên môn:</span>
+                    @foreach (var t in p.Expertise.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                    { <span style="display:inline-block;background:#e6f4f5;color:#0e7d85;padding:2px 10px;border-radius:20px;font-size:12px;margin:2px;">@t.Trim()</span> }
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.Bio))
+            { <div style="margin-top:10px;"><span style="color:#94a3b8;font-size:13.5px;">Tiểu sử:</span><p style="margin-top:4px;font-size:13.5px;line-height:1.6;">@Model.Bio</p></div> }
+            @if (!string.IsNullOrWhiteSpace(p?.InternalNote))
+            { <div style="margin-top:10px;background:#fff7ed;border-left:3px solid #f97316;padding:8px 12px;font-size:13px;"><b>Ghi chú nội bộ:</b> @p.InternalNote</div> }
+        </div>
+
+        <div style="background:#fff;border-radius:8px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
+            <h2 style="font-size:15px;font-weight:700;color:#0e7d85;margin-bottom:10px;">Bài viết gần đây (@artCount)</h2>
+            @if (recent.Any())
+            {
+                foreach (var a in recent)
+                {
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f2f4f6;font-size:13.5px;">
+                        <a href="/bai-viet/@a.Slug" target="_blank" style="color:#1a1a1a;text-decoration:none;font-weight:500;">@a.Title</a>
+                        <span style="color:#94a3b8;font-size:12px;white-space:nowrap;margin-left:12px;"><i class="fa fa-eye"></i> @SlugHelper.FormatViews(a.Views)</span>
+                    </div>
+                }
+            }
+            else { <div style="color:#94a3b8;font-size:13px;">Chưa có bài viết.</div> }
+        </div>
+    </div>
+</div>

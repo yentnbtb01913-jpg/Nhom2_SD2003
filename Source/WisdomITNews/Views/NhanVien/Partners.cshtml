@@ -3,13 +3,36 @@
     ViewData["Title"] = "Đối tác (Nhà Báo)";
     Layout = "_ManagerLayout";
     var counts = ViewBag.ArticleCounts as Dictionary<int, int> ?? new Dictionary<int, int>();
+    var filter = ViewBag.Filter as string ?? "all";
+    var q = ViewBag.Q as string ?? "";
+    var tabs = new (string key, string label)[] { ("all", "Tất cả"), ("active", "Đang hoạt động"), ("inactive", "Chờ duyệt"), ("deleted", "Đã xóa") };
 }
 
-<h1 style="font-size:22px;font-weight:800;margin-bottom:8px;"><i class="fa fa-handshake" style="color:#159aa3;"></i> Đối tác — Nhà Báo</h1>
-<p style="color:#6c757d;font-size:13px;margin-bottom:18px;">Quản lý tài khoản Nhà Báo và duyệt đơn đăng ký. Đơn mới ở trạng thái <b>Chờ duyệt</b>.</p>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px;">
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-handshake" style="color:#159aa3;"></i> Đối tác — Nhà Báo</h1>
+    <a href="/nhan-vien/CreateJournalist" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-user-plus"></i> Thêm nhà báo</a>
+</div>
+<p style="color:#6c757d;font-size:13px;margin-bottom:16px;">Quản lý tài khoản Nhà Báo: thêm, sửa, xem hồ sơ, duyệt/khoá, xóa mềm & khôi phục.</p>
 
-<div style="background:#fff;border-radius:6px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+@if (TempData["Ok"] != null)
+{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        @foreach (var t in tabs)
+        {
+            <a href="/nhan-vien/Partners?filter=@t.key&q=@q" style="padding:7px 14px;border-radius:6px;font-size:13px;text-decoration:none;@(filter==t.key ? "background:#0e7d85;color:#fff;" : "background:#f0f2f5;color:#374151;")">@t.label</a>
+        }
+    </div>
+    <form method="get" action="/nhan-vien/Partners" style="display:flex;gap:8px;">
+        <input type="hidden" name="filter" value="@filter" />
+        <input type="text" name="q" value="@q" placeholder="🔍 Tên / email / username..." style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:220px;" />
+        <button type="submit" style="background:#159aa3;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;">Tìm</button>
+    </form>
+</div>
+
+<div style="background:#fff;border-radius:6px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
         <thead>
             <tr style="border-bottom:2px solid #f0f2f5;color:#6c757d;">
                 <th style="text-align:left;padding:10px 8px;">Nhà báo</th>
@@ -23,7 +46,7 @@
         <tbody>
             @foreach (var u in Model)
             {
-                <tr style="border-bottom:1px solid #f0f2f5;">
+                <tr id="jrow-@u.Id" style="border-bottom:1px solid #f0f2f5;">
                     <td style="padding:10px 8px;">
                         <div style="font-weight:600;">@u.FullName</div>
                         <div style="font-size:12px;color:#94a3b8;">@@@u.Username</div>
@@ -31,27 +54,41 @@
                     <td style="padding:10px 8px;color:#6c757d;">@u.Email</td>
                     <td style="padding:10px 8px;">@(counts.ContainsKey(u.Id) ? counts[u.Id] : 0)</td>
                     <td style="padding:10px 8px;">
-                        <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(u.IsActive?"#dcfce7":"#fef9c3");color:@(u.IsActive?"#16a34a":"#ca8a04");">
-                            @(u.IsActive ? "Đang hoạt động" : "Chờ duyệt")
-                        </span>
+                        @if (u.IsDeleted)
+                        { <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#fee2e2;color:#991b1b;">Đã xóa</span> }
+                        else
+                        {
+                            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(u.IsActive?"#dcfce7":"#fef9c3");color:@(u.IsActive?"#16a34a":"#ca8a04");">
+                                @(u.IsActive ? "Đang hoạt động" : "Chờ duyệt")
+                            </span>
+                        }
                     </td>
                     <td style="padding:10px 8px;color:#6c757d;">@u.CreatedAt.ToString("dd/MM/yyyy")</td>
                     <td style="padding:10px 8px;white-space:nowrap;">
-                        @if (!u.IsActive)
+                        @if (u.IsDeleted)
                         {
-                            <button onclick="approveJ(@u.Id)" style="background:#16a34a;color:#fff;border:none;padding:6px 12px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-check"></i> Duyệt</button>
+                            <button onclick="restoreJ(@u.Id)" style="background:#16a34a;color:#fff;border:none;padding:6px 12px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-rotate-left"></i> Khôi phục</button>
                         }
                         else
                         {
-                            <button onclick="lockJ(@u.Id)" style="background:#f3f4f6;color:#b91c1c;border:1px solid #fecaca;padding:6px 12px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-ban"></i> Khoá</button>
+                            @if (!u.IsActive)
+                            {
+                                <button onclick="approveJ(@u.Id)" style="background:#16a34a;color:#fff;border:none;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-check"></i></button>
+                            }
+                            else
+                            {
+                                <button onclick="lockJ(@u.Id)" style="background:#f3f4f6;color:#b91c1c;border:1px solid #fecaca;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-ban"></i></button>
+                            }
+                            <a href="/nhan-vien/JournalistDetail/@u.Id" title="Chi tiết" style="background:#eef2ff;color:#4338ca;padding:6px 10px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-eye"></i></a>
+                            <a href="/nhan-vien/EditJournalist/@u.Id" title="Sửa" style="background:#159aa3;color:#fff;padding:6px 10px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
+                            <button onclick="softDelJ(@u.Id)" title="Xóa mềm" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i></button>
                         }
-                        <a href="/u/@u.Username" target="_blank" style="color:#159aa3;font-size:12px;margin-left:6px;text-decoration:none;">Hồ sơ</a>
                     </td>
                 </tr>
             }
             @if (!Model.Any())
             {
-                <tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8;">Chưa có nhà báo nào.</td></tr>
+                <tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8;">Không có nhà báo nào.</td></tr>
             }
         </tbody>
     </table>
@@ -59,15 +96,10 @@
 
 @section Scripts {
 <script>
-    async function approveJ(id){
-        if(!await confirmSwal('Duyệt nhà báo này?')) return;
-        const r = await fetch('/nhan-vien/ApproveJournalist/'+id,{method:'POST'});
-        const d = await r.json(); if(d.success) location.reload(); else Swal.fire(d.message||'Lỗi');
-    }
-    async function lockJ(id){
-        if(!await confirmSwal('Khoá nhà báo này?')) return;
-        const r = await fetch('/nhan-vien/LockJournalist/'+id,{method:'POST'});
-        const d = await r.json(); if(d.success) location.reload(); else Swal.fire(d.message||'Lỗi');
-    }
+    async function jpost(url){ const r = await fetch(url,{method:'POST'}); return await r.json(); }
+    async function approveJ(id){ if(!await confirmSwal('Duyệt nhà báo này?')) return; const d = await jpost('/nhan-vien/ApproveJournalist/'+id); if(d.success) location.reload(); else Swal.fire(d.message||'Lỗi'); }
+    async function lockJ(id){ if(!await confirmSwal('Khoá nhà báo này?')) return; const d = await jpost('/nhan-vien/LockJournalist/'+id); if(d.success) location.reload(); else Swal.fire(d.message||'Lỗi'); }
+    async function softDelJ(id){ if(!await confirmSwal('Xóa mềm nhà báo này? (có thể khôi phục)')) return; const d = await jpost('/nhan-vien/SoftDeleteJournalist/'+id); if(d.success){ document.getElementById('jrow-'+id)?.remove(); swalToast('success','Đã xóa mềm'); } else Swal.fire(d.message||'Lỗi'); }
+    async function restoreJ(id){ if(!await confirmSwal('Khôi phục nhà báo này?')) return; const d = await jpost('/nhan-vien/RestoreJournalist/'+id); if(d.success){ document.getElementById('jrow-'+id)?.remove(); swalToast('success','Đã khôi phục'); } else Swal.fire(d.message||'Lỗi'); }
 </script>
 }

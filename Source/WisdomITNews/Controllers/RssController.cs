@@ -21,6 +21,11 @@ public class RssController : Controller
     /// </summary>
     [Route("/rss")]
     [ResponseCache(Duration = 600)] // cache 10 phút
+    // Đây là luồng xử lý xuất RSS feed của site
+    // Luồng: 1) Lấy bài published (lọc theo region/category nếu có), 30 bài mới nhất
+    //        2) Dựng XML RSS 2.0 (title/link/description/pubDate/thumbnail từng bài)
+    //        3) Trả về nội dung application/rss+xml (cache 10 phút)
+    // Bảng: Articles, Categories
     public async Task<IActionResult> Feed(string? region, string? category)
     {
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
@@ -154,6 +159,7 @@ public class RssController : Controller
     /// Trang hiển thị danh sách RSS feeds — /rss/list
     /// </summary>
     [Route("/rss/list")]
+    // Đây là luồng xử lý hiển thị trang danh sách các RSS feed
     public async Task<IActionResult> List()
     {
         ViewData["Title"] = "RSS Feeds";
@@ -165,6 +171,8 @@ public class RssController : Controller
     }
 
     // ===== SITEMAP =====
+    // Đây là luồng xử lý tạo sitemap.xml cho SEO
+    // Luồng: lấy trang chủ + danh mục + 2000 bài published mới nhất -> dựng XML urlset
     [Route("/sitemap.xml")]
     public async Task<IActionResult> Sitemap()
     {
@@ -188,6 +196,7 @@ public class RssController : Controller
         return Content(sb.ToString(), "application/xml; charset=utf-8");
     }
 
+    // Đây là luồng xử lý trả về robots.txt (khai báo Sitemap cho bot tìm kiếm)
     [Route("/robots.txt")]
     public IActionResult Robots()
     {
@@ -196,6 +205,7 @@ public class RssController : Controller
         return Content(txt, "text/plain; charset=utf-8");
     }
 
+    // Đây là luồng xử lý làm sạch HTML cho mô tả RSS (bỏ thẻ, gộp khoảng trắng, cắt 300 ký tự)
     private static string CleanHtml(string? html)
     {
         if (string.IsNullOrEmpty(html)) return "";
@@ -207,6 +217,7 @@ public class RssController : Controller
         return text.Length > 300 ? text[..300] + "..." : text;
     }
 
+    // Đây là luồng xử lý đổi slug vùng sang tên hiển thị (cho tiêu đề feed)
     private static string RegionName(string slug) => slug switch
     {
         "dong-nai" => "Đồng Nai",

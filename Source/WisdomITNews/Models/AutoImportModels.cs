@@ -22,4 +22,6 @@ public class AutoImportSettings
     public bool LogConnectionError { get; set; } = true;
 
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    // Domain Admin: admin chỉnh cấu hình auto-import gần nhất (audit). NULL = chưa rõ/seed.
+    public int? UpdatedByAdminId { get; set; }
 }

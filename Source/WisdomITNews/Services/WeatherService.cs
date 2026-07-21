@@ -26,6 +26,11 @@ public class WeatherService
         _logger = logger;
     }
 
+    // Đây là luồng xử lý lấy thời tiết theo thành phố (widget)
+    // Luồng: 1) Có cache (2 phút) -> trả cache
+    //        2) Chưa có API key -> bỏ qua (null)
+    //        3) Gọi OpenWeatherMap (timeout 5s) -> parse nhiệt độ/mô tả/icon -> lưu cache 2 phút
+    // Lỗi/không có -> trả null (widget tự ẩn).
     public async Task<WeatherViewModel?> GetWeatherAsync(string city)
     {
         if (string.IsNullOrWhiteSpace(city)) return null;

@@ -33,6 +33,8 @@ public class RegionController : Controller
     /// <summary>
     /// API chuyển vùng — lưu vào session và redirect
     /// </summary>
+    // Đây là luồng xử lý chuyển vùng miền
+    // Luồng: hợp lệ thì lưu Session["CurrentRegion"] -> chuyển tới trang vùng "/{region}"
     [HttpPost]
     [Route("/chuyen-vung")]
     public IActionResult SetRegion([FromForm] string region)
@@ -48,6 +50,7 @@ public class RegionController : Controller
     /// <summary>
     /// API lấy thông tin vùng hiện tại (cho JavaScript gọi)
     /// </summary>
+    // Đây là luồng xử lý lấy vùng hiện tại (API cho JavaScript)
     [HttpGet]
     [Route("/api/region/current")]
     public IActionResult GetCurrentRegion()
@@ -63,6 +66,7 @@ public class RegionController : Controller
     /// <summary>
     /// API lấy danh sách tất cả các vùng
     /// </summary>
+    // Đây là luồng xử lý lấy danh sách tất cả vùng miền (API)
     [HttpGet]
     [Route("/api/regions")]
     public IActionResult GetAllRegions()
@@ -71,6 +75,7 @@ public class RegionController : Controller
         return Json(list);
     }
 
+    // Đây là luồng xử lý hiển thị trang tin vùng Đồng Nai
     [Route("/dong-nai")]
     public Task<IActionResult> DongNai()
     {
@@ -78,6 +83,7 @@ public class RegionController : Controller
         return RegionAsync("dong-nai");
     }
 
+    // Đây là luồng xử lý hiển thị trang tin vùng Hà Nội
     [Route("/ha-noi")]
     public Task<IActionResult> HaNoi()
     {
@@ -85,6 +91,7 @@ public class RegionController : Controller
         return RegionAsync("ha-noi");
     }
 
+    // Đây là luồng xử lý hiển thị trang tin vùng TP. Hồ Chí Minh
     [Route("/ho-chi-minh")]
     public Task<IActionResult> HoChiMinh()
     {
@@ -92,6 +99,7 @@ public class RegionController : Controller
         return RegionAsync("ho-chi-minh");
     }
 
+    // Đây là luồng xử lý hiển thị trang tin vùng Đà Nẵng
     [Route("/da-nang")]
     public Task<IActionResult> DaNang()
     {
@@ -99,6 +107,7 @@ public class RegionController : Controller
         return RegionAsync("da-nang");
     }
 
+    // Đây là luồng xử lý hiển thị trang tin vùng Hải Phòng
     [Route("/hai-phong")]
     public Task<IActionResult> HaiPhong()
     {
@@ -106,6 +115,7 @@ public class RegionController : Controller
         return RegionAsync("hai-phong");
     }
 
+    // Đây là luồng xử lý hiển thị trang tin vùng Cần Thơ
     [Route("/can-tho")]
     public Task<IActionResult> CanTho()
     {
@@ -113,6 +123,11 @@ public class RegionController : Controller
         return RegionAsync("can-tho");
     }
 
+    // Đây là luồng xử lý dựng trang tin theo vùng (dùng chung cho 6 vùng)
+    // Luồng: 1) Lấy tối đa 50 bài published của vùng (theo Article.Region)
+    //        2) Chọn 3 bài nổi bật (ưu tiên IsFeatured + có ảnh, thiếu thì bù bài mới nhất)
+    //        3) Dựng RegionViewModel (tọa độ tâm bản đồ + featured + danh sách còn lại) -> View "Region"
+    // Bảng: Articles, Categories
     private async Task<IActionResult> RegionAsync(string regionSlug)
     {
         if (!Regions.TryGetValue(regionSlug, out var regionInfo))

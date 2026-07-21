@@ -552,6 +552,9 @@
         var userName = Context.Session.GetString("UserName");
         var userAvatar = Context.Session.GetString("UserAvatar");
     }
+    <div class="container" style="max-width:1200px;margin:10px auto;padding:0 16px;">
+        @await Component.InvokeAsync("AdSlot", new { position = "header" })
+    </div>
     <!-- HEADER (sticky) -->
     <header>
         <div class="header-main">
@@ -607,9 +610,6 @@
                             <a href="/Account/Inbox" class="dd-item"><i class="fa fa-inbox"></i> Hộp thư</a>
                             <a href="/lich-su" class="dd-item"><i class="fa fa-clock-rotate-left"></i> Lịch sử xem</a>
                             <a href="/Account/Hub?tab=following" class="dd-item"><i class="fa fa-rss"></i> Theo dõi</a>
-                            <a href="/Subscription/Pricing" class="dd-item" style="color:#0e7d85;font-weight:600;"><i class="fa fa-crown"></i> Nâng cấp Premium</a>
-                            <a href="/Subscription/MySubscription" class="dd-item"><i class="fa fa-id-card"></i> Gói của tôi</a>
-                            <a href="/Account/Newsletter" class="dd-item"><i class="fa fa-envelope-open-text"></i> Đăng ký nhận tin</a>
                             @if (Context.Session.GetString("UserRole") == "Journalist")
                             {
                                 <a href="/Journalist/Login" class="dd-item" style="color:#476083;font-weight:600;"><i class="fa fa-pen-nib"></i> Journalist Panel</a>
@@ -723,9 +723,6 @@
             }
         </div>
     </nav>
-    <div class="container" style="max-width:1200px;margin:14px auto 0;padding:0 16px;">
-        @await Component.InvokeAsync("AdSlot", new { position = "header" })
-    </div>
     @{
         var _emUid = Context.Session.GetInt32("UserId");
         var _emVerified = Context.Session.GetString("EmailVerified");
@@ -751,7 +748,7 @@
     @RenderBody()
     <!-- FOOTER -->
     <footer style="background:#000613;color:rgba(255,255,255,.7);padding:48px 0 20px;margin-top:40px;">
-        <div class="container" style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:40px;margin-bottom:30px;">
+        <div class="container" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:30px;">
             <div>
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
                     <div style="width:40px;height:40px;background:linear-gradient(135deg,#c1121f,#e63946,#ba1a1a);border:none;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;">&#9889;</div>
@@ -769,6 +766,13 @@
                     <li><a href="/danh-muc/lap-trinh" style="color:rgba(255,255,255,.7);transition:color .2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.7)'">Lập Trình</a></li>
                     <li><a href="/danh-muc/ai-machine-learning" style="color:rgba(255,255,255,.7);transition:color .2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.7)'">AI & Machine Learning</a></li>
                     <li><a href="/danh-muc/bao-mat" style="color:rgba(255,255,255,.7);transition:color .2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.7)'">Bảo Mật</a></li>
+                </ul>
+            </div>
+            <div>
+                <div style="color:rgba(255,255,255,.5);font-weight:600;margin-bottom:14px;text-transform:uppercase;font-size:11px;letter-spacing:0.1em;font-family:'Inter',sans-serif;">Quảng cáo</div>
+                <ul style="list-style:none;font-size:13px;display:flex;flex-direction:column;gap:8px;font-family:'Inter',sans-serif;">
+                    <li><a href="/quang-cao" style="color:rgba(255,255,255,.7);" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.7)'">Bảng giá slot quảng cáo</a></li>
+                    <li style="margin-top:10px;"><a href="/quang-cao" style="display:inline-block;background:#0e7d85;color:#fff;padding:8px 16px;border-radius:6px;font-weight:700;"><i class="fa fa-rectangle-ad"></i> Liên hệ quảng cáo</a></li>
                 </ul>
             </div>
             <div>

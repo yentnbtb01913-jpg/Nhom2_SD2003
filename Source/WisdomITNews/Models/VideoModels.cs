@@ -52,6 +52,9 @@ public class Video
     public int Views { get; set; }
     public int? CreatedByAdminId { get; set; }
     public int? CreatedByUserId { get; set; }
+    // Domain Article: video có thể gắn 1 bài viết (tùy chọn) hoặc đứng độc lập (gallery). NULL = không gắn bài.
+    public int? ArticleId { get; set; }
+    public Article? Article { get; set; }
     public string? VideoUrl { get; set; }
     public string? VideoType { get; set; } = "youtube";
     public long? FileSize { get; set; }

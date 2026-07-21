@@ -1,47 +1,109 @@
 @model List<WisdomITNews.Models.Category>
 @{ ViewData["Title"] = "Danh mục"; Layout = "_ManagerLayout"; }
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-  <h1 style="font-size:22px;font-weight:700;">📁 Danh mục</h1>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-folder" style="color:#159aa3;"></i> Danh mục</h1>
+  <a href="/nhan-vien/CreateCategory" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Thêm danh mục</a>
 </div>
 
-<div style="background:#fff;border-radius:0px;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden;">
-  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+@if (TempData["Ok"] != null)
+{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+
+<div style="background:#fff;padding:14px;margin-bottom:16px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
+  <input type="text" id="searchInput" placeholder="🔍 Tìm theo tên hoặc slug..." oninput="filterCats(this.value)"
+         style="width:100%;padding:10px 14px;border:1px solid #d1d5db;font-size:14px;border-radius:6px;box-sizing:border-box;" />
+</div>
+
+<div style="background:#fff;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
     <thead>
-      <tr style="background:#f5f6f8;border-bottom:2px solid #e0e4e8;">
-        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Icon</th>
-        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Tên danh mục</th>
-        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Slug</th>
-        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Màu sắc</th>
-        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Thứ tự</th>
-        <th style="text-align:left;padding:12px 16px;font-weight:600;color:#6c757d;">Hiển thị</th>
+      <tr style="background:#f5f6f8;border-bottom:2px solid #e0e4e8;color:#6c757d;text-align:left;">
+        <th style="padding:12px 14px;">Icon</th>
+        <th style="padding:12px 14px;">Tên danh mục</th>
+        <th style="padding:12px 14px;">Slug</th>
+        <th style="padding:12px 14px;">Màu</th>
+        <th style="padding:12px 14px;">Số bài</th>
+        <th style="padding:12px 14px;">Thứ tự</th>
+        <th style="padding:12px 14px;">Hiển thị</th>
+        <th style="padding:12px 14px;"></th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="catTable">
       @foreach (var c in Model)
       {
-        <tr style="border-bottom:1px solid #f0f2f5;">
-          <td style="padding:12px 16px;font-size:20px;">@c.Icon</td>
-          <td style="padding:12px 16px;font-weight:600;">@c.Name</td>
-          <td style="padding:12px 16px;"><code style="background:#f0f2f5;padding:2px 8px;border-radius:4px;font-size:12px;">@c.Slug</code></td>
-          <td style="padding:12px 16px;">
+        <tr id="cat-@c.Id" style="border-bottom:1px solid #f0f2f5;" data-name="@c.Name.ToLower()" data-slug="@c.Slug.ToLower()">
+          <td style="padding:12px 14px;font-size:20px;">@c.Icon</td>
+          <td style="padding:12px 14px;font-weight:600;">@c.Name</td>
+          <td style="padding:12px 14px;"><code style="background:#f0f2f5;padding:2px 8px;border-radius:4px;font-size:12px;">@c.Slug</code></td>
+          <td style="padding:12px 14px;">
             <div style="display:flex;align-items:center;gap:8px;">
-              <div style="width:20px;height:20px;border-radius:4px;background:@c.Color;"></div>
+              <div style="width:20px;height:20px;border-radius:4px;background:@c.Color;border:1px solid #e5e7eb;"></div>
               <span style="font-size:12px;color:#6c757d;">@c.Color</span>
             </div>
           </td>
-          <td style="padding:12px 16px;color:#6c757d;">@c.SortOrder</td>
-          <td style="padding:12px 16px;">
-            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:@(c.IsVisible?"#dcfce7":"#f0f2f5");color:@(c.IsVisible?"#16a34a":"#6c757d");">
-              @(c.IsVisible ? "✅ Hiển thị" : "🙈 Ẩn")
-            </span>
+          <td style="padding:12px 14px;color:#374151;font-weight:600;">@c.ArticleCount</td>
+          <td style="padding:12px 14px;color:#6c757d;">@c.SortOrder</td>
+          <td style="padding:12px 14px;">
+            <button onclick="toggleVis(@c.Id)" id="vis-@c.Id" title="Bấm để bật/tắt"
+                    style="cursor:pointer;border:none;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:@(c.IsVisible?"#dcfce7":"#f0f2f5");color:@(c.IsVisible?"#16a34a":"#6c757d");">
+              @(c.IsVisible ? "Hiển thị" : "Ẩn")
+            </button>
+          </td>
+          <td style="padding:12px 14px;white-space:nowrap;">
+            <a href="/nhan-vien/EditCategory/@c.Id" title="Sửa" style="background:#159aa3;color:#fff;padding:6px 10px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
+            <button onclick="deleteCat(@c.Id, '@c.ArticleCount')" title="Xóa" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i></button>
           </td>
         </tr>
       }
+      @if (!Model.Any())
+      {
+        <tr><td colspan="8" style="padding:24px;text-align:center;color:#94a3b8;">Chưa có danh mục nào.</td></tr>
+      }
     </tbody>
   </table>
+  <div id="noResult" style="display:none;padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Không tìm thấy danh mục phù hợp.</div>
 </div>
 
-<div style="background:#fef9c3;border:1px solid #fde68a;border-radius:0px;padding:12px 16px;margin-top:16px;font-size:13px;color:#92400e;">
-  <i class="fa fa-info-circle"></i> Để thêm/sửa danh mục, vui lòng chỉnh sửa trực tiếp trong database hoặc qua Migration.
-</div>
+@section Scripts {
+<script>
+    function filterCats(q){
+        q = (q || '').trim().toLowerCase();
+        var any = false;
+        document.querySelectorAll('#catTable tr').forEach(function(r){
+            var n = r.getAttribute('data-name') || '', s = r.getAttribute('data-slug') || '';
+            var show = (q === '' || n.indexOf(q) >= 0 || s.indexOf(q) >= 0);
+            r.style.display = show ? '' : 'none';
+            if (show) any = true;
+        });
+        document.getElementById('noResult').style.display = any ? 'none' : 'block';
+    }
+
+    async function toggleVis(id){
+        var r = await fetch('/nhan-vien/ToggleCategoryVisible/' + id, { method:'POST' });
+        var d = await r.json();
+        if(d.success){
+            var b = document.getElementById('vis-' + id);
+            if(d.isVisible){ b.textContent='Hiển thị'; b.style.background='#dcfce7'; b.style.color='#16a34a'; }
+            else { b.textContent='Ẩn'; b.style.background='#f0f2f5'; b.style.color='#6c757d'; }
+            if(window.swalToast) swalToast('success','Đã cập nhật hiển thị');
+        } else { if(window.Swal) Swal.fire(d.message || 'Không thực hiện được'); else alert(d.message||'Lỗi'); }
+    }
+
+    async function deleteCat(id, count){
+        if(parseInt(count,10) > 0){
+            if(window.Swal) Swal.fire('Không xóa được', 'Danh mục còn ' + count + ' bài viết. Hãy chuyển bài sang danh mục khác trước.', 'warning');
+            else alert('Danh mục còn ' + count + ' bài viết.');
+            return;
+        }
+        var ok = window.confirmSwal ? await confirmSwal('Xóa danh mục này? Không thể hoàn tác.') : confirm('Xóa danh mục này?');
+        if(!ok) return;
+        var r = await fetch('/nhan-vien/DeleteCategory/' + id, { method:'POST' });
+        var d = await r.json();
+        if(d.success){
+            var row = document.getElementById('cat-' + id);
+            if(row) row.remove();
+            if(window.swalToast) swalToast('success','Đã xóa danh mục');
+        } else { if(window.Swal) Swal.fire(d.message || 'Không xóa được'); else alert(d.message||'Lỗi'); }
+    }
+</script>
+}

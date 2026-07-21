@@ -14,6 +14,9 @@ public class FeaturedArticleService
     private readonly AppDbContext _db;
     public FeaturedArticleService(AppDbContext db) { _db = db; }
 
+    // Đây là luồng xử lý lọc bài đủ điều kiện Tin nổi bật tự động
+    // Luồng lọc: Status="published" AND !FeaturedHidden AND có Thumbnail AND có CategoryId
+    //            AND Views>0 AND (có AuthorId/AuthorUserId HOẶC có SourceName).
     /// <summary>Điều kiện tham gia xếp hạng (mục III): published, không bị loại, có ảnh, có danh mục,
     /// có lượt xem &gt; 0, có nguồn tin hoặc tác giả hợp lệ.</summary>
     public IQueryable<Article> EligibleQuery()
@@ -27,6 +30,8 @@ public class FeaturedArticleService
                 && (a.AuthorId != null || a.AuthorUserId != null || !string.IsNullOrEmpty(a.SourceName)));
     }
 
+    // Đây là luồng xử lý xếp hạng Tin nổi bật tự động
+    // Thứ tự ưu tiên: FeaturedPinned (ghim) > Views > PublishedAt > UpdatedAt (giảm dần).
     /// <summary>Sắp xếp theo mục IV: Ghim &gt; Lượt xem &gt; Ngày xuất bản &gt; Ngày cập nhật.</summary>
     public IQueryable<Article> RankedQuery()
     {
@@ -38,8 +43,9 @@ public class FeaturedArticleService
             .ThenByDescending(a => a.UpdatedAt);
     }
 
-    /// <summary>Trang chủ: TOP 4 (mục VI) — [0] = bài chính, [1..3] = 3 bài phụ.
-    /// Nếu chưa đủ 4 bài đủ điều kiện thì bù thêm bài mới xuất bản gần nhất (không trùng).</summary>
+    // Đây là luồng xử lý lấy Top 4 Tin nổi bật cho trang chủ
+    // Luồng: 1) Lấy 4 bài đầu theo RankedQuery
+    //        2) Nếu chưa đủ 4 -> bù bằng bài "published" mới nhất chưa có trong danh sách
     public async Task<List<Article>> GetHomepageTop4Async()
     {
         var top = await RankedQuery().Take(4).ToListAsync();
@@ -57,9 +63,11 @@ public class FeaturedArticleService
         return top;
     }
 
+    // Đây là luồng xử lý bảng xếp hạng Tin nổi bật (tab quản lý)
     /// <summary>Tab quản lý: bảng xếp hạng hiện tại (mặc định top 50).</summary>
     public Task<List<Article>> GetRankingListAsync(int take = 50) => RankedQuery().Take(take).ToListAsync();
 
+    // Đây là luồng xử lý danh sách bài đã loại khỏi Tin nổi bật
     /// <summary>Khu "Bài đã loại" — các bài đang bật FeaturedHidden.</summary>
     public Task<List<Article>> GetHiddenListAsync() =>
         _db.Articles.AsNoTracking().Include(a => a.Category)
@@ -69,6 +77,8 @@ public class FeaturedArticleService
 
     // ===== Ghim / Loại — loại trừ lẫn nhau (mục VII) =====
 
+    // Đây là luồng xử lý ghim bài Tin nổi bật
+    // Bảng: Articles
     public async Task<(bool Success, string Message)> PinAsync(int articleId)
     {
         var a = await _db.Articles.FindAsync(articleId);
@@ -80,6 +90,7 @@ public class FeaturedArticleService
         return (true, "Đã ghim bài viết lên đầu khu nổi bật");
     }
 
+    // Đây là luồng xử lý bỏ ghim bài Tin nổi bật
     public async Task<(bool Success, string Message)> UnpinAsync(int articleId)
     {
         var a = await _db.Articles.FindAsync(articleId);
@@ -89,6 +100,8 @@ public class FeaturedArticleService
         return (true, "Đã bỏ ghim — bài trở lại xếp hạng tự động");
     }
 
+    // Đây là luồng xử lý loại bài khỏi Tin nổi bật
+    // Bảng: Articles
     public async Task<(bool Success, string Message)> HideAsync(int articleId)
     {
         var a = await _db.Articles.FindAsync(articleId);
@@ -99,6 +112,7 @@ public class FeaturedArticleService
         return (true, "Đã loại khỏi khu nổi bật (bài viết, lượt xem, bình luận vẫn giữ nguyên)");
     }
 
+    // Đây là luồng xử lý bỏ loại bài Tin nổi bật
     public async Task<(bool Success, string Message)> UnhideAsync(int articleId)
     {
         var a = await _db.Articles.FindAsync(articleId);

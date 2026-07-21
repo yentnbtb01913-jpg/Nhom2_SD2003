@@ -65,6 +65,10 @@ public class AIService
         };
     }
 
+    // Đây là luồng xử lý tóm tắt bài viết bằng AI
+    // Luồng: 1) Đã có AiSummary -> trả cache
+    //        2) Lấy cấu hình hiệu lực (DB đè appsettings), cắt Content ≤3000 ký tự, ghép prompt
+    //        3) Gọi Gemini -> lưu AiSummary + ghi AILog (thành công/thất bại)
     public async Task<SummarizeResponse> SummarizeAsync(int articleId)
     {
         var article = await _db.Articles.FindAsync(articleId);
@@ -116,6 +120,8 @@ public class AIService
         return new SummarizeResponse { Success = true, Summary = text!, Tokens = tokens };
     }
 
+    // Đây là luồng xử lý gợi ý tiêu đề bài viết bằng AI
+    // Luồng: lấy cấu hình + cắt nội dung -> gọi Gemini -> parse JSON 5 tiêu đề (5 phong cách) -> ghi AILog
     public async Task<SuggestTitleResponse> SuggestTitlesAsync(int articleId)
     {
         var article = await _db.Articles.FindAsync(articleId);
@@ -201,6 +207,9 @@ public class AIService
     /// <summary>
     /// [L] Kiểm duyệt nội dung — Score 0-100, Issues là list các vấn đề.
     /// </summary>
+    // Đây là luồng xử lý kiểm duyệt nội dung bằng AI
+    // Luồng: ghép prompt kiểm duyệt -> gọi Gemini -> parse JSON {score 0-100, issues[]} -> ghi AILog.
+    //        (score>70 = vi phạm nặng; dùng ở bình luận & duyệt bài). Lỗi AI -> trả score=0 (không chặn).
     public async Task<ModerationResult> ModerateContentAsync(string articleContent, int? articleId = null)
     {
         var result = new ModerationResult { Score = 0, Issues = new List<string>() };
@@ -282,17 +291,22 @@ public class AIService
     /// <summary>
     /// [E] Chatbot: dùng SystemInstruction (persona) + ChatTemplate từ cấu hình.
     /// </summary>
+    // Đây là luồng xử lý chatbot AI
+    // Luồng: lấy cấu hình (SystemInstruction persona + giới hạn số câu) -> ghép câu hỏi -> gọi Gemini -> trả câu trả lời
     public async Task<(string reply, bool success)> ChatAsync(string userMessage)
     {
+        //Kiểm tra input rỗng
         if (string.IsNullOrWhiteSpace(userMessage))
             return ("Vui lòng nhập câu hỏi.", false);
-
+        //Lấy cấu hình AI
         var cfg = await GetEffectiveAsync();
+        //Ghép prompt từ ChatTemplate, thay {MaxSentences} và {Question}
         var prompt = cfg.ChatTemplate
             .Replace("{MaxSentences}", cfg.ChatMaxSentences.ToString())
             .Replace("{Question}", userMessage);
-
+        // gọi AI Model (Gemini/Groq) để trả lời 
         var (text, tokens, model, error) = await CallModelAsync(prompt, cfg, systemInstruction: cfg.SystemInstruction);
+        // Xử lý lỗi hoặc kết quả rỗng, Ghi AILog thất bại, trả về thông báo lỗi cho người dùng
         if (error != null || string.IsNullOrWhiteSpace(text))
         {
             await TryLogAsync(new AILog
@@ -305,6 +319,7 @@ public class AIService
             }, "AILog save failed (chat error)");
             return ("Xin lỗi, hệ thống AI đang bận. Bạn thử lại sau nhé!", false);
         }
+        //Ghi log thành công
         await TryLogAsync(new AILog
         {
             Action     = "chat",
@@ -336,6 +351,8 @@ public class AIService
 
     // Phân loại 1 bài vào danh mục CÓ SẴN bằng AI. Trả về CategoryId hoặc null nếu không xác định.
     // Ghi AILog riêng với Action = "classify_category".
+    // Đây là luồng xử lý phân loại danh mục bằng AI (dùng khi nhập RSS không khớp từ khóa)
+    // Luồng: ghép tiêu đề+tóm tắt+danh sách danh mục -> gọi Gemini -> trả CategoryId phù hợp (hoặc null)
     public async Task<int?> ClassifyCategoryAsync(string title, string summary, List<Category> categories)
     {
         if (categories == null || categories.Count == 0) return null;

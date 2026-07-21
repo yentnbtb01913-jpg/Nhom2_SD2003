@@ -12,6 +12,10 @@ public class NotificationHub : Hub
         _db = db;
     }
 
+    // Đây là luồng xử lý kết nối nhận thông báo realtime
+    // Luồng: 1) Đọc UserId/AdminId/UserEmail/UserRole từ Session
+    //        2) Vào group "user_{id}" (thông báo cá nhân), "email_{email}", "journalists" (nếu là Nhà báo)
+    //        3) Luôn vào group "all" (thông báo hệ thống cho mọi người)
     public override async Task OnConnectedAsync()
     {
         var httpContext = Context.GetHttpContext();
@@ -34,6 +38,9 @@ public class NotificationHub : Hub
         await base.OnConnectedAsync();
     }
 
+    // Đây là luồng xử lý đánh dấu thông báo đã đọc
+    // Luồng: 1) Tìm Notification theo id  2) Set IsRead=true, ReadAt=now  3) Lưu DB
+    // Bảng: Notifications
     public async Task MarkAsRead(int notificationId)
     {
         var notif = await _db.Notifications.FindAsync(notificationId);

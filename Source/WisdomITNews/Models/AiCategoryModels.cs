@@ -21,4 +21,7 @@ public class AiCategoryCorrectionLog
     public string OldCategory { get; set; } = ""; // danh mục AI ban đầu
     public string NewCategory { get; set; } = ""; // danh mục sau khi sửa
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    // Domain Article: bài bị sửa phân loại (NULL nếu bài đã xóa)
+    public Article? Article { get; set; }
 }

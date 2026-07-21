@@ -104,7 +104,6 @@
                     {
                         <article class="bm-card" onclick="location.href='/bai-viet/@a.Slug'">
                             <div class="bm-thumb" style="position:relative;">
-                                @if (a.IsPremiumOnly) { <span style="position:absolute;top:6px;left:6px;z-index:2;background:#0e7d85;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.25);"><i class="fa fa-crown"></i> PREMIUM</span> }
                                 @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
                                 {
                                     <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
@@ -148,7 +147,6 @@
                     {
                         <div class="bm-list-item" onclick="location.href='/bai-viet/@a.Slug'">
                             <div class="bm-thumb" style="position:relative;">
-                                @if (a.IsPremiumOnly) { <span style="position:absolute;top:6px;left:6px;z-index:2;background:#0e7d85;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.25);"><i class="fa fa-crown"></i> PREMIUM</span> }
                                 @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
                                 {
                                     <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
@@ -186,7 +184,6 @@
                         {
                             <article class="bm-card" onclick="location.href='/bai-viet/@a.Slug'">
                                 <div class="bm-thumb" style="position:relative;">
-                                @if (a.IsPremiumOnly) { <span style="position:absolute;top:6px;left:6px;z-index:2;background:#0e7d85;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.25);"><i class="fa fa-crown"></i> PREMIUM</span> }
                                     @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
                                     {
                                         <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
@@ -326,8 +323,10 @@
         var skip = parseInt(sentinel.getAttribute('data-skip') || '0', 10) || 0;
         var loading = false, done = false;
 
+        var MAX_MORE = 18; // giới hạn số bài nạp thêm để còn thấy footer
         function loadMore() {
             if (loading || done) return;
+            if (skip >= MAX_MORE) { done = true; if (endMsg) endMsg.style.display = 'block'; return; }
             loading = true;
             loader.style.display = 'block';
             fetch('/Home/LoadMore?skip=' + skip, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })

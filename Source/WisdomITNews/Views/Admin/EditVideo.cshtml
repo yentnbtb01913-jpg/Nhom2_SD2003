@@ -1,7 +1,7 @@
 @{
     ViewData["Title"] = "Sửa video";
     Layout = "_AdminLayout";
-    ViewBag.FormAction = "/admin/EditVideo/@ViewBag.Video.Id";
+    ViewBag.FormAction = $"/admin/EditVideo/{((WisdomITNews.Models.Video)ViewBag.Video).Id}";
     ViewBag.BackUrl = "/admin/Videos";
     ViewBag.IsEdit = true;
 }

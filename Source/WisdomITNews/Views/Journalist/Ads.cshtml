@@ -1,41 +1,122 @@
 @using WisdomITNews.Models
-@model List<Advertisement>
+@model JournalistAdsVm
 @{
     Layout = "~/Views/Shared/_JournalistLayout.cshtml";
     ViewData["Title"] = "Quảng cáo của tôi";
-    var posLabel = new Dictionary<string, string> { ["header"] = "Header", ["sidebar"] = "Sidebar", ["in_article"] = "Trong bài" };
-    string PosVi(string p) => posLabel.TryGetValue(p ?? "", out var v) ? v : p;
-}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-rectangle-ad" style="color:#159aa3;"></i> Quảng cáo của tôi</h1>
-    <a href="/journalist/CreateAd" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Tạo quảng cáo</a>
-</div>
-@if (TempData["Ok"] != null)
-{ <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
+    var now = DateTime.Now;
+    var payload = Model.Zones.Select(z => new
+    {
+        position = z.Position,
+        name = z.Name,
+        rotationSeconds = z.RotationSeconds,
+        ads = z.Ads.Select(a => new { title = a.Title, imageUrl = a.ImageUrl })
+    });
+    var json = System.Text.Json.JsonSerializer.Serialize(payload);
 
+    (string, string) StatusOf(Advertisement a)
+    {
+        if (a.Status == "rejected") return ("Bị từ chối", "#dc2626");
+        if (a.EndDate != null && a.EndDate < now && a.Status == "approved") return ("Hết hạn", "#94a3b8");
+        if (a.Status == "approved" && a.IsActive) return ("Đang chạy", "#16a34a");
+        if (a.PaymentStatus == "paid") return ("Đã TT, chờ duyệt", "#2563eb");
+        if (a.Status == "pending" && a.AdSlotId == null) return ("Chờ duyệt", "#ca8a04");
+        return ("Chờ thanh toán", "#ca8a04");
+    }
+}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-rectangle-ad" style="color:#159aa3;"></i> Quảng cáo của tôi</h1>
+    <a href="/quang-cao" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-cart-shopping"></i> Đặt mua quảng cáo</a>
+</div>
+
+<!-- Xem QC của tôi đang chạy ở đâu -->
+<h3 style="font-size:16px;font-weight:800;margin:6px 0 10px;">Quảng cáo của tôi đang chạy ở đâu</h3>
+<div style="background:#eef2f6;border:1px solid #dbe2ea;border-radius:14px;padding:18px;margin-bottom:26px;">
+    <div class="pv-zone" data-zone="header" style="height:64px;margin-bottom:10px;"></div>
+    <div style="background:#0b1220;color:#fff;border-radius:8px;padding:9px 14px;font-weight:800;margin-bottom:10px;font-size:13px;"><i class="fa fa-bolt" style="color:#0ea5a0;"></i> Wisdom IT News <span style="float:right;color:#64748b;font-weight:500;">NÓNG · MỚI · VIDEO</span></div>
+    <div style="display:grid;grid-template-columns:80px 1fr 80px;gap:10px;align-items:start;">
+        <div class="pv-zone" data-zone="home_left" style="height:230px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 180px;gap:10px;">
+            <div>
+                <div style="height:11px;background:#dde5ec;border-radius:4px;margin-bottom:8px;"></div>
+                <div style="height:11px;background:#dde5ec;border-radius:4px;width:80%;margin-bottom:12px;"></div>
+                <div class="pv-zone" data-zone="in_article" style="height:72px;margin-bottom:12px;"></div>
+                <div style="height:11px;background:#dde5ec;border-radius:4px;margin-bottom:8px;"></div>
+                <div style="height:11px;background:#dde5ec;border-radius:4px;width:90%;"></div>
+            </div>
+            <div class="pv-zone" data-zone="sidebar" style="height:180px;"></div>
+        </div>
+        <div class="pv-zone" data-zone="home_right" style="height:230px;"></div>
+    </div>
+    <div style="text-align:center;color:#94a3b8;font-size:12px;margin-top:12px;">Chỉ hiển thị quảng cáo của bạn <b>đang chạy</b>. Khu trống nghĩa là bạn chưa có QC hoạt động ở đó.</div>
+</div>
+
+<!-- Đơn hàng của tôi -->
+<h3 style="font-size:16px;font-weight:800;margin:6px 0 10px;">Đơn hàng của tôi</h3>
 <div style="background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead><tr style="background:#f5f6f8;color:#6c757d;text-align:left;">
-            <th style="padding:10px;">Banner</th><th style="padding:10px;">Tiêu đề</th><th style="padding:10px;">Vị trí</th>
-            <th style="padding:10px;">Hiển thị</th><th style="padding:10px;">Click</th><th style="padding:10px;">Trạng thái</th>
+            <th style="padding:10px;">#</th><th style="padding:10px;">Khu</th><th style="padding:10px;">Tiêu đề</th>
+            <th style="padding:10px;">Số ngày</th><th style="padding:10px;">Số tiền</th>
+            <th style="padding:10px;">Ngày &amp; giờ đặt</th><th style="padding:10px;">Hạn kết thúc</th>
+            <th style="padding:10px;">Thanh toán</th><th style="padding:10px;">Trạng thái</th>
         </tr></thead>
         <tbody>
-            @foreach (var a in Model)
+            @foreach (var a in Model.Orders)
             {
+                var (label, color) = StatusOf(a);
                 <tr style="border-bottom:1px solid #f0f2f5;">
-                    <td style="padding:10px;">@if (!string.IsNullOrEmpty(a.ImageUrl)) {<img src="@a.ImageUrl" style="width:80px;max-height:40px;object-fit:contain;border-radius:4px;" />}</td>
+                    <td style="padding:10px;">@a.Id</td>
+                    <td style="padding:10px;">@(a.AdSlot?.Name ?? a.Position)</td>
                     <td style="padding:10px;font-weight:600;">@a.Title</td>
-                    <td style="padding:10px;">@PosVi(a.Position)</td>
-                    <td style="padding:10px;">@a.Impressions.ToString("N0")</td>
-                    <td style="padding:10px;">@a.Clicks.ToString("N0")</td>
+                    <td style="padding:10px;">@(a.Days > 0 ? a.Days + " ngày" : "—")</td>
+                    <td style="padding:10px;font-weight:700;color:#dc2626;">@(a.Amount > 0 ? a.Amount.ToString("#,##0") + " đ" : "—")</td>
+                    <td style="padding:10px;">@a.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                    <td style="padding:10px;">@(a.EndDate?.ToString("dd/MM/yyyy") ?? "—")</td>
                     <td style="padding:10px;">
-                        @if (a.Status == "pending") { <span style="background:#fef9c3;color:#ca8a04;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">Chờ duyệt</span> }
-                        else if (a.Status == "rejected") { <span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">Bị từ chối</span> }
-                        else { <span style="background:#dcfce7;color:#16a34a;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">@(a.IsActive ? "Đang chạy" : "Đã duyệt (tắt)")</span> }
+                        @if (a.PaymentStatus == "paid") { <span style="background:#dcfce7;color:#16a34a;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">Đã TT</span> }
+                        else { <span style="background:#fef9c3;color:#ca8a04;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">Chưa TT</span> }
                     </td>
+                    <td style="padding:10px;"><span style="background:@color;color:#fff;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;">@label</span></td>
                 </tr>
             }
-            @if (!Model.Any()) { <tr><td colspan="6" style="padding:24px;text-align:center;color:#94a3b8;">Bạn chưa tạo quảng cáo nào.</td></tr> }
+            @if (!Model.Orders.Any()) { <tr><td colspan="9" style="padding:24px;text-align:center;color:#94a3b8;">Bạn chưa có đơn quảng cáo nào. <a href="/quang-cao" style="color:#159aa3;font-weight:600;">Đặt mua ngay</a>.</td></tr> }
         </tbody>
     </table>
 </div>
+
+<style>
+    .pv-zone { position:relative; background:#fff; border:2px dashed #c3ccd6; border-radius:8px; overflow:hidden; }
+    .pv-slide { position:absolute; inset:0; opacity:0; transition:opacity .5s; }
+    .pv-slide.on { opacity:1; }
+    .pv-slide img { width:100%;height:100%;object-fit:cover;display:block; }
+    .pv-empty { display:flex;align-items:center;justify-content:center;height:100%;color:#b6c0cc;font-size:10px;text-align:center;padding:4px; }
+    .pv-num { position:absolute;top:4px;left:4px;background:rgba(21,154,163,.92);color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:20px;z-index:2; }
+</style>
+<script>
+    var ZONES = @Html.Raw(json);
+    ZONES.forEach(function (zone) {
+        var box = document.querySelector('.pv-zone[data-zone="' + zone.position + '"]');
+        if (!box) return;
+        box.innerHTML = '';
+        if (!zone.ads.length) { box.innerHTML = '<div class="pv-empty">' + zone.name + '<br>(không có QC của bạn)</div>'; return; }
+        var num = document.createElement('div'); num.className = 'pv-num'; box.appendChild(num);
+        zone.ads.forEach(function (a, i) {
+            var s = document.createElement('div');
+            s.className = 'pv-slide' + (i === 0 ? ' on' : '');
+            s.style.background = a.imageUrl ? '#000' : '#f1f5f9';
+            s.innerHTML = a.imageUrl ? '<img src="' + a.imageUrl + '">' : '<div class="pv-empty" style="color:#475569;">' + a.title + '</div>';
+            box.appendChild(s);
+        });
+        var slides = box.querySelectorAll('.pv-slide');
+        num.textContent = '1/' + zone.ads.length;
+        if (zone.ads.length < 2) return;
+        var cur = 0;
+        setInterval(function () {
+            var nxt = (cur + 1) % slides.length;
+            slides[cur].classList.remove('on'); slides[nxt].classList.add('on');
+            num.textContent = (nxt + 1) + '/' + zone.ads.length;
+            cur = nxt;
+        }, Math.max(1, zone.rotationSeconds) * 1000);
+    });
+</script>

@@ -24,6 +24,11 @@ public class FriendController : Controller
     // ===== KẾT BẠN =====
 
     /// <summary>Gửi lời mời kết bạn</summary>
+    // Đây là luồng xử lý gửi lời mời kết bạn
+    // Luồng: 1) Chặn tự kết bạn; kiểm tra đã có quan hệ chưa
+    //        2) Nếu người kia đã mời trước -> tự động chấp nhận; nếu từng bị từ chối -> cho gửi lại
+    //        3) Tạo Friendship (pending) -> bắn sự kiện realtime "friend_request"
+    // Bảng: Friendships
     [HttpPost("request/{receiverId}")]
     public async Task<IActionResult> SendRequest(int receiverId)
     {
@@ -76,6 +81,8 @@ public class FriendController : Controller
     }
 
     /// <summary>Chấp nhận lời mời</summary>
+    // Đây là luồng xử lý chấp nhận lời mời kết bạn
+    // Luồng: tìm Friendship pending -> đổi Status="accepted" -> bắn sự kiện "friend_accepted"
     [HttpPost("accept/{requesterId}")]
     public async Task<IActionResult> Accept(int requesterId)
     {
@@ -94,6 +101,7 @@ public class FriendController : Controller
     }
 
     /// <summary>Từ chối lời mời</summary>
+    // Đây là luồng xử lý từ chối lời mời kết bạn (đổi Status="rejected")
     [HttpPost("reject/{requesterId}")]
     public async Task<IActionResult> Reject(int requesterId)
     {
@@ -110,6 +118,7 @@ public class FriendController : Controller
     }
 
     /// <summary>Hủy kết bạn</summary>
+    // Đây là luồng xử lý hủy kết bạn (xóa Friendship đã accepted)
     [HttpDelete("{friendId}")]
     public async Task<IActionResult> Unfriend(int friendId)
     {
@@ -128,6 +137,7 @@ public class FriendController : Controller
     }
 
     /// <summary>Hủy kết bạn theo userId (dùng cho trang Profile)</summary>
+    // Đây là luồng xử lý hủy kết bạn theo userId (dùng ở trang Profile)
     [HttpDelete("by-user/{targetId}")]
     public async Task<IActionResult> RemoveFriendByUser(int targetId)
     {
@@ -147,6 +157,7 @@ public class FriendController : Controller
     }
 
     /// <summary>Danh sách bạn bè</summary>
+    // Đây là luồng xử lý lấy danh sách bạn bè (kèm trạng thái online, sắp online lên đầu)
     [HttpGet("")]
     public async Task<IActionResult> GetFriends()
     {
@@ -178,6 +189,7 @@ public class FriendController : Controller
     }
 
     /// <summary>Lời mời kết bạn đang chờ (nhận được)</summary>
+    // Đây là luồng xử lý lấy danh sách lời mời kết bạn đang chờ (mình nhận được)
     [HttpGet("requests")]
     public async Task<IActionResult> GetRequests()
     {
@@ -202,6 +214,7 @@ public class FriendController : Controller
     }
 
     /// <summary>Số lời mời đang chờ</summary>
+    // Đây là luồng xử lý đếm số lời mời kết bạn đang chờ (cho badge)
     [HttpGet("requests/count")]
     public async Task<IActionResult> GetRequestCount()
     {
@@ -214,6 +227,9 @@ public class FriendController : Controller
     }
 
     /// <summary>Gợi ý kết bạn: ưu tiên bạn chung, sau đó ngẫu nhiên</summary>
+    // Đây là luồng xử lý gợi ý kết bạn
+    // Luồng: loại bạn bè + lời mời đang chờ + chính mình -> tính số bạn chung mỗi ứng viên
+    //        -> sắp xếp bạn chung nhiều nhất > online > ngẫu nhiên -> lấy 15
     [HttpGet("suggestions")]
     public async Task<IActionResult> GetSuggestions()
     {
@@ -279,6 +295,9 @@ public class FriendController : Controller
     // ===== THEO DÕI (FOLLOW) =====
 
     /// <summary>Theo dõi người dùng</summary>
+    // Đây là luồng xử lý theo dõi người dùng
+    // Luồng: chặn tự theo dõi + trùng -> tạo UserFollow -> bắn sự kiện "new_follower"
+    // Bảng: UserFollows
     [HttpPost("follow/{targetId}")]
     public async Task<IActionResult> Follow(int targetId)
     {
@@ -301,6 +320,7 @@ public class FriendController : Controller
     }
 
     /// <summary>Bỏ theo dõi</summary>
+    // Đây là luồng xử lý bỏ theo dõi người dùng (xóa UserFollow)
     [HttpDelete("follow/{targetId}")]
     public async Task<IActionResult> Unfollow(int targetId)
     {
@@ -317,6 +337,7 @@ public class FriendController : Controller
     }
 
     /// <summary>Lấy trạng thái quan hệ với một user</summary>
+    // Đây là luồng xử lý lấy trạng thái quan hệ với 1 user (bạn bè / đã gửi / nhận + follow 2 chiều)
     [HttpGet("status/{targetId}")]
     public async Task<IActionResult> GetRelationStatus(int targetId)
     {
@@ -342,6 +363,7 @@ public class FriendController : Controller
     }
 
     /// <summary>Danh sách bạn bè online (cho chat sidebar)</summary>
+    // Đây là luồng xử lý lấy danh sách người đang online cho chat sidebar (tách bạn bè / người khác)
     [HttpGet("online")]
     public async Task<IActionResult> GetOnlineFriendsAndUsers()
     {
@@ -380,6 +402,7 @@ public class FriendController : Controller
     }
 
     // ===== HELPER =====
+    // Đây là luồng xử lý bắn sự kiện bạn bè/theo dõi realtime (kết bạn, chấp nhận, follow mới)
     private async Task NotifyFriendEvent(int fromId, int toId, string eventType)
     {
         var fromUser = await _db.Users.FindAsync(fromId);

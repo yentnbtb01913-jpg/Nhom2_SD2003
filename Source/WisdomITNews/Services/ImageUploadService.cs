@@ -28,6 +28,10 @@ public class ImageUploadService
         public string? Error { get; set; }
     }
 
+    // Đây là luồng xử lý upload ảnh cho bài viết (kiểm tra + resize + lưu)
+    // Luồng: 1) Kiểm tra có file, kích thước ≤5MB, đuôi jpg/png/webp
+    //        2) Lưu vào wwwroot/uploads/articles/{năm}/{tháng}/{guid}{ext}
+    //        3) Resize giữ tỷ lệ nếu rộng >1200px -> lưu file -> trả đường dẫn tương đối
     public async Task<UploadResult> SaveAsync(IFormFile file)
     {
         if (file == null || file.Length == 0)

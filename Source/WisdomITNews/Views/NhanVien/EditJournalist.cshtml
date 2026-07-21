@@ -1,0 +1,119 @@
+@using WisdomITNews.Models
+@model WisdomITNews.Models.User
+@{
+    ViewData["Title"] = "Sửa nhà báo";
+    Layout = "_ManagerLayout";
+    var p = ViewBag.Profile as JournalistProfile ?? new JournalistProfile();
+    var cats = ViewBag.Categories as List<Category> ?? new List<Category>();
+    int artCount = ViewBag.ArticleCount ?? 0;
+    int totalViews = ViewBag.TotalViews ?? 0;
+}
+<style>
+    .jf-card{background:#fff;border-radius:8px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:18px;}
+    .jf-card h2{font-size:15px;font-weight:700;color:#0e7d85;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+    .jf-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    .jf-grid.three{grid-template-columns:1fr 1fr 1fr;}
+    .jf label{display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;color:#374151;}
+    .jf input,.jf select,.jf textarea{width:100%;padding:9px 11px;border:1px solid #e0e4e8;border-radius:6px;font-size:13.5px;}
+    @@media(max-width:760px){.jf-grid,.jf-grid.three{grid-template-columns:1fr;}}
+</style>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-user-pen" style="color:#159aa3;"></i> Sửa nhà báo: @Model.FullName <span style="font-size:13px;color:#0e7d85;">(JP@(Model.Id.ToString("D4")))</span></h1>
+    <a href="/nhan-vien/JournalistDetail/@Model.Id" style="font-size:13px;color:#0e7d85;text-decoration:none;"><i class="fa fa-eye"></i> Xem hồ sơ</a>
+</div>
+
+<div style="display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap;">
+    <div style="background:#e6f4f5;border-radius:8px;padding:12px 18px;"><div style="font-size:20px;font-weight:800;color:#0e7d85;">@artCount</div><div style="font-size:12px;color:#6c757d;">Bài viết</div></div>
+    <div style="background:#e6f4f5;border-radius:8px;padding:12px 18px;"><div style="font-size:20px;font-weight:800;color:#0e7d85;">@totalViews.ToString("N0")</div><div style="font-size:12px;color:#6c757d;">Lượt xem</div></div>
+    <div style="background:#e6f4f5;border-radius:8px;padding:12px 18px;"><div style="font-size:20px;font-weight:800;color:#0e7d85;">@Model.CreatedAt.ToString("MM/yyyy")</div><div style="font-size:12px;color:#6c757d;">Tham gia</div></div>
+</div>
+
+<form method="post" action="/nhan-vien/EditJournalist/@Model.Id" enctype="multipart/form-data" class="jf">
+    @Html.AntiForgeryToken()
+
+    <div class="jf-card">
+        <h2><i class="fa fa-id-card"></i> Thông tin cơ bản</h2>
+        <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">
+            <div style="text-align:center;">
+                <img id="avatarPreview" src="@(string.IsNullOrEmpty(Model.AvatarUrl) ? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Model.FullName)}&background=159aa3&color=fff" : Model.AvatarUrl)" style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid #e6f4f5;" />
+                <div style="margin-top:8px;"><label style="font-size:12px;color:#0e7d85;cursor:pointer;"><i class="fa fa-camera"></i> Đổi ảnh<input type="file" name="avatarFile" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="prevAvatar(this)" /></label></div>
+            </div>
+            <div style="flex:1;min-width:280px;">
+                <div class="jf-grid">
+                    <div><label>Họ và tên *</label><input name="fullName" value="@Model.FullName" required /></div>
+                    <div><label>Bút danh</label><input name="profile.PenName" value="@p.PenName" /></div>
+                    <div><label>Tên đăng nhập</label><input value="@Model.Username" disabled style="background:#f8fafc;color:#6c757d;" /></div>
+                    <div><label>Giới tính</label>
+                        <select name="profile.Gender">
+                            <option value="">-- Chọn --</option>
+                            <option value="Nam" selected="@(p.Gender=="Nam")">Nam</option>
+                            <option value="Nữ" selected="@(p.Gender=="Nữ")">Nữ</option>
+                            <option value="Khác" selected="@(p.Gender=="Khác")">Khác</option>
+                        </select>
+                    </div>
+                    <div><label>Ngày sinh</label><input type="date" name="profile.DateOfBirth" value="@(p.DateOfBirth?.ToString("yyyy-MM-dd"))" /></div>
+                    <div><label>Quốc tịch</label><input name="profile.Nationality" value="@p.Nationality" /></div>
+                </div>
+                <div class="jf-grid three" style="margin-top:14px;">
+                    <div><label>Thành phố</label><input name="profile.City" value="@p.City" /></div>
+                    <div><label>Quốc gia</label><input name="profile.Country" value="@p.Country" /></div>
+                    <div><label>Địa chỉ</label><input name="profile.Address" value="@p.Address" /></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="jf-card">
+        <h2><i class="fa fa-address-book"></i> Liên hệ</h2>
+        <div class="jf-grid">
+            <div><label>Email *</label><input type="email" name="email" value="@Model.Email" required /></div>
+            <div><label>Số điện thoại</label><input name="profile.Phone" value="@p.Phone" /></div>
+            <div><label>Facebook</label><input name="profile.Facebook" value="@p.Facebook" /></div>
+            <div><label>LinkedIn</label><input name="profile.LinkedIn" value="@p.LinkedIn" /></div>
+            <div><label>X (Twitter)</label><input name="profile.Twitter" value="@p.Twitter" /></div>
+            <div><label>Website</label><input name="profile.Website" value="@p.Website" /></div>
+            <div><label>Zalo</label><input name="profile.Zalo" value="@p.Zalo" /></div>
+            <div><label>Telegram</label><input name="profile.Telegram" value="@p.Telegram" /></div>
+        </div>
+    </div>
+
+    <div class="jf-card">
+        <h2><i class="fa fa-briefcase"></i> Nghề nghiệp</h2>
+        <div class="jf-grid">
+            <div><label>Chức danh</label><input name="profile.JobTitle" value="@p.JobTitle" /></div>
+            <div><label>Cơ quan / Báo</label><input name="profile.Organization" value="@p.Organization" /></div>
+            <div><label>Chuyên mục phụ trách</label>
+                <select name="profile.AssignedCategory">
+                    <option value="">-- Chọn --</option>
+                    @foreach (var c in cats)
+                    { <option value="@c.Name" selected="@(p.AssignedCategory==c.Name)">@c.Name</option> }
+                </select>
+            </div>
+            <div><label>Số năm kinh nghiệm</label><input type="number" min="0" name="profile.YearsExperience" value="@(p.YearsExperience)" /></div>
+            <div><label>Thẻ nhà báo (số)</label><input name="profile.PressCardNo" value="@p.PressCardNo" /></div>
+            <div></div>
+            <div><label>Ngày cấp thẻ</label><input type="date" name="profile.PressCardIssued" value="@(p.PressCardIssued?.ToString("yyyy-MM-dd"))" /></div>
+            <div><label>Ngày hết hạn</label><input type="date" name="profile.PressCardExpiry" value="@(p.PressCardExpiry?.ToString("yyyy-MM-dd"))" /></div>
+        </div>
+    </div>
+
+    <div class="jf-card">
+        <h2><i class="fa fa-tags"></i> Chuyên môn & Tiểu sử</h2>
+        <label>Chuyên môn (cách nhau bởi dấu phẩy)</label>
+        <input name="profile.Expertise" value="@p.Expertise" placeholder="AI, Cloud, Cyber Security..." />
+        <label style="margin-top:14px;">Tiểu sử</label>
+        <textarea name="bio" rows="4">@Model.Bio</textarea>
+        <label style="margin-top:14px;">Ghi chú nội bộ (không hiển thị ra ngoài)</label>
+        <textarea name="profile.InternalNote" rows="2">@p.InternalNote</textarea>
+    </div>
+
+    <button type="submit" style="background:#159aa3;color:#fff;padding:11px 24px;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:14px;"><i class="fa fa-save"></i> Lưu</button>
+    <a href="/nhan-vien/Partners" style="margin-left:10px;color:#6c757d;text-decoration:none;">Về danh sách</a>
+</form>
+
+@section Scripts {
+<script>
+    function prevAvatar(inp){ if(inp.files&&inp.files[0]){ var r=new FileReader(); r.onload=function(e){document.getElementById('avatarPreview').src=e.target.result;}; r.readAsDataURL(inp.files[0]); } }
+</script>
+}

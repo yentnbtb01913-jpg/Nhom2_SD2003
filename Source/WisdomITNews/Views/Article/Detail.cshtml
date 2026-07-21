@@ -173,10 +173,6 @@
             </div>
         }
         <div class="article-body">
-            @if (article.IsPremiumOnly)
-            {
-                <div style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#0e7d85,#0ea5a0);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:800;margin-bottom:12px;"><i class="fa fa-crown"></i> PREMIUM</div>
-            }
             @{ var _podcast = ViewBag.Podcast as WisdomITNews.Models.Podcast; }
             @if (_podcast != null)
             {
@@ -185,28 +181,10 @@
                     <audio controls preload="none" src="@_podcast.FilePath" style="width:100%;"></audio>
                 </div>
             }
-            @{ var _premiumLocked = (bool)(ViewBag.IsPremiumLocked ?? false); }
-            @if (_premiumLocked)
-            {
-                <div class="article-content" style="position:relative;">
-                    <div style="max-height:220px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent);">
-                        <p>@WisdomITNews.Services.PremiumAccess.Preview(article.Content)</p>
-                    </div>
-                    <div style="text-align:center;border:1px solid #d7ece9;background:#f0fdfa;border-radius:12px;padding:26px 20px;margin-top:8px;">
-                        <div style="font-size:40px;color:#0e7d85;margin-bottom:8px;"><i class="fa fa-lock"></i></div>
-                        <h3 style="margin:0 0 6px;color:#0f172a;">Nội dung dành cho thành viên Premium</h3>
-                        <p style="color:#64748b;margin:0 0 16px;">Nâng cấp gói Premium để đọc trọn vẹn bài viết này và toàn bộ nội dung cao cấp khác.</p>
-                        <a href="/Subscription/Pricing" style="display:inline-block;background:#0e7d85;color:#fff;text-decoration:none;padding:12px 26px;border-radius:8px;font-weight:700;"><i class="fa fa-crown"></i> Nâng cấp Premium để đọc tiếp</a>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <div class="article-content">
-                    @Html.Raw(article.Content)
-                    @await Component.InvokeAsync("AdSlot", new { position = "in_article" })
-                </div>
-            }
+            <div class="article-content">
+                @Html.Raw(article.Content)
+                @await Component.InvokeAsync("AdSlot", new { position = "in_article" })
+            </div>
             @if (Model.Tags.Any())
             {
                 <div class="article-tags">

@@ -1,0 +1,50 @@
+@using WisdomITNews.Models
+@{
+    ViewData["Title"] = "Đặt mua quảng cáo";
+    var slot = (AdSlot)ViewBag.Slot;
+}
+<div style="max-width:680px;margin:24px auto;padding:0 16px;">
+    <a href="/Advertise" style="color:#0e7d85;text-decoration:none;font-size:14px;">&larr; Bảng giá</a>
+    <h1 style="font-size:24px;font-weight:800;margin:10px 0 4px;">Đặt mua: @slot.Name</h1>
+    <p style="color:#64748b;">@slot.Description — <b>@slot.Size</b> — <b style="color:#dc2626;">@slot.PricePerDay.ToString("#,##0") đ/ngày</b></p>
+
+    @if (ViewBag.Error != null)
+    { <div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:6px;margin:12px 0;">@ViewBag.Error</div> }
+
+    <form method="post" action="/Advertise/Order" enctype="multipart/form-data" style="background:#fff;border-radius:12px;padding:22px;box-shadow:0 2px 12px rgba(0,0,0,.07);margin-top:14px;">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="slotId" value="@slot.Id" />
+        <label style="display:block;font-weight:600;font-size:14px;margin:12px 0 6px;">Tiêu đề quảng cáo *</label>
+        <input type="text" name="title" required style="width:100%;padding:10px 14px;border:1px solid #d7dde3;border-radius:8px;" placeholder="VD: Khoá học Lập trình AI" />
+
+        <label style="display:block;font-weight:600;font-size:14px;margin:14px 0 6px;">Link đích (khi click) *</label>
+        <input type="url" name="targetUrl" required style="width:100%;padding:10px 14px;border:1px solid #d7dde3;border-radius:8px;" placeholder="https://..." />
+
+        <label style="display:block;font-weight:600;font-size:14px;margin:14px 0 6px;">Ảnh banner (@slot.Size)</label>
+        <input type="file" name="bannerFile" accept="image/*" style="width:100%;padding:8px;border:1px solid #d7dde3;border-radius:8px;" />
+
+        <div style="display:flex;gap:14px;">
+            <div style="flex:1;">
+                <label style="display:block;font-weight:600;font-size:14px;margin:14px 0 6px;">SĐT liên hệ</label>
+                <input type="text" name="phone" style="width:100%;padding:10px 14px;border:1px solid #d7dde3;border-radius:8px;" />
+            </div>
+            <div style="flex:1;">
+                <label style="display:block;font-weight:600;font-size:14px;margin:14px 0 6px;">Số ngày chạy *</label>
+                <input type="number" name="days" id="days" value="7" min="1" required style="width:100%;padding:10px 14px;border:1px solid #d7dde3;border-radius:8px;" oninput="calc()" />
+            </div>
+        </div>
+
+        <div style="margin-top:18px;background:#f0fdfa;border:1px solid #99e1cb;border-radius:8px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="color:#0e7d85;font-weight:600;">Tổng tiền:</span>
+            <span id="total" style="font-size:22px;font-weight:900;color:#dc2626;"></span>
+        </div>
+
+        <button type="submit" style="margin-top:18px;width:100%;background:#0e7d85;color:#fff;border:none;padding:13px;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;">Thanh toán &amp; đặt mua</button>
+        <p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:8px;">Thanh toán giả lập — đặt xong sẽ tự ghi nhận đã thanh toán và gửi biên nhận qua email.</p>
+    </form>
+</div>
+<script>
+    var price = @slot.PricePerDay;
+    function calc(){ var d = parseInt(document.getElementById('days').value)||0; document.getElementById('total').innerText = (price*d).toLocaleString('vi-VN')+' đ'; }
+    calc();
+</script>

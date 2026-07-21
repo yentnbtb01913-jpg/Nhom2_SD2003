@@ -85,6 +85,9 @@ public class AdminController : Controller
     public IActionResult Login() => IsLoggedIn ? RedirectToAction("Dashboard") : View();
 
     [HttpPost]
+    // Đây là luồng xử lý đăng nhập admin/nhân viên
+    // Luồng: tìm Admin theo Username -> BCrypt.Verify -> chặn nếu !IsActive/đã nghỉ -> nạp session (AdminId/Name/Role)
+    // Bảng: Admins
     public async Task<IActionResult> Login(string username, string password)
     {
         var admin = await _db.Admins.FirstOrDefaultAsync(a => a.Username == username && a.IsActive);
@@ -104,6 +107,7 @@ public class AdminController : Controller
             : RedirectToAction("Dashboard", "NhanVien");
     }
 
+    // Đây là luồng xử lý đăng xuất admin (xóa session)
     public IActionResult Logout()
     {
         HttpContext.Session.Clear();
@@ -113,6 +117,7 @@ public class AdminController : Controller
     // ===== TRANG QUẢN LÝ (cổng riêng cho nhân viên / editor) =====
     // Là "nhà" của nhân viên: chỉ gồm các lối tắt tới chức năng họ được phép.
     // Editor đăng nhập sẽ vào thẳng đây; superadmin vẫn dùng Dashboard tổng quan.
+    // Đây là luồng xử lý trang quản lý (cổng riêng cho nhân viên/editor)
     public async Task<IActionResult> Manage()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -126,6 +131,7 @@ public class AdminController : Controller
     }
 
     // ===== DASHBOARD =====
+    // Đây là luồng xử lý dashboard admin (thống kê tổng quan: bài, người dùng, doanh thu...)
     public async Task<IActionResult> Dashboard()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -137,7 +143,7 @@ public class AdminController : Controller
             TotalViews = await _db.Articles.SumAsync(a => (int?)a.Views) ?? 0,
             TotalComments = await _db.Comments.CountAsync(),
             PendingComments = await _db.Comments.CountAsync(c => c.Status == "pending"),
-            Subscribers = await _db.NewsletterSubscribers.CountAsync(n => n.Status == "active"),
+            Subscribers = await _db.Advertisements.CountAsync(a => a.Status == "approved"), // [ĐỔI] đếm QC đang chạy (thay subscriber)
             RecentArticles = await _db.Articles.Include(a => a.Category).Include(a => a.Author)
                                 .OrderByDescending(a => a.CreatedAt).Take(8).ToListAsync(),
             TopArticles = await _db.Articles
@@ -166,6 +172,7 @@ public class AdminController : Controller
     }
 
     // ===== ARTICLES =====
+    // Đây là luồng xử lý danh sách bài viết (lọc theo trạng thái, phân trang)
     public async Task<IActionResult> Articles(string status = "", int page = 1)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -188,6 +195,7 @@ public class AdminController : Controller
         return View(arts);
     }
 
+    // Đây là luồng xử lý hiển thị form tạo bài viết
     public async Task<IActionResult> CreateArticle()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -196,6 +204,10 @@ public class AdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý tạo bài viết mới
+    // Luồng: upload thumbnail -> sinh slug (chống trùng) -> gán tác giả (AuthorId) -> lưu Articles + tag
+    //        -> kiểm duyệt ngôn từ AI (ApplyAIModerationAsync)
+    // Bảng: Articles, ArticleTags, Tags, AILogs
     public async Task<IActionResult> CreateArticle(ArticleFormViewModel vm, IFormFile? thumbnailFile)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -243,7 +255,6 @@ public class AdminController : Controller
             Status = vm.Article.Status,
             IsFeatured = vm.Article.IsFeatured,
             IsBreaking = vm.Article.IsBreaking,
-            IsPremiumOnly = vm.Article.IsPremiumOnly,
             Region = vm.Article.Region,
             PublishedAt = vm.Article.PublishedAt ?? (vm.Article.Status == "published" ? DateTime.Now : null),
             CreatedAt = DateTime.Now,
@@ -259,6 +270,7 @@ public class AdminController : Controller
         return RedirectToAction("Articles");
     }
 
+    // Đây là luồng xử lý hiển thị form sửa bài viết
     public async Task<IActionResult> EditArticle(int id)
     {
 
@@ -276,6 +288,9 @@ public class AdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý cập nhật bài viết
+    // Luồng: cập nhật nội dung + thumbnail + tag -> kiểm duyệt ngôn từ AI lại nếu nội dung đổi
+    // Bảng: Articles, ArticleTags, AILogs
     public async Task<IActionResult> EditArticle(int id, ArticleFormViewModel vm, IFormFile? thumbnailFile)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -314,7 +329,6 @@ public class AdminController : Controller
         article.Status = vm.Article.Status;
         article.IsFeatured = vm.Article.IsFeatured;
         article.IsBreaking = vm.Article.IsBreaking;
-        article.IsPremiumOnly = vm.Article.IsPremiumOnly;
         article.Region = vm.Article.Region;
         article.UpdatedAt = DateTime.Now;
         article.PublishedAt = vm.Article.PublishedAt ?? article.PublishedAt;
@@ -335,6 +349,7 @@ public class AdminController : Controller
 
     // ===== DUYỆT BÀI VIẾT =====
     [HttpPost]
+    // Đây là luồng xử lý duyệt bài viết (đổi Status="published", đặt PublishedAt)
     public async Task<IActionResult> ApproveArticle(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false, message = "Chưa đăng nhập" });
@@ -352,6 +367,8 @@ public class AdminController : Controller
 
     // ===== TỪ CHỐI BÀI VIẾT =====
     [HttpPost]
+    // Đây là luồng xử lý từ chối bài viết (Status="rejected" + bắn thông báo cho tác giả kèm lý do)
+    // Bảng: Articles, Notifications
     public async Task<IActionResult> RejectArticle(int id, [FromBody] RejectRequest? req)
     {
         if (!IsLoggedIn) return Json(new { success = false, message = "Chưa đăng nhập" });
@@ -383,6 +400,7 @@ public class AdminController : Controller
 
     // Xóa bài viết (AJAX)
     [HttpPost]
+    // Đây là luồng xử lý xóa bài viết (kèm bình luận/lượt xem... theo cấu hình FK)
     public async Task<IActionResult> DeleteArticle(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -409,6 +427,7 @@ public class AdminController : Controller
     }
 
     // ===== COMMENTS =====
+    // Đây là luồng xử lý danh sách bình luận chờ duyệt (lọc theo trạng thái)
     public async Task<IActionResult> Comments(string status = "pending")
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -422,6 +441,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý duyệt bình luận (Status="approved")
     public async Task<IActionResult> ApproveComment(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -433,6 +453,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý xóa bình luận
     public async Task<IActionResult> DeleteComment(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -444,6 +465,7 @@ public class AdminController : Controller
     }
 
     // ===== CATEGORIES (CRUD + tìm kiếm) =====
+    // Đây là luồng xử lý danh sách danh mục (chuyên mục)
     public async Task<IActionResult> Categories()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -469,6 +491,7 @@ public class AdminController : Controller
         return slug;
     }
 
+    // Đây là luồng xử lý hiển thị form tạo danh mục
     public IActionResult CreateCategory()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -476,6 +499,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý tạo danh mục mới (sinh slug, chống trùng)
     public async Task<IActionResult> CreateCategory(Category form)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -504,6 +528,7 @@ public class AdminController : Controller
         return RedirectToAction("Categories");
     }
 
+    // Đây là luồng xử lý hiển thị form sửa danh mục
     public async Task<IActionResult> EditCategory(int id)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -513,6 +538,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý cập nhật danh mục
     public async Task<IActionResult> EditCategory(int id, Category form)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -539,6 +565,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý bật/tắt hiển thị danh mục (IsVisible)
     public async Task<IActionResult> ToggleCategoryVisible(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -551,6 +578,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý xóa danh mục
     public async Task<IActionResult> DeleteCategory(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -567,539 +595,13 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
 
-    // ===== PRODUCTS (Gói Premium) — CRUD + tìm kiếm =====
-    public async Task<IActionResult> Products(string? q, string? active)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var query = _db.SubscriptionPlans.Include(p => p.Features).AsQueryable();
-        if (!string.IsNullOrWhiteSpace(q)) query = query.Where(p => p.Name.Contains(q));
-        if (active == "1") query = query.Where(p => p.IsActive);
-        else if (active == "0") query = query.Where(p => !p.IsActive);
-        var plans = await query.OrderByDescending(p => p.Id).ToListAsync();
-
-        var counts = await _db.UserSubscriptions.GroupBy(s => s.PlanId)
-            .Select(g => new { PlanId = g.Key, C = g.Count() }).ToListAsync();
-        ViewBag.SubCounts = counts.ToDictionary(x => x.PlanId, x => x.C);
-        ViewBag.Q = q; ViewBag.Active = active;
-        return View(plans);
-    }
-
-    public IActionResult CreateProduct()
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        ViewBag.FeatureList = new List<string>();
-        return View(new SubscriptionPlan { IsActive = true, DurationDays = 30 });
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> CreateProduct(string Name, string? Description, decimal Price, int DurationDays, int TrialDays, bool IsActive, List<string>? featureTexts)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var cleaned = (featureTexts ?? new List<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToList();
-        ViewBag.FeatureList = cleaned;
-        var model = new SubscriptionPlan { Name = Name ?? "", Description = Description, Price = Price, DurationDays = DurationDays, TrialDays = TrialDays, IsActive = IsActive };
-
-        if (string.IsNullOrWhiteSpace(Name)) { ViewBag.Error = "Vui lòng nhập tên gói."; return View(model); }
-        if (Price < 0) { ViewBag.Error = "Giá không được âm."; return View(model); }
-        if (DurationDays <= 0) { ViewBag.Error = "Thời hạn (ngày) phải lớn hơn 0."; return View(model); }
-
-        var plan = new SubscriptionPlan
-        {
-            Name = Name.Trim(),
-            Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
-            Price = Price,
-            DurationDays = DurationDays,
-            TrialDays = TrialDays < 0 ? 0 : TrialDays,
-            IsActive = IsActive,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
-        };
-        int order = 0;
-        foreach (var ft in cleaned) plan.Features.Add(new PlanFeature { FeatureText = ft, SortOrder = order++ });
-        _db.SubscriptionPlans.Add(plan);
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = "Đã thêm gói Premium.";
-        return RedirectToAction("Products");
-    }
-
-    public async Task<IActionResult> EditProduct(int id)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var plan = await _db.SubscriptionPlans.Include(p => p.Features).FirstOrDefaultAsync(p => p.Id == id);
-        if (plan == null) return RedirectToAction("Products");
-        ViewBag.FeatureList = plan.Features.OrderBy(f => f.SortOrder).Select(f => f.FeatureText).ToList();
-        ViewBag.Locked = await _db.UserSubscriptions.AnyAsync(s => s.PlanId == id &&
-            (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trial));
-        return View(plan);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> EditProduct(int id, string Name, string? Description, decimal Price, int DurationDays, int TrialDays, bool IsActive, List<string>? featureTexts)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var plan = await _db.SubscriptionPlans.Include(p => p.Features).FirstOrDefaultAsync(p => p.Id == id);
-        if (plan == null) return RedirectToAction("Products");
-
-        bool locked = await _db.UserSubscriptions.AnyAsync(s => s.PlanId == id &&
-            (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trial));
-        var cleaned = (featureTexts ?? new List<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToList();
-        ViewBag.FeatureList = cleaned;
-        ViewBag.Locked = locked;
-
-        if (string.IsNullOrWhiteSpace(Name)) { ViewBag.Error = "Vui lòng nhập tên gói."; return View(plan); }
-        if (Price < 0) { ViewBag.Error = "Giá không được âm."; return View(plan); }
-
-        plan.Name = Name.Trim();
-        plan.Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim();
-        plan.Price = Price;
-        plan.IsActive = IsActive;
-        if (!locked)   // chỉ đổi thời hạn/dùng thử khi CHƯA có sub Active/Trial
-        {
-            if (DurationDays <= 0) { ViewBag.Error = "Thời hạn (ngày) phải lớn hơn 0."; return View(plan); }
-            plan.DurationDays = DurationDays;
-            plan.TrialDays = TrialDays < 0 ? 0 : TrialDays;
-        }
-        plan.UpdatedAt = DateTime.Now;
-
-        // Thay toàn bộ danh sách feature.
-        var old = await _db.PlanFeatures.Where(f => f.PlanId == id).ToListAsync();
-        _db.PlanFeatures.RemoveRange(old);
-        int order = 0;
-        foreach (var ft in cleaned) _db.PlanFeatures.Add(new PlanFeature { PlanId = id, FeatureText = ft, SortOrder = order++ });
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = "Đã cập nhật gói.";
-        return RedirectToAction("Products");
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> DeleteProduct(int id)
-    {
-        if (!IsLoggedIn) return Json(new { success = false });
-        var plan = await _db.SubscriptionPlans.FindAsync(id);
-        if (plan == null) return Json(new { success = false, message = "Không tìm thấy gói." });
-
-        bool used = await _db.UserSubscriptions.AnyAsync(s => s.PlanId == id)
-                 || await _db.Transactions.AnyAsync(t => t.PlanId == id);
-        if (used)
-        {
-            plan.IsActive = false; plan.UpdatedAt = DateTime.Now;
-            await _db.SaveChangesAsync();
-            return Json(new { success = true, soft = true, message = "Gói đã từng được sử dụng nên được ẩn (xóa mềm), giữ lại lịch sử." });
-        }
-        var feats = await _db.PlanFeatures.Where(f => f.PlanId == id).ToListAsync();
-        _db.PlanFeatures.RemoveRange(feats);
-        _db.SubscriptionPlans.Remove(plan);
-        await _db.SaveChangesAsync();
-        return Json(new { success = true, soft = false, message = "Đã xóa gói (chưa ai dùng)." });
-    }
-
-    // ===== ADMIN: SUBSCRIPTIONS (người đã đăng ký) =====
-    public async Task<IActionResult> Subscriptions(string? status, string? q)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var query = _db.UserSubscriptions.Include(s => s.Plan).AsQueryable();
-        if (!string.IsNullOrEmpty(status) && Enum.TryParse<SubscriptionStatus>(status, out var st))
-            query = query.Where(s => s.Status == st);
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            var ql = q.Trim();
-            var ids = await _db.Users.Where(u => u.FullName.Contains(ql) || u.Email.Contains(ql))
-                                     .Select(u => u.Id).ToListAsync();
-            query = query.Where(s => ids.Contains(s.UserId));
-        }
-        var subs = await query.OrderByDescending(s => s.Id).Take(500).ToListAsync();
-        var userIds = subs.Select(s => s.UserId).Distinct().ToList();
-        var uinfo = await _db.Users.Where(u => userIds.Contains(u.Id))
-            .Select(u => new { u.Id, u.FullName, u.Email }).ToListAsync();
-        ViewBag.UserNames = uinfo.ToDictionary(u => u.Id, u => u.FullName ?? "");
-        ViewBag.UserEmails = uinfo.ToDictionary(u => u.Id, u => u.Email ?? "");
-        ViewBag.Status = status; ViewBag.Q = q;
-        return View(subs);
-    }
-
-    public async Task<IActionResult> SubscriptionDetail(int id)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var sub = await _db.UserSubscriptions.Include(s => s.Plan).FirstOrDefaultAsync(s => s.Id == id);
-        if (sub == null) return RedirectToAction("Subscriptions");
-        ViewBag.User = await _db.Users.FindAsync(sub.UserId);
-        ViewBag.Txs = await _db.Transactions
-            .Where(t => t.UserSubscriptionId == id || (t.UserId == sub.UserId && t.PlanId == sub.PlanId))
-            .OrderByDescending(t => t.Id).ToListAsync();
-        return View(sub);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> ExtendSubscription(int id, int days)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var sub = await _db.UserSubscriptions.FindAsync(id);
-        if (sub == null) { TempData["Err"] = "Không tìm thấy gói."; return RedirectToAction("Subscriptions"); }
-        if (days <= 0) { TempData["Err"] = "Số ngày phải lớn hơn 0."; return RedirectToAction("SubscriptionDetail", new { id }); }
-        var baseDate = sub.EndDate > DateTime.Now ? sub.EndDate : DateTime.Now;
-        sub.EndDate = baseDate.AddDays(days);
-        if (sub.Status == SubscriptionStatus.Expired || sub.Status == SubscriptionStatus.Cancelled)
-            sub.Status = SubscriptionStatus.Active;
-        sub.ConfirmedAt ??= DateTime.Now;   // gia hạn tay -> có hiệu lực
-        sub.Notes = (string.IsNullOrEmpty(sub.Notes) ? "" : sub.Notes + " | ")
-                  + $"Gia hạn tay +{days} ngày ({DateTime.Now:dd/MM/yyyy HH:mm})";
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = $"Đã gia hạn thêm {days} ngày. Hết hạn mới: {sub.EndDate:dd/MM/yyyy}.";
-        return RedirectToAction("SubscriptionDetail", new { id });
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> CancelSubscriptionAdmin(int id, string? note)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var sub = await _db.UserSubscriptions.FindAsync(id);
-        if (sub == null) { TempData["Err"] = "Không tìm thấy gói."; return RedirectToAction("Subscriptions"); }
-        sub.Status = SubscriptionStatus.Cancelled;
-        sub.Notes = (string.IsNullOrEmpty(sub.Notes) ? "" : sub.Notes + " | ")
-                  + $"Hủy bởi admin ({DateTime.Now:dd/MM/yyyy HH:mm})"
-                  + (string.IsNullOrWhiteSpace(note) ? "" : ": " + note.Trim());
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = "Đã hủy gói.";
-        return RedirectToAction("SubscriptionDetail", new { id });
-    }
-
-    // ===== ADMIN: QUẢN LÝ KHÁCH HÀNG (Premium / Trial) =====
-    public async Task<IActionResult> PremiumCustomers(string? role, string? status, int? planId, string? q, bool? expiring, int page = 1)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        const int pageSize = 20;
-
-        var all = await CustomerHelper.BuildAllAsync(_db);
-        var filtered = CustomerHelper.ApplyFilter(all, role, status, planId, q);
-
-        var now = DateTime.Now;
-        if (expiring == true)
-            filtered = filtered.Where(i => i.SubStatus == SubscriptionStatus.Active && i.EndDate > now && i.EndDate <= now.AddDays(7)).ToList();
-
-        ViewBag.TotalCount    = filtered.Count;
-        ViewBag.TrialCount    = filtered.Count(i => i.SubStatus == SubscriptionStatus.Trial);
-        ViewBag.PremiumCount  = filtered.Count(i => i.SubStatus == SubscriptionStatus.Active);
-        ViewBag.ExpiringCount = filtered.Count(i => i.SubStatus == SubscriptionStatus.Active && i.EndDate > now && i.EndDate <= now.AddDays(7));
-
-        var ordered = filtered.OrderByDescending(i => i.EndDate).ToList();
-        int total = ordered.Count;
-        int totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
-        if (page < 1) page = 1;
-        if (page > totalPages) page = totalPages;
-        var pageItems = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-
-        ViewBag.Page = page; ViewBag.TotalPages = totalPages;
-        ViewBag.Role = role; ViewBag.Status = status; ViewBag.PlanId = planId; ViewBag.Q = q; ViewBag.Expiring = expiring;
-        ViewBag.Plans = await _db.SubscriptionPlans.OrderBy(p => p.Name).ToListAsync();
-        return View(pageItems);
-    }
-
-    // Chi tiết 1 khách hàng
-    public async Task<IActionResult> CustomerProfile(int id)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var vm = await CustomerHelper.BuildDetailAsync(_db, id);
-        if (vm == null) { TempData["Err"] = "Không tìm thấy khách hàng Premium/Trial."; return RedirectToAction("PremiumCustomers"); }
-        ViewBag.Plans = await _db.SubscriptionPlans.Where(p => p.IsActive).OrderBy(p => p.Name).ToListAsync();
-        return View(vm);
-    }
-
-    // Khóa / mở khóa tài khoản khách hàng
-    [HttpPost]
-    public async Task<IActionResult> ToggleCustomerAccount(int userId)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var u = await _db.Users.FindAsync(userId);
-        if (u == null || u.IsDeleted) { TempData["Err"] = "Không tìm thấy khách hàng."; return RedirectToAction("PremiumCustomers"); }
-        bool wasActive = u.IsActive;
-        u.IsActive = !u.IsActive;
-        CustomerHelper.AddLog(_db, userId, "Admin", HttpContext.Session.GetString("AdminName") ?? "Admin",
-            u.IsActive ? "Mở khóa tài khoản" : "Khóa tài khoản",
-            wasActive ? "Hoạt động" : "Bị khóa", u.IsActive ? "Hoạt động" : "Bị khóa", null);
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = u.IsActive ? "Đã mở khóa tài khoản." : "Đã khóa tài khoản.";
-        return RedirectToAction("CustomerProfile", new { id = userId });
-    }
-
-    // Hủy gói của khách hàng
-    [HttpPost]
-    public async Task<IActionResult> CancelCustomerSub(int subId, string? note)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var s = await _db.UserSubscriptions.FindAsync(subId);
-        if (s == null) { TempData["Err"] = "Không tìm thấy gói."; return RedirectToAction("PremiumCustomers"); }
-        var actor = HttpContext.Session.GetString("AdminName") ?? "Admin";
-        var oldLbl = CustomerHelper.StatusLabel(s.Status);
-        s.Status = SubscriptionStatus.Cancelled;
-        s.Notes = (string.IsNullOrEmpty(s.Notes) ? "" : s.Notes + " | ")
-                + $"Hủy bởi {actor} ({DateTime.Now:dd/MM/yyyy HH:mm})"
-                + (string.IsNullOrWhiteSpace(note) ? "" : ": " + note.Trim());
-        CustomerHelper.AddLog(_db, s.UserId, "Admin", actor, "Hủy gói", oldLbl, "Đã hủy", note);
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = "Đã hủy gói của khách hàng.";
-        return RedirectToAction("CustomerProfile", new { id = s.UserId });
-    }
-
-    // Cập nhật gói / ngày hết hạn (không thanh toán)
-    [HttpPost]
-    public async Task<IActionResult> UpdateCustomerPlan(int subId, int planId, DateTime endDate, string? note)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var s = await _db.UserSubscriptions.Include(x => x.Plan).FirstOrDefaultAsync(x => x.Id == subId);
-        if (s == null) { TempData["Err"] = "Không tìm thấy gói."; return RedirectToAction("PremiumCustomers"); }
-        var plan = await _db.SubscriptionPlans.FindAsync(planId);
-        if (plan == null) { TempData["Err"] = "Gói không hợp lệ."; return RedirectToAction("CustomerProfile", new { id = s.UserId }); }
-        var actor = HttpContext.Session.GetString("AdminName") ?? "Admin";
-
-        if (s.PlanId != planId)
-        {
-            CustomerHelper.AddLog(_db, s.UserId, "Admin", actor, "Đổi gói", s.Plan?.Name ?? "", plan.Name, note);
-            s.PlanId = planId;
-        }
-        if (s.EndDate.Date != endDate.Date)
-        {
-            CustomerHelper.AddLog(_db, s.UserId, "Admin", actor, "Đổi ngày hết hạn",
-                s.EndDate.ToString("dd/MM/yyyy"), endDate.ToString("dd/MM/yyyy"), note);
-            s.EndDate = endDate;
-        }
-        // Gia hạn về tương lai cho gói đã hết hạn/hủy -> kích hoạt lại
-        if (endDate > DateTime.Now && (s.Status == SubscriptionStatus.Expired || s.Status == SubscriptionStatus.Cancelled))
-        {
-            s.Status = SubscriptionStatus.Active;
-            s.ConfirmedAt ??= DateTime.Now;
-        }
-        s.Notes = (string.IsNullOrEmpty(s.Notes) ? "" : s.Notes + " | ")
-                + $"Cập nhật gói bởi {actor} ({DateTime.Now:dd/MM/yyyy HH:mm})";
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = "Đã cập nhật gói khách hàng.";
-        return RedirectToAction("CustomerProfile", new { id = s.UserId });
-    }
-
-    // Đăng ký Premium thủ công cho 1 khách hàng
-    [HttpPost]
-    public async Task<IActionResult> RegisterPremium(int userId, int planId, int days)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var (ok, msg, uid) = await CustomerHelper.RegisterPremiumAsync(_db, userId, planId, days, "Admin", HttpContext.Session.GetString("AdminName") ?? "Admin");
-        TempData[ok ? "Ok" : "Err"] = msg;
-        return uid > 0 ? RedirectToAction("CustomerProfile", new { id = uid }) : RedirectToAction("PremiumCustomers");
-    }
-
-    // Gia hạn Premium (cộng thêm ngày)
-    [HttpPost]
-    public async Task<IActionResult> ExtendPremium(int subId, int days)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var (ok, msg, uid) = await CustomerHelper.ExtendPremiumAsync(_db, subId, days, "Admin", HttpContext.Session.GetString("AdminName") ?? "Admin");
-        TempData[ok ? "Ok" : "Err"] = msg;
-        return uid > 0 ? RedirectToAction("CustomerProfile", new { id = uid }) : RedirectToAction("PremiumCustomers");
-    }
-
-    // Chuyển Trial -> Premium
-    [HttpPost]
-    public async Task<IActionResult> ConvertTrialToPremium(int subId, int planId, int days)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var (ok, msg, uid) = await CustomerHelper.ConvertTrialAsync(_db, subId, planId, days, "Admin", HttpContext.Session.GetString("AdminName") ?? "Admin");
-        TempData[ok ? "Ok" : "Err"] = msg;
-        return uid > 0 ? RedirectToAction("CustomerProfile", new { id = uid }) : RedirectToAction("PremiumCustomers");
-    }
-
-    // ===== ADMIN: TRANSACTIONS =====
-    private IQueryable<Transaction> FilterTransactions(string? status, string? method, DateTime? from, DateTime? to)
-    {
-        var query = _db.Transactions.Include(t => t.Plan).AsQueryable();
-        if (!string.IsNullOrEmpty(status) && Enum.TryParse<TransactionStatus>(status, out var ts))
-            query = query.Where(t => t.Status == ts);
-        if (!string.IsNullOrWhiteSpace(method))
-            query = query.Where(t => t.PaymentMethodLabel.Contains(method));
-        if (from != null) query = query.Where(t => t.CreatedAt >= from.Value.Date);
-        if (to != null) query = query.Where(t => t.CreatedAt < to.Value.Date.AddDays(1));
-        return query;
-    }
-
-    public async Task<IActionResult> Transactions(string? status, string? method, DateTime? from, DateTime? to)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var list = await FilterTransactions(status, method, from, to)
-            .OrderByDescending(t => t.Id).Take(1000).ToListAsync();
-        var userIds = list.Select(t => t.UserId).Distinct().ToList();
-        var uinfo = await _db.Users.Where(u => userIds.Contains(u.Id))
-            .Select(u => new { u.Id, u.FullName, u.Email }).ToListAsync();
-        ViewBag.UserNames = uinfo.ToDictionary(u => u.Id, u => u.FullName ?? "");
-        ViewBag.UserEmails = uinfo.ToDictionary(u => u.Id, u => u.Email ?? "");
-        ViewBag.Status = status; ViewBag.Method = method;
-        ViewBag.From = from?.ToString("yyyy-MM-dd"); ViewBag.To = to?.ToString("yyyy-MM-dd");
-        ViewBag.TotalSuccess = list.Where(t => t.Status == TransactionStatus.Success).Sum(t => t.Amount);
-        return View(list);
-    }
-
-    public async Task<IActionResult> ExportTransactionsCsv(string? status, string? method, DateTime? from, DateTime? to)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var list = await FilterTransactions(status, method, from, to)
-            .OrderByDescending(t => t.Id).ToListAsync();
-        var userIds = list.Select(t => t.UserId).Distinct().ToList();
-        var users = await _db.Users.Where(u => userIds.Contains(u.Id))
-            .ToDictionaryAsync(u => u.Id, u => u.Email);
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("Id,Email,Goi,SoTien,PhuongThuc,TrangThai,NgayTao");
-        string Esc(string? v) => "\"" + (v ?? "").Replace("\"", "\"\"") + "\"";
-        foreach (var t in list)
-        {
-            var email = users.ContainsKey(t.UserId) ? users[t.UserId] : "";
-            sb.Append(t.Id).Append(',')
-              .Append(Esc(email)).Append(',')
-              .Append(Esc(t.Plan?.Name)).Append(',')
-              .Append(t.Amount.ToString("0")).Append(',')
-              .Append(Esc(t.PaymentMethodLabel)).Append(',')
-              .Append(t.Status).Append(',')
-              .Append(t.CreatedAt.ToString("yyyy-MM-dd HH:mm")).AppendLine();
-        }
-        var bom = new byte[] { 0xEF, 0xBB, 0xBF };
-        var body = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
-        var bytes = bom.Concat(body).ToArray();
-        return File(bytes, "text/csv", $"transactions_{DateTime.Now:yyyyMMdd_HHmm}.csv");
-    }
-
-    // ===== ADMIN: DASHBOARD DOANH THU =====
-    public async Task<IActionResult> RevenueDashboard(DateTime? aFrom, DateTime? aTo, DateTime? bFrom, DateTime? bTo)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var now = DateTime.Now;
-        var start = new DateTime(now.Year, now.Month, 1).AddMonths(-11);
-
-        var successTx = await _db.Transactions
-            .Where(t => t.Status == TransactionStatus.Success && t.CreatedAt >= start)
-            .Select(t => new { t.CreatedAt, t.Amount }).ToListAsync();
-
-        var labels = new List<string>();
-        var data = new List<decimal>();
-        for (int i = 0; i < 12; i++)
-        {
-            var m = start.AddMonths(i);
-            labels.Add($"{m.Month:00}/{m.Year}");
-            data.Add(successTx.Where(t => t.CreatedAt.Year == m.Year && t.CreatedAt.Month == m.Month).Sum(t => t.Amount));
-        }
-        ViewBag.Labels = labels;
-        ViewBag.Data = data;
-
-        ViewBag.ActiveCount = await _db.UserSubscriptions.CountAsync(s =>
-            s.Status == SubscriptionStatus.Active && s.ConfirmedAt != null && s.EndDate > now);
-        ViewBag.TrialCount = await _db.UserSubscriptions.CountAsync(s =>
-            s.Status == SubscriptionStatus.Trial && s.ConfirmedAt != null && s.EndDate > now);
-        ViewBag.TotalRevenue = await _db.Transactions
-            .Where(t => t.Status == TransactionStatus.Success).SumAsync(t => (decimal?)t.Amount) ?? 0m;
-
-        var monthStart = new DateTime(now.Year, now.Month, 1);
-        int expiredThisMonth = await _db.UserSubscriptions.CountAsync(s =>
-            s.Status == SubscriptionStatus.Expired && s.EndDate >= monthStart && s.EndDate <= now);
-        int activeNow = await _db.UserSubscriptions.CountAsync(s =>
-            s.Status == SubscriptionStatus.Active && s.EndDate > now);
-        int denom = expiredThisMonth + activeNow;
-        ViewBag.ExpiredRate = denom > 0 ? Math.Round(expiredThisMonth * 100.0 / denom, 1) : 0.0;
-        ViewBag.ExpiredThisMonth = expiredThisMonth;
-
-        // ===== Đối chiếu doanh thu (Ngày / Tuần / Tháng / Năm) =====
-        var successAll = await _db.Transactions
-            .Where(t => t.Status == TransactionStatus.Success)
-            .Select(t => new { t.CreatedAt, t.Amount }).ToListAsync();
-        decimal SumIn(DateTime a, DateTime b) => successAll.Where(t => t.CreatedAt >= a && t.CreatedAt < b).Sum(t => t.Amount);
-        int CntIn(DateTime a, DateTime b) => successAll.Count(t => t.CreatedAt >= a && t.CreatedAt < b);
-
-        var today = now.Date;
-        var yesterday = today.AddDays(-1);
-        int wdiff = ((int)today.DayOfWeek + 6) % 7;              // Thứ 2 = 0
-        var weekStart = today.AddDays(-wdiff);
-        var lastWeekStart = weekStart.AddDays(-7);
-        var mStart = new DateTime(now.Year, now.Month, 1);
-        var lastMStart = mStart.AddMonths(-1);
-        var yStart = new DateTime(now.Year, 1, 1);
-        var lastYStart = yStart.AddYears(-1);
-
-        var compares = new List<RevenueCompareRow>
-        {
-            new() { Key="day", CurLabel="Hôm nay", PrevLabel="Hôm qua",
-                Current=SumIn(today, today.AddDays(1)), Previous=SumIn(yesterday, today),
-                CurCount=CntIn(today, today.AddDays(1)), PrevCount=CntIn(yesterday, today) },
-            new() { Key="week", CurLabel="Tuần này", PrevLabel="Tuần trước",
-                Current=SumIn(weekStart, weekStart.AddDays(7)), Previous=SumIn(lastWeekStart, weekStart),
-                CurCount=CntIn(weekStart, weekStart.AddDays(7)), PrevCount=CntIn(lastWeekStart, weekStart) },
-            new() { Key="month", CurLabel="Tháng này", PrevLabel="Tháng trước",
-                Current=SumIn(mStart, mStart.AddMonths(1)), Previous=SumIn(lastMStart, mStart),
-                CurCount=CntIn(mStart, mStart.AddMonths(1)), PrevCount=CntIn(lastMStart, mStart) },
-            new() { Key="year", CurLabel="Năm " + now.Year, PrevLabel="Năm " + (now.Year-1),
-                Current=SumIn(yStart, yStart.AddYears(1)), Previous=SumIn(lastYStart, yStart),
-                CurCount=CntIn(yStart, yStart.AddYears(1)), PrevCount=CntIn(lastYStart, yStart) },
-        };
-
-        // Kỳ tùy chọn: so sánh 2 khoảng ngày bất kỳ.
-        bool hasCustom = aFrom != null && aTo != null && bFrom != null && bTo != null;
-        if (hasCustom)
-        {
-            compares.Add(new()
-            {
-                Key = "custom",
-                CurLabel = $"{aFrom:dd/MM/yyyy} → {aTo:dd/MM/yyyy}",
-                PrevLabel = $"{bFrom:dd/MM/yyyy} → {bTo:dd/MM/yyyy}",
-                Current = SumIn(aFrom!.Value.Date, aTo!.Value.Date.AddDays(1)),
-                Previous = SumIn(bFrom!.Value.Date, bTo!.Value.Date.AddDays(1)),
-                CurCount = CntIn(aFrom.Value.Date, aTo.Value.Date.AddDays(1)),
-                PrevCount = CntIn(bFrom.Value.Date, bTo.Value.Date.AddDays(1)),
-            });
-        }
-        ViewBag.Compares = compares;
-        ViewBag.HasCustom = hasCustom;
-        ViewBag.AFrom = aFrom?.ToString("yyyy-MM-dd");
-        ViewBag.ATo = aTo?.ToString("yyyy-MM-dd");
-        ViewBag.BFrom = bFrom?.ToString("yyyy-MM-dd");
-        ViewBag.BTo = bTo?.ToString("yyyy-MM-dd");
-        return View();
-    }
-
-    // ===== XUẤT EXCEL DOANH THU (toàn bộ hoặc theo khoảng thời gian) =====
-    public async Task<IActionResult> ExportRevenueExcel(DateTime? from, DateTime? to)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var q = _db.Transactions.Include(t => t.Plan).Where(t => t.Status == TransactionStatus.Success);
-        if (from != null) q = q.Where(t => t.CreatedAt >= from.Value.Date);
-        if (to != null) q = q.Where(t => t.CreatedAt < to.Value.Date.AddDays(1));
-        var list = await q.OrderByDescending(t => t.Id).ToListAsync();
-        var uids = list.Select(t => t.UserId).Distinct().ToList();
-        var emails = await _db.Users.Where(u => uids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Email);
-
-        var headers = new[] { "Mã GD", "Email", "Gói", "Số tiền (đ)", "Phương thức", "Ngày" };
-        var rows = list.Select(t => new[]
-        {
-            t.Id.ToString(),
-            emails.TryGetValue(t.UserId, out var e) ? e : "",
-            t.Plan?.Name ?? "",
-            t.Amount.ToString("0"),
-            t.PaymentMethodLabel,
-            t.CreatedAt.ToString("dd/MM/yyyy HH:mm")
-        }).ToList();
-        rows.Add(new[] { "", "", "TỔNG CỘNG", list.Sum(t => t.Amount).ToString("0"), "", "" });
-
-        var suffix = (from == null && to == null) ? "toan-bo" : $"{from:yyyyMMdd}-{to:yyyyMMdd}";
-        var bytes = WisdomITNews.Services.SimpleXlsx.Build("DoanhThu", headers, rows);
-        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"doanh-thu-{suffix}.xlsx");
-    }
-
+    // [ĐÃ GỠ] Khu Premium (Products/Subscriptions/Khách hàng Premium/Transactions/Doanh thu) đã được loại bỏ — tái dùng cho Bán Quảng Cáo ở B5.
     // ===== CHAT NỘI BỘ BAN QUẢN LÝ (phòng chung) =====
-    public async Task<IActionResult> TeamChat()
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var msgs = await _db.TeamChatMessages.Where(m => m.ConversationKey == "team")
-            .OrderBy(m => m.Id).Take(200).ToListAsync();
-        ViewBag.Messages = msgs;
-        var role = HttpContext.Session.GetString("AdminRole") ?? "";
-        ViewBag.MeRole = (role == "superadmin" || role == "admin") ? "admin" : "nhanvien";
-        ViewBag.MeId = AdminId;
-        return View();
-    }
+    // [ĐÃ GỠ] Action TeamChat (Chat nội bộ) đã được loại bỏ.
 
     // ===== CHẨN ĐOÁN GỬI EMAIL =====
     [HttpGet]
+    // Đây là luồng xử lý hiển thị trang chẩn đoán gửi email
     public IActionResult TestEmail()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1108,6 +610,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý gửi email thử để kiểm tra cấu hình SMTP
     public async Task<IActionResult> TestEmail(string toEmail)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1125,71 +628,11 @@ public class AdminController : Controller
             : "LỖI SMTP: " + (string.IsNullOrWhiteSpace(err) ? "không rõ" : err);
         return View();
     }
-// ===== GIA HẠN QUẢNG CÁO (chat với nhà báo) =====
-    public async Task<IActionResult> RenewalAds()
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var now = DateTime.Now;
-        var ads = await _db.Advertisements
-            .Where(a => a.EndDate != null && a.EndDate < now)
-            .OrderByDescending(a => a.EndDate).ToListAsync();
-        var ids = ads.Select(a => a.Id).ToList();
-        var unread = await _db.AdRenewalMessages
-            .Where(m => ids.Contains(m.AdvertisementId) && m.SenderRole == "journalist" && !m.IsReadByAdmin)
-            .GroupBy(m => m.AdvertisementId).Select(g => new { AdId = g.Key, C = g.Count() }).ToListAsync();
-        ViewBag.Unread = unread.ToDictionary(x => x.AdId, x => x.C);
-        return View(ads);
-    }
-
-    public async Task<IActionResult> AdChat(int id)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var ad = await _db.Advertisements.FindAsync(id);
-        if (ad == null) return RedirectToAction("RenewalAds");
-        var msgs = await _db.AdRenewalMessages.Where(m => m.AdvertisementId == id).OrderBy(m => m.Id).ToListAsync();
-        var unread = msgs.Where(m => m.SenderRole == "journalist" && !m.IsReadByAdmin).ToList();
-        if (unread.Count > 0) { foreach (var m in unread) m.IsReadByAdmin = true; await _db.SaveChangesAsync(); }
-        ViewBag.Ad = ad; ViewBag.Messages = msgs;
-        return View();
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> ExtendAdRenewal(int id, DateTime? endDate)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var ad = await _db.Advertisements.FindAsync(id);
-        if (ad == null) { TempData["Err"] = "Không tìm thấy quảng cáo."; return RedirectToAction("RenewalAds"); }
-        if (endDate == null || endDate.Value.Date <= DateTime.Now.Date)
-        { TempData["Err"] = "Chọn ngày gia hạn trong tương lai."; return RedirectToAction("AdChat", new { id }); }
-
-        ad.EndDate = endDate.Value;
-        if (ad.StartDate == null || ad.StartDate > DateTime.Now) ad.StartDate = DateTime.Now;
-        ad.IsActive = true;
-        ad.Status = "approved";
-
-        var aRole = HttpContext.Session.GetString("AdminRole") ?? "";
-        var role = (aRole == "superadmin" || aRole == "admin") ? "admin" : "nhanvien";
-        var name = HttpContext.Session.GetString("AdminName") ?? "Quản trị";
-        var msg = new AdRenewalMessage
-        {
-            AdvertisementId = id, SenderRole = role, SenderId = AdminId, SenderName = name,
-            Content = $"✅ Đã gia hạn quảng cáo, chạy lại đến {endDate.Value:dd/MM/yyyy}.",
-            CreatedAt = DateTime.Now, IsReadByAdmin = true, IsReadByJournalist = false
-        };
-        _db.AdRenewalMessages.Add(msg);
-        await _db.SaveChangesAsync();
-
-        var hub = HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<WisdomITNews.Hubs.AdChatHub>>();
-        await hub.Clients.Group($"adchat_{id}").SendAsync("ReceiveAdMessage", new
-        {
-            adId = id, id = msg.Id, role = msg.SenderRole, senderName = msg.SenderName,
-            content = msg.Content, createdAt = msg.CreatedAt.ToString("HH:mm dd/MM/yyyy"), isJournalist = false
-        });
-        TempData["Ok"] = $"Đã gia hạn quảng cáo đến {endDate.Value:dd/MM/yyyy} và bật lại.";
-        return RedirectToAction("AdChat", new { id });
-    }
+    // [ĐÃ GỠ] Khu Gia hạn quảng cáo (RenewalAds/AdChat/ExtendAdRenewal) đã được loại bỏ.
 
     // ===== AI LOGS =====
+    // Đây là luồng xử lý xem nhật ký AI (gồm kết quả kiểm duyệt + ngôn từ vi phạm đã ghi)
+    // Bảng: AILogs
     public async Task<IActionResult> AILogs(DateTime? from, DateTime? to)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1208,6 +651,7 @@ public class AdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý xóa 1 dòng nhật ký AI
     public async Task<IActionResult> DeleteAILog(long id)
     {
         if (!IsLoggedIn) return Json(new { success = false, message = "Chưa đăng nhập" });
@@ -1221,6 +665,7 @@ public class AdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý xóa nhiều nhật ký AI (theo khoảng ngày hoặc tất cả)
     public async Task<IActionResult> DeleteAILogs(DateTime? from, DateTime? to, bool all = false)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1249,6 +694,7 @@ public class AdminController : Controller
     }
 
     // ===== FEEDBACK =====
+    // Đây là luồng xử lý danh sách phản hồi/góp ý của người đọc (lọc open/resolved)
     public async Task<IActionResult> Feedbacks(string filter = "open")
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1261,6 +707,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý đánh dấu phản hồi đã xử lý (IsResolved=true)
     public async Task<IActionResult> ResolveFeedback(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -1271,268 +718,12 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
 
-    // ===== NEWSLETTER =====
-    [HttpGet]
-    public async Task<IActionResult> Newsletter(string filter = "all")
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
-        var q = _db.NewsletterSubscribers.AsQueryable();
-        if (filter == "active") q = q.Where(n => n.Status == "active");
-        else if (filter == "inactive") q = q.Where(n => n.Status != "active");
-        var subs = await q.OrderByDescending(n => n.SubscribedAt).Take(500).ToListAsync();
-        ViewBag.SmtpConfigured = _email.IsConfigured;
-        ViewBag.Filter = filter;
-        return View(subs);
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SendNewsletter(string subject, string htmlBody)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
-        if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(htmlBody))
-        {
-            TempData["NewsletterError"] = "Vui lòng nhập tiêu đề và nội dung email.";
-            return RedirectToAction("Newsletter");
-        }
-
-        if (!_email.IsConfigured)
-        {
-            TempData["NewsletterError"] = "SMTP chưa được cấu hình. Hãy điền section \"Smtp\" trong appsettings.json trước.";
-            return RedirectToAction("Newsletter");
-        }
-
-        var emails = await _db.NewsletterSubscribers
-            .Where(n => n.Status == "active")
-            .Select(n => n.Email)
-            .ToListAsync();
-
-        if (emails.Count == 0)
-        {
-            TempData["NewsletterError"] = "Không có subscriber nào để gửi.";
-            return RedirectToAction("Newsletter");
-        }
-
-        var (ok, fail) = await _email.SendBulkAsync(emails, subject.Trim(), htmlBody);
-        TempData["NewsletterSuccess"] =
-            $"Đã gửi xong: {ok} thành công, {fail} thất bại (tổng {emails.Count} subscribers).";
-        return RedirectToAction("Newsletter");
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SendTestEmail(string testEmail)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền truy cập chức năng này."; return RedirectToAction("Dashboard"); }
-        if (string.IsNullOrWhiteSpace(testEmail) || !testEmail.Contains('@'))
-        {
-            TempData["NewsletterError"] = "Email test không hợp lệ.";
-            return RedirectToAction("Newsletter");
-        }
-
-        var (ok, err) = await _email.SendAsync(
-            testEmail.Trim(),
-            "[Wisdom IT News] Email test",
-            "<p>Đây là email test từ Wisdom IT News.</p><p>Nếu bạn nhận được email này, cấu hình SMTP đã hoạt động.</p>");
-
-        if (ok) TempData["NewsletterSuccess"] = $"Đã gửi email test tới {testEmail}.";
-        else TempData["NewsletterError"] = $"Gửi thất bại: {err}";
-        return RedirectToAction("Newsletter");
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteSubscriber(int id)
-    {
-        if (!IsLoggedIn) return Json(new { success = false });
-        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
-        var s = await _db.NewsletterSubscribers.FindAsync(id);
-        if (s == null) return Json(new { success = false });
-        _db.NewsletterSubscribers.Remove(s);
-        await _db.SaveChangesAsync();
-        return Json(new { success = true });
-    }
-
-    // Sửa thông tin 1 subscriber (Họ tên, SĐT, Email, Nguồn, Trạng thái)
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditSubscriber(int id, string? fullName, string? phone, string email, string status, string? source)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        if (!IsSuperAdmin) { TempData["Err"] = "Bạn không đủ quyền."; return RedirectToAction("Dashboard"); }
-        var s = await _db.NewsletterSubscribers.FindAsync(id);
-        if (s != null)
-        {
-            if (!string.IsNullOrWhiteSpace(email)) s.Email = email.Trim();
-            s.FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim();
-            s.Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
-            s.Source = string.IsNullOrWhiteSpace(source) ? null : source.Trim();
-            s.Status = status == "active" ? "active" : "inactive";
-            await _db.SaveChangesAsync();
-            TempData["NewsletterSuccess"] = "Đã cập nhật subscriber.";
-        }
-        return RedirectToAction("Newsletter");
-    }
-
-    // ===== QUẢN LÝ KHÁCH HÀNG =====
-    [HttpGet]
-    public async Task<IActionResult> Customers(string? filter = "all", string? q = null, string? category = null, string? source = null)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var query = _db.NewsletterSubscribers.AsQueryable();
-        if (filter == "active") query = query.Where(n => n.Status == "active");
-        else if (filter == "inactive") query = query.Where(n => n.Status != "active");
-        if (!string.IsNullOrWhiteSpace(category)) query = query.Where(n => n.InterestedCategory == category);
-        if (!string.IsNullOrWhiteSpace(source)) query = query.Where(n => n.Source == source);
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            var kw = q.Trim();
-            query = query.Where(n => n.Email.Contains(kw)
-                || (n.FullName != null && n.FullName.Contains(kw))
-                || (n.Phone != null && n.Phone.Contains(kw)));
-        }
-        var subs = await query.OrderByDescending(n => n.SubscribedAt).ToListAsync();
-        ViewBag.Filter = filter; ViewBag.Q = q; ViewBag.Category = category; ViewBag.Source = source;
-        ViewBag.Categories = await _db.Categories.OrderBy(c => c.SortOrder).Select(c => c.Name).ToListAsync();
-        ViewBag.Sources = await _db.NewsletterSubscribers.Where(n => n.Source != null).Select(n => n.Source!).Distinct().ToListAsync();
-        return View(subs);
-    }
-
-    public async Task<IActionResult> CustomerDetail(int id)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var c = await _db.NewsletterSubscribers.FindAsync(id);
-        if (c == null) return RedirectToAction("Customers");
-        ViewBag.Emails = await _db.NewsletterEmailLogs.Where(l => l.SubscriberId == id)
-            .OrderByDescending(l => l.SentAt).Take(100).ToListAsync();
-        return View(c);
-    }
-
-    public async Task<IActionResult> CreateCustomer()
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        ViewBag.Categories = await _db.Categories.OrderBy(c => c.SortOrder).Select(c => c.Name).ToListAsync();
-        return View(new NewsletterSubscriber());
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> CreateCustomer(NewsletterSubscriber form)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        async Task LoadCats() { ViewBag.Categories = await _db.Categories.OrderBy(c => c.SortOrder).Select(c => c.Name).ToListAsync(); }
-        if (string.IsNullOrWhiteSpace(form.Email) || !form.Email.Contains('@'))
-        { ViewBag.Error = "Email không hợp lệ."; await LoadCats(); return View(form); }
-        var email = form.Email.Trim().ToLowerInvariant();
-        if (await _db.NewsletterSubscribers.AnyAsync(n => n.Email == email))
-        { ViewBag.Error = "Email đã tồn tại."; await LoadCats(); return View(form); }
-        _db.NewsletterSubscribers.Add(new NewsletterSubscriber
-        {
-            Email = email,
-            FullName = string.IsNullOrWhiteSpace(form.FullName) ? null : form.FullName.Trim(),
-            Phone = string.IsNullOrWhiteSpace(form.Phone) ? null : form.Phone.Trim(),
-            Source = string.IsNullOrWhiteSpace(form.Source) ? "Thêm thủ công" : form.Source.Trim(),
-            InterestedCategory = string.IsNullOrWhiteSpace(form.InterestedCategory) ? null : form.InterestedCategory,
-            Status = string.IsNullOrWhiteSpace(form.Status) ? "active" : form.Status,
-            SubscribedAt = DateTime.Now
-        });
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = "Đã thêm khách hàng.";
-        return RedirectToAction("Customers");
-    }
-
-    public async Task<IActionResult> EditCustomer(int id)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var c = await _db.NewsletterSubscribers.FindAsync(id);
-        if (c == null) return RedirectToAction("Customers");
-        ViewBag.Categories = await _db.Categories.OrderBy(x => x.SortOrder).Select(x => x.Name).ToListAsync();
-        return View(c);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> EditCustomer(int id, NewsletterSubscriber form)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        var c = await _db.NewsletterSubscribers.FindAsync(id);
-        if (c == null) return RedirectToAction("Customers");
-        if (!string.IsNullOrWhiteSpace(form.Email) && form.Email.Contains('@')) c.Email = form.Email.Trim().ToLowerInvariant();
-        c.FullName = string.IsNullOrWhiteSpace(form.FullName) ? null : form.FullName.Trim();
-        c.Phone = string.IsNullOrWhiteSpace(form.Phone) ? null : form.Phone.Trim();
-        c.Source = string.IsNullOrWhiteSpace(form.Source) ? null : form.Source.Trim();
-        c.InterestedCategory = string.IsNullOrWhiteSpace(form.InterestedCategory) ? null : form.InterestedCategory;
-        c.Status = string.IsNullOrWhiteSpace(form.Status) ? c.Status : form.Status;
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = "Đã cập nhật khách hàng.";
-        return RedirectToAction("CustomerDetail", new { id });
-    }
-
-    // ===== Gửi email theo nhóm (segment) =====
-    public async Task<IActionResult> SendCustomerEmail()
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        if (!IsSuperAdmin) return RedirectToAction("Dashboard");
-        ViewBag.Categories = await _db.Categories.OrderBy(c => c.SortOrder).Select(c => c.Name).ToListAsync();
-        ViewBag.Sources = await _db.NewsletterSubscribers.Where(n => n.Source != null).Select(n => n.Source!).Distinct().ToListAsync();
-        ViewBag.SmtpConfigured = _email.IsConfigured;
-        return View();
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> SendCustomerEmail(string segment, string? category, string? source, string subject, string htmlBody, bool insertAd = false)
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        if (!IsSuperAdmin) return RedirectToAction("Dashboard");
-        if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(htmlBody))
-        { TempData["Err"] = "Vui lòng nhập tiêu đề và nội dung."; return RedirectToAction("SendCustomerEmail"); }
-
-        var query = _db.NewsletterSubscribers.Where(n => n.Status == "active");
-        string segLabel = "Tất cả (active)";
-        if (segment == "category" && !string.IsNullOrWhiteSpace(category))
-        { query = query.Where(n => n.InterestedCategory == category); segLabel = "Danh mục: " + category; }
-        else if (segment == "source" && !string.IsNullOrWhiteSpace(source))
-        { query = query.Where(n => n.Source == source); segLabel = "Nguồn: " + source; }
-        var recipients = await query.ToListAsync();
-        if (recipients.Count == 0)
-        { TempData["Err"] = "Không có khách hàng nào trong nhóm đã chọn."; return RedirectToAction("SendCustomerEmail"); }
-
-        var body = htmlBody;
-        if (insertAd)
-        {
-            var now = DateTime.Now;
-            var ad = await _db.Advertisements
-                .Where(a => a.Status == "approved" && a.IsActive
-                    && (a.StartDate == null || a.StartDate <= now) && (a.EndDate == null || a.EndDate >= now))
-                .OrderByDescending(a => a.Id).FirstOrDefaultAsync();
-            if (ad != null && !string.IsNullOrEmpty(ad.ImageUrl))
-                body += $"<hr/><div style=\"text-align:center;margin-top:16px;\"><small style=\"color:#888;\">Quảng cáo</small><br/><a href=\"{ad.TargetUrl}\"><img src=\"{ad.ImageUrl}\" style=\"max-width:100%;\"/></a></div>";
-        }
-
-        int ok = 0, fail = 0;
-        foreach (var r in recipients)
-        {
-            bool success = false; string? err = null;
-            if (_email.IsConfigured)
-            {
-                var res = await _email.SendAsync(r.Email, subject.Trim(), body, r.FullName);
-                success = res.success; err = res.error;
-            }
-            else { err = "SMTP chưa cấu hình"; }
-            if (success) ok++; else fail++;
-            _db.NewsletterEmailLogs.Add(new NewsletterEmailLog
-            {
-                SubscriberId = r.Id, Email = r.Email, Subject = subject.Trim(),
-                Segment = segLabel, IsSuccess = success, Error = err, SentAt = DateTime.Now
-            });
-        }
-        await _db.SaveChangesAsync();
-        TempData["Ok"] = $"Đã gửi tới nhóm '{segLabel}': {ok} thành công, {fail} thất bại (tổng {recipients.Count}).";
-        return RedirectToAction("Customers");
-    }
-
+    // [ĐÃ GỠ] Khu Newsletter + Quản lý người đăng ký nhận tin đã được loại bỏ.
     // ===== AI Moderation =====
+    // Đây là luồng xử lý kiểm duyệt ngôn từ bài viết bằng AI (dùng chung khi tạo/sửa bài)
+    // Luồng: ghép tiêu đề+nội dung -> AIService.ModerateContentAsync -> ghi AILog (score + ngôn từ vi phạm "issues")
+    //        -> nếu score cao thì đánh dấu bài cần xem lại. AI lỗi không chặn.
+    // Bảng: AILogs, Articles
     private async Task ApplyAIModerationAsync(Article article)
     {
         try
@@ -1572,6 +763,7 @@ public class AdminController : Controller
     }
 
     // ===== USER MANAGEMENT =====
+    // Đây là luồng xử lý danh sách người dùng (độc giả)
     public async Task<IActionResult> Users()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1581,6 +773,7 @@ public class AdminController : Controller
     }
 
     [HttpGet]
+    // Đây là luồng xử lý xem chi tiết một người dùng
     public async Task<IActionResult> UserDetail(int id)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1601,6 +794,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý xóa người dùng (soft delete IsDeleted)
     public async Task<IActionResult> DeleteUser(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -1612,6 +806,7 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
     [HttpPost]
+    // Đây là luồng xử lý khóa tài khoản người dùng (IsActive=false)
     public async Task<IActionResult> LockUser(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -1625,6 +820,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý mở khóa tài khoản người dùng (IsActive=true)
     public async Task<IActionResult> UnlockUser(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -1638,6 +834,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý đổi vai trò người dùng
     public async Task<IActionResult> ChangeUserRole(int id, string role)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -1656,6 +853,7 @@ public class AdminController : Controller
     }
 
     [HttpGet]
+    // Đây là luồng xử lý hiển thị form tạo người dùng
     public IActionResult CreateUser()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1665,6 +863,8 @@ public class AdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý tạo người dùng mới (BCrypt hash mật khẩu, chống trùng)
+    // Bảng: Users
     public async Task<IActionResult> CreateUser(string username, string email, string password, string fullName, string role)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1713,6 +913,7 @@ public class AdminController : Controller
 
     // Admin xóa tin nhắn bất kỳ
     [HttpPost]
+    // Đây là luồng xử lý admin xóa tin nhắn (chat nội bộ)
     public async Task<IActionResult> AdminDeleteMessage(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -1730,6 +931,7 @@ public class AdminController : Controller
 
     // Admin kick thành viên khỏi nhóm
     [HttpPost]
+    // Đây là luồng xử lý admin loại thành viên khỏi nhóm chat
     public async Task<IActionResult> KickMember(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -1747,6 +949,7 @@ public class AdminController : Controller
 
     // ===== HELPER =====
     // ===================== QUẢN LÝ NHÂN VIÊN (chỉ superadmin) =====================
+    // Đây là luồng xử lý danh sách nhân viên (chỉ superadmin)
     public async Task<IActionResult> Staff()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1756,6 +959,7 @@ public class AdminController : Controller
     }
 
     [HttpGet]
+    // Đây là luồng xử lý hiển thị form thêm nhân viên
     public IActionResult CreateStaff()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1765,6 +969,8 @@ public class AdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý tạo nhân viên mới (Admin + BCrypt, chống trùng username)
+    // Bảng: Admins
     public async Task<IActionResult> CreateStaff(string username, string email, string password, string fullName, string role, string? gender, string? address)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1804,6 +1010,7 @@ public class AdminController : Controller
     }
 
     [HttpGet]
+    // Đây là luồng xử lý hiển thị form sửa nhân viên
     public async Task<IActionResult> EditStaff(int id)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1815,6 +1022,7 @@ public class AdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý cập nhật thông tin nhân viên
     public async Task<IActionResult> EditStaff(int id, string fullName, string email, string role, string? gender, string? address)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1843,6 +1051,7 @@ public class AdminController : Controller
     // Đổi trạng thái nhân viên (4 mã) — thay cho khoá/mở cũ.
     // IsActive tự đồng bộ: chỉ "working" (Đang làm việc) mới đăng nhập được.
     [HttpPost]
+    // Đây là luồng xử lý đặt trạng thái làm việc của nhân viên (working/on_leave/resigned/terminated)
     public async Task<IActionResult> SetStaffStatus(int id, string status, string? reason)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -1882,6 +1091,7 @@ public class AdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý đặt lại mật khẩu nhân viên (BCrypt)
     public async Task<IActionResult> ResetStaffPassword(int id, string newPassword)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1897,6 +1107,8 @@ public class AdminController : Controller
     }
 
     // ===================== ĐỐI TÁC: QUẢN LÝ NHÀ BÁO (admin + quản lý) =====================
+    // Đây là luồng xử lý danh sách đối tác nhà báo (lọc + tìm kiếm)
+    // Bảng: Users (Role=Journalist), JournalistProfiles
     public async Task<IActionResult> Partners(string filter = "all", string q = "")
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1927,6 +1139,7 @@ public class AdminController : Controller
 
     // ====== THÊM / SỬA / XEM / XÓA MỀM / KHÔI PHỤC NHÀ BÁO ======
     [HttpGet]
+    // Đây là luồng xử lý hiển thị form thêm nhà báo
     public async Task<IActionResult> CreateJournalist()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1937,6 +1150,8 @@ public class AdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý tạo nhà báo mới (User Role=Journalist + JournalistProfile + upload avatar)
+    // Bảng: Users, JournalistProfiles
     public async Task<IActionResult> CreateJournalist(string fullName, string username, string email, string password, string? bio, IFormFile? avatarFile, JournalistProfile profile)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1972,6 +1187,7 @@ public class AdminController : Controller
     }
 
     [HttpGet]
+    // Đây là luồng xử lý hiển thị form sửa nhà báo
     public async Task<IActionResult> EditJournalist(int id)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1986,6 +1202,7 @@ public class AdminController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý cập nhật thông tin nhà báo (+ hồ sơ)
     public async Task<IActionResult> EditJournalist(int id, string fullName, string email, string? bio, IFormFile? avatarFile, JournalistProfile profile)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2017,6 +1234,7 @@ public class AdminController : Controller
     }
 
     [HttpGet]
+    // Đây là luồng xử lý xem chi tiết hồ sơ nhà báo
     public async Task<IActionResult> JournalistDetail(int id)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2030,6 +1248,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý xóa mềm nhà báo (IsDeleted=true, giữ dữ liệu)
     public async Task<IActionResult> SoftDeleteJournalist(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2040,6 +1259,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý khôi phục nhà báo đã xóa mềm
     public async Task<IActionResult> RestoreJournalist(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2050,6 +1270,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý duyệt nhà báo (kích hoạt tài khoản đối tác)
     public async Task<IActionResult> ApproveJournalist(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2061,6 +1282,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý khóa tài khoản nhà báo
     public async Task<IActionResult> LockJournalist(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2072,6 +1294,7 @@ public class AdminController : Controller
     }
 
 // ===== ĐĂNG VIDEO (YouTube / Upload) =====
+    // Đây là luồng xử lý danh sách video (YouTube/upload)
     public async Task<IActionResult> Videos(string q = "")
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2086,12 +1309,14 @@ public class AdminController : Controller
         return View(list);
     }
 
+    // Đây là luồng xử lý hiển thị form thêm video
     public IActionResult CreateVideo()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
         return View();
     }
 
+    // Đây là luồng xử lý hiển thị form sửa video
     public async Task<IActionResult> EditVideo(int id)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2106,6 +1331,8 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(VideoUploadService.MaxSize)]
     [RequestFormLimits(MultipartBodyLengthLimit = VideoUploadService.MaxSize)]
+    // Đây là luồng xử lý cập nhật video (YouTube id/upload file)
+    // Bảng: Videos
     public async Task<IActionResult> EditVideo(
         int id,
         string videoType,
@@ -2187,6 +1414,8 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(VideoUploadService.MaxSize)]
     [RequestFormLimits(MultipartBodyLengthLimit = VideoUploadService.MaxSize)]
+    // Đây là luồng xử lý thêm video mới (YouTubeHelper tách id / VideoUploadService lưu file)
+    // Bảng: Videos
     public async Task<IActionResult> CreateVideo(
         string videoType,
         string? youtubeUrl,
@@ -2264,6 +1493,7 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý xóa video (kèm xóa file vật lý nếu là upload)
     public async Task<IActionResult> DeleteVideo(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2284,6 +1514,7 @@ public class AdminController : Controller
         ViewBag.Source = source;
         ViewBag.Description = description;
     }    // ===== XUẤT THỐNG KÊ BÀI VIẾT RA EXCEL =====
+    // Đây là luồng xử lý xuất danh sách bài viết ra Excel
     public async Task<IActionResult> ExportArticlesExcel()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2317,6 +1548,8 @@ public class AdminController : Controller
     // ===== QUẢN LÝ NGUỒN TIN =====
 
     // Danh sách nguồn + danh sách bài đã import (IsExternal = true)
+    // Đây là luồng xử lý trang quản lý nguồn tin RSS (danh sách nguồn + lịch sử nhập, lọc)
+    // Bảng: RssSources, Articles, AutoImportSettings
     public async Task<IActionResult> RssSources(int? sourceId, string? keyword, DateTime? fromDate, DateTime? toDate, int page = 1)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2362,6 +1595,8 @@ public class AdminController : Controller
 
     // Lưu cấu hình Tự động nhập bài (Auto Import)
     [HttpPost]
+    // Đây là luồng xử lý lưu cấu hình tự động nhập RSS
+    // Bảng: AutoImportSettings
     public async Task<IActionResult> SaveAutoImportSettings(AutoImportSettings form)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2394,6 +1629,7 @@ public class AdminController : Controller
     }
 
     // Lịch sử nhập (partial cho modal): danh sách bài đã nhập + lọc tiêu đề/ngày + khu "vừa nhập"
+    // Đây là luồng xử lý xem lịch sử nhập bài từ nguồn RSS
     public async Task<IActionResult> ImportHistory(string? keyword, DateTime? from, DateTime? to)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2408,6 +1644,9 @@ public class AdminController : Controller
     }
 
     // ===== QUẢN LÝ AI: ánh xạ danh mục + sửa phân loại + nhật ký =====
+    // Đây là luồng xử lý trang Quản lý Phân Loại AI (ánh xạ nhãn AI -> danh mục + nhật ký sửa)
+    // Luồng: nạp danh mục, danh sách quy tắc CategoryMappings, 20 bài ngoài gần nhất, 30 log sửa
+    // Bảng: Categories, CategoryMappings, Articles, AiCategoryCorrectionLogs
     public async Task<IActionResult> AiManage()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2419,6 +1658,9 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý thêm/sửa quy tắc ánh xạ danh mục AI (nhãn AI -> CategoryId)
+    // Luồng: nhãn đã tồn tại -> đổi CategoryId; chưa có -> thêm CategoryMapping mới
+    // Bảng: CategoryMappings, Categories
     public async Task<IActionResult> AddCategoryMapping(string aiLabel, int categoryId)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2433,6 +1675,8 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý xóa một quy tắc ánh xạ danh mục AI
+    // Bảng: CategoryMappings
     public async Task<IActionResult> DeleteCategoryMapping(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2441,6 +1685,11 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
 
+    // Đây là luồng xử lý sửa danh mục AI đã gán cho 1 bài (kèm TỰ HỌC quy tắc ánh xạ)
+    // Luồng: 1) Đổi Article.CategoryId sang danh mục đúng
+    //        2) TỰ HỌC: lấy tên danh mục cũ làm nhãn AI -> tạo/cập nhật CategoryMapping trỏ tới danh mục mới
+    //        3) Ghi AiCategoryCorrectionLog (audit) + AILog (action "classify_correct")
+    // Bảng: Articles, Categories, CategoryMappings, AiCategoryCorrectionLogs, AILogs
     // Sửa danh mục AI đã gán cho 1 bài + lưu quy tắc ánh xạ + ghi nhật ký (AiCorrectionLog + AILog)
     [HttpPost]
     public async Task<IActionResult> CorrectArticleCategory(int articleId, int categoryId)
@@ -2471,6 +1720,7 @@ public class AdminController : Controller
 
     // Import từ 1 nguồn cụ thể
     [HttpPost]
+    // Đây là luồng xử lý nhập bài từ 1 nguồn RSS (qua NewsImportService)
     public async Task<IActionResult> ImportFromSource(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2488,6 +1738,7 @@ public class AdminController : Controller
 
     // Import tất cả nguồn đang active
     [HttpPost]
+    // Đây là luồng xử lý nhập bài từ tất cả nguồn RSS
     public async Task<IActionResult> ImportAllSources()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2507,6 +1758,7 @@ public class AdminController : Controller
 
     // Bật/tắt nguồn
     [HttpPost]
+    // Đây là luồng xử lý bật/tắt một nguồn RSS (IsActive)
     public async Task<IActionResult> ToggleRssSource(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2519,6 +1771,7 @@ public class AdminController : Controller
 
     // Bật/tắt TỰ ĐỘNG nhập (1 bài/phút) cho 1 nguồn
     [HttpPost]
+    // Đây là luồng xử lý bật/tắt tự động nhập cho một nguồn RSS (AutoImport)
     public async Task<IActionResult> ToggleAutoImport(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2532,6 +1785,7 @@ public class AdminController : Controller
 
     // Sửa lỗi ký tự (HTML entity) trong tiêu đề/tóm tắt các bài đã nhập
     [HttpPost]
+    // Đây là luồng xử lý sửa lỗi ký tự HTML entity trong các bài đã nhập
     public async Task<IActionResult> FixArticleEntities()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2555,6 +1809,7 @@ public class AdminController : Controller
 
     // Xóa bài đã import từ nguồn
     [HttpPost]
+    // Đây là luồng xử lý xóa 1 bài đã nhập từ nguồn ngoài
     public async Task<IActionResult> DeleteImportedArticle(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2567,6 +1822,7 @@ public class AdminController : Controller
 
     // Xóa hàng loạt bài đã import
     [HttpPost]
+    // Đây là luồng xử lý xóa nhiều bài đã nhập cùng lúc
     public async Task<IActionResult> DeleteImportedArticles([FromBody] List<int> ids)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2587,6 +1843,8 @@ public class AdminController : Controller
 
     // Thêm nguồn mới
     [HttpPost]
+    // Đây là luồng xử lý thêm nguồn RSS mới
+    // Bảng: RssSources
     public async Task<IActionResult> AddRssSource(string name, string feedUrl, string? websiteUrl, string? description, string? country, int? defaultCategoryId, int maxImport = 30)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -2612,6 +1870,7 @@ public class AdminController : Controller
 
     // Xóa nguồn
     [HttpPost]
+    // Đây là luồng xử lý xóa một nguồn RSS
     public async Task<IActionResult> DeleteRssSource(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });
@@ -3155,6 +2414,149 @@ public class AdminController : Controller
         return Json(new { success = true, deleted = all.Count });
     }
 
+    // ===== SLOT QUẢNG CÁO (bán quảng cáo) — CRUD + tìm kiếm =====
+    // Đây là luồng xử lý danh sách slot quảng cáo (tìm kiếm theo tên/mã/kích thước)
+    public async Task<IActionResult> AdSlots(string? q)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var query = _db.AdSlots.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var kw = q.Trim();
+            query = query.Where(s => s.Name.Contains(kw) || s.SlotKey.Contains(kw) || s.Size.Contains(kw));
+        }
+        ViewBag.Q = q;
+        return View(await query.OrderBy(s => s.Id).ToListAsync());
+    }
+
+    // ===== BẢNG ĐIỀU KHIỂN BỐ CỤC QUẢNG CÁO (preview + sắp thứ tự chạy) =====
+    // Đây là luồng xử lý mở bảng điều khiển bố cục quảng cáo
+    // Luồng: lấy mọi khu (AdSlot, SlotKey=zone) -> mỗi khu gom TẤT CẢ QC gắn khu đó (mọi trạng thái)
+    //        sắp theo DisplayOrder -> kèm chu kỳ nhảy (AdZoneSettings) -> đổ ra mockup preview.
+    // Bảng: AdSlots, Advertisements, AdZoneSettings
+    public async Task<IActionResult> AdLayout()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var slots = await _db.AdSlots.OrderBy(s => s.Id).ToListAsync();
+        var settings = await _db.AdZoneSettings.ToListAsync();
+        // Lấy TẤT CẢ quảng cáo (kể cả QC tự thêm không qua slot, AdSlotId = null) — gom theo Position/khu.
+        var ads = await _db.Advertisements
+            .OrderBy(a => a.DisplayOrder).ThenBy(a => a.Id).ToListAsync();
+
+        var zones = slots.Select(s => new AdLayoutZoneVm
+        {
+            Position = s.SlotKey,
+            Name = s.Name,
+            Size = s.Size,
+            RotationSeconds = settings.FirstOrDefault(z => z.Position == s.SlotKey)?.RotationSeconds ?? 5,
+            Ads = ads.Where(a => a.Position == s.SlotKey).ToList()
+        }).ToList();
+        return View(zones);
+    }
+
+    // Đây là luồng xử lý lưu bố cục quảng cáo (AJAX)
+    // Luồng: nhận DTO {khu -> thứ tự adIds + chu kỳ} -> gán DisplayOrder theo index,
+    //        cập nhật/ tạo AdZoneSetting cho từng khu -> lưu. Có hiệu lực ngay lần tải kế.
+    // Bảng: Advertisements, AdZoneSettings
+    [HttpPost]
+    public async Task<IActionResult> SaveAdLayout([FromBody] AdLayoutSaveDto dto)
+    {
+        if (!IsLoggedIn) return Json(new { success = false, message = "Chưa đăng nhập." });
+        if (dto?.Zones == null) return Json(new { success = false, message = "Dữ liệu rỗng." });
+
+        foreach (var z in dto.Zones)
+        {
+            // 1) thứ tự QC trong khu
+            for (int i = 0; i < z.AdIds.Count; i++)
+            {
+                var ad = await _db.Advertisements.FindAsync(z.AdIds[i]);
+                if (ad != null && ad.Position == z.Position) ad.DisplayOrder = i;
+            }
+            // 2) chu kỳ nhảy của khu
+            var sec = z.RotationSeconds < 1 ? 1 : z.RotationSeconds;
+            var setting = await _db.AdZoneSettings.FirstOrDefaultAsync(s => s.Position == z.Position);
+            if (setting == null) _db.AdZoneSettings.Add(new AdZoneSetting { Position = z.Position, RotationSeconds = sec });
+            else setting.RotationSeconds = sec;
+        }
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // Đây là luồng xử lý hiển thị form tạo slot quảng cáo
+    public IActionResult CreateAdSlot()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        return View(new AdSlot { IsActive = true });
+    }
+
+    // Đây là luồng xử lý tạo slot quảng cáo mới (chống trùng mã vị trí)
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateAdSlot(AdSlot form)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        form.Name = (form.Name ?? "").Trim();
+        form.SlotKey = (form.SlotKey ?? "").Trim();
+        form.Size = (form.Size ?? "").Trim();
+        if (string.IsNullOrEmpty(form.Name) || string.IsNullOrEmpty(form.SlotKey))
+        { ViewBag.Error = "Vui lòng nhập Tên và Mã vị trí."; return View(form); }
+        if (form.PricePerDay < 0) { ViewBag.Error = "Giá không được âm."; return View(form); }
+        if (await _db.AdSlots.AnyAsync(s => s.SlotKey == form.SlotKey))
+        { ViewBag.Error = "Mã vị trí đã tồn tại."; return View(form); }
+        form.CreatedAt = DateTime.Now;
+        _db.AdSlots.Add(form);
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã tạo slot quảng cáo.";
+        return RedirectToAction("AdSlots");
+    }
+
+    // Đây là luồng xử lý hiển thị form sửa slot quảng cáo
+    public async Task<IActionResult> EditAdSlot(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var slot = await _db.AdSlots.FindAsync(id);
+        if (slot == null) return RedirectToAction("AdSlots");
+        return View(slot);
+    }
+
+    // Đây là luồng xử lý cập nhật slot quảng cáo
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditAdSlot(int id, AdSlot form)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var slot = await _db.AdSlots.FindAsync(id);
+        if (slot == null) return RedirectToAction("AdSlots");
+        form.Id = id;
+        form.Name = (form.Name ?? "").Trim();
+        form.SlotKey = (form.SlotKey ?? "").Trim();
+        form.Size = (form.Size ?? "").Trim();
+        if (string.IsNullOrEmpty(form.Name) || string.IsNullOrEmpty(form.SlotKey))
+        { ViewBag.Error = "Vui lòng nhập Tên và Mã vị trí."; return View(form); }
+        if (await _db.AdSlots.AnyAsync(s => s.SlotKey == form.SlotKey && s.Id != id))
+        { ViewBag.Error = "Mã vị trí đã tồn tại."; return View(form); }
+        slot.Name = form.Name;
+        slot.SlotKey = form.SlotKey;
+        slot.Description = form.Description;
+        slot.Size = form.Size;
+        slot.PricePerDay = form.PricePerDay < 0 ? 0 : form.PricePerDay;
+        slot.IsActive = form.IsActive;
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã cập nhật slot.";
+        return RedirectToAction("AdSlots");
+    }
+
+    // Đây là luồng xử lý xóa slot quảng cáo
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAdSlot(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var slot = await _db.AdSlots.FindAsync(id);
+        if (slot != null) { _db.AdSlots.Remove(slot); await _db.SaveChangesAsync(); }
+        return Json(new { success = true });
+    }
+
     // ===== QUẢNG CÁO (GĐ1) =====
     public async Task<IActionResult> Advertisements(string? filter)
     {
@@ -3256,6 +2658,54 @@ public class AdminController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý admin xác nhận đã nhận thanh toán đơn quảng cáo
+    [HttpPost]
+    // Đây là luồng xử lý xác nhận đã nhận thanh toán đơn quảng cáo
+    // Luồng: 1) đánh dấu PaymentStatus="paid" + Transaction=Success
+    //        2) tra email người mua (Nhà báo: bảng Users / Admin: bảng Admins) rồi gửi mail biên nhận
+    // Bảng: Advertisements, Transactions, Users, Admins
+    public async Task<IActionResult> ConfirmAdPayment(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var ad = await _db.Advertisements.Include(a => a.AdSlot).FirstOrDefaultAsync(a => a.Id == id);
+        if (ad == null) return Json(new { success = false });
+        ad.PaymentStatus = "paid";
+        var tx = await _db.Transactions.FirstOrDefaultAsync(t => t.AdvertisementId == id && t.Status == TransactionStatus.Pending);
+        if (tx != null) { tx.Status = TransactionStatus.Success; tx.UpdatedAt = DateTime.Now; }
+        await _db.SaveChangesAsync();
+
+        // Gửi mail biên nhận — báo rõ kết quả để biết vì sao nếu thất bại
+        var (emailSent, emailMsg) = await SendAdReceiptAsync(ad);
+        return Json(new { success = true, emailSent, emailMsg });
+    }
+
+    // Gửi email biên nhận thanh toán QC. Trả (đã gửi?, thông báo lý do). Dùng chung.
+    // Bảng: Users, Admins
+    private async Task<(bool sent, string msg)> SendAdReceiptAsync(Advertisement ad)
+    {
+        string? email = null, name = ad.CreatedByName;
+        if (ad.CreatedByUserId != null)
+        {
+            var u = await _db.Users.FindAsync(ad.CreatedByUserId.Value);
+            if (u != null) { email = u.Email; name = u.FullName; }
+        }
+        else if (ad.CreatedByAdminId != null)
+        {
+            var ad2 = await _db.Admins.FindAsync(ad.CreatedByAdminId.Value);
+            if (ad2 != null) { email = ad2.Email; name = ad2.FullName; }
+        }
+        if (string.IsNullOrWhiteSpace(email)) return (false, "Không tìm thấy email người mua.");
+        if (!_email.IsConfigured) return (false, "SMTP chưa cấu hình trong appsettings.json.");
+
+        var body = $@"<div style='font-family:Arial,sans-serif;max-width:560px;margin:auto;'>
+<h2 style='color:#0e7d85;'>Đã nhận thanh toán quảng cáo</h2>
+<p>Xin chào <b>{name}</b>,</p>
+<p>Chúng tôi đã <b>xác nhận thanh toán</b> cho đơn quảng cáo <b>QC{ad.Id}</b> — vị trí {ad.AdSlot?.Name} ({ad.Position}), {ad.Days} ngày, số tiền <b>{ad.Amount:#,##0} đ</b>, chạy {ad.StartDate:dd/MM/yyyy} → {ad.EndDate:dd/MM/yyyy}.</p>
+<p style='color:#475569;'>Quảng cáo sẽ hiển thị sau khi được duyệt nội dung. Cảm ơn bạn đã tin dùng Wisdom IT News.</p></div>";
+        var (ok, err) = await _email.SendAsync(email!, $"Biên nhận thanh toán quảng cáo QC{ad.Id} — Wisdom IT News", body, name);
+        return ok ? (true, "Đã gửi email tới " + email) : (false, "Gửi email thất bại: " + err);
+    }
+
     public async Task<IActionResult> ApproveAd(int id)
     {
         if (!IsLoggedIn) return Json(new { success = false });

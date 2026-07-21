@@ -121,6 +121,11 @@ public class ExternalArticleService
         return min == max ? min : Random.Shared.Next(min, max + 1);
     }
 
+    // Đây là luồng xử lý tạo lượt xem mẫu (dữ liệu mẫu)
+    // Luồng: 1) Chọn phạm vi scope: article/source/category/all (+lọc khoảng ngày)
+    //        2) Với mỗi bài: cộng ngẫu nhiên delta trong [minViews,maxViews] vào Article.Views
+    //        3) LƯU DELTA TỪNG BÀI vào SeedViewBatch.DetailsJson (để sửa/hoàn tác đúng)
+    // Bảng: Articles (cột Views), SeedViewBatches
     public async Task<(bool Success, string Message, SeedViewBatch? Batch)> CreateSeedBatchAsync(
         string scope, int? articleId, int? sourceId, int? categoryId,
         int minViews, int maxViews, DateTime? fromDate, DateTime? toDate, string editorName)
@@ -209,6 +214,8 @@ public class ExternalArticleService
         return result;
     }
 
+    // Đây là luồng xử lý sửa đợt lượt xem mẫu
+    // Cách làm: trừ đúng delta cũ đã lưu -> cộng lại theo khoảng min–max mới trên ĐÚNG các bài đó -> ghi lại DetailsJson.
     /// <summary>Sửa khoảng min–max: gỡ lượt xem cũ (trừ đúng delta đã lưu) rồi cộng lại theo khoảng mới trên ĐÚNG các bài đó.</summary>
     public async Task<(bool Success, string Message)> EditSeedBatchAsync(int batchId, int minViews, int maxViews)
     {
@@ -250,6 +257,8 @@ public class ExternalArticleService
         return (true, $"Đã cập nhật đợt: {totalAdded:N0} lượt xem trên {newDeltas.Count} bài");
     }
 
+    // Đây là luồng xử lý xóa (hoàn tác) đợt lượt xem mẫu
+    // Cách làm: trừ đúng số view đã cộng (theo DetailsJson, clamp ≥0) rồi xóa batch.
     /// <summary>Xóa đợt: TRỪ đúng số đã cộng theo DetailsJson (clamp không âm) rồi xóa batch. Không đụng bài viết/bình luận.</summary>
     public async Task<(bool Success, string Message)> DeleteSeedBatchAsync(int batchId)
     {

@@ -50,6 +50,14 @@ public class NewsImportService
         _ai = ai;
     }
 
+    // Đây là luồng xử lý nhập tin từ RSS
+    // Luồng: 1) Tải XML feed (HttpClient giả UA, timeout 30s); lỗi -> connected=false
+    //        2) Parse từng <item>: title, link, mô tả/content:encoded, ảnh, ngày đăng
+    //        3) Trùng SourceUrl? onlyNew -> bỏ qua; bài IsExternal cũ -> làm mới nội dung
+    //        4) Tự phân loại danh mục: từ khóa (MatchCategory) -> AI ClassifyCategory -> fallback
+    //        5) Tạo Article IsExternal=true, Status="published", ghi nguồn + link gốc
+    //        6) Lưu DB; dừng khi đủ maxNew. Trả (connected, added, updated, skipped)
+    // Bảng: Articles, Categories, RssSources, AILogs
     // Trả về (connected, thêm mới, cập nhật, bỏ qua). connected=false nghĩa là lỗi kết nối/parse nguồn.
     // maxNew: giới hạn số bài MỚI thêm. onlyNew: chỉ nhập bài chưa có (bỏ qua, không cập nhật bài cũ).
     // delayPerArticleMs: nghỉ giữa xử lý từng bài.
@@ -173,6 +181,7 @@ public class NewsImportService
         return (true, added, updated, skipped);
     }
 
+    // Đây là luồng xử lý nhập 1 bài mới từ một nguồn RSS
     // Nhập TỐI ĐA 1 bài mới từ 1 nguồn (dùng cho tự động 1 bài/phút).
     public async Task<int> ImportOneFromSourceAsync(RssSource source)
     {
@@ -182,6 +191,9 @@ public class NewsImportService
         return r.added;   // 0 hoặc 1
     }
 
+    // Đây là luồng xử lý tự đoán danh mục cho bài nhập (miễn phí, không AI)
+    // Cách đoán: 1) khớp thẻ <category> của feed với tên danh mục
+    //            2) dò tên danh mục xuất hiện trong tiêu đề+tóm tắt. Không khớp -> null (để AI xử lý tiếp).
     // Khớp danh mục có sẵn (MIỄN PHÍ, không gọi AI): ưu tiên thẻ <category> của RSS,
     // sau đó dò tên danh mục xuất hiện trong tiêu đề + tóm tắt. Trả về CategoryId hoặc null.
     private static int? MatchCategory(List<Category> cats, List<string> rssCats, string title, string summary)
@@ -236,6 +248,8 @@ public class NewsImportService
         return sb.ToString();
     }
 
+    // Đây là luồng xử lý lấy ảnh đại diện của tin RSS
+    // Thứ tự ưu tiên: enclosure(image) -> media:content -> media:thumbnail -> regex <img src> trong mô tả. Không có -> null.
     // Lấy thumbnail theo thứ tự ưu tiên: enclosure(image) → media:content → media:thumbnail → regex từ description
     private static string? GetThumbnail(XElement item)
     {
@@ -284,6 +298,7 @@ public class NewsImportService
         return null;
     }
 
+    // Đây là luồng xử lý nhập nhiều bài từ một nguồn RSS
     // Import từ RssSource object
     public async Task<(int added, int updated, int skipped)> ImportFromSourceAsync(RssSource source, string? importedBy = null)
     {

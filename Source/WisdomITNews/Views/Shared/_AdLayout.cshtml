@@ -1,0 +1,46 @@
+@{
+    var isJournalist = Context.Session.GetInt32("JournalistId") != null;
+    var canPost = isJournalist
+                  || !string.IsNullOrEmpty(Context.Session.GetString("AdminId"));
+    var myOrdersUrl = isJournalist ? "/journalist/Ads" : "/Advertise/MyOrders";
+    var path = Context.Request.Path.Value?.ToLower() ?? "";
+    string tab(string href, bool active) =>
+        $"padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;{(active ? "background:#0e7d85;color:#fff;" : "background:#e2e8f0;color:#334155;")}";
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · Quảng cáo — Wisdom IT News</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+    <style>*{box-sizing:border-box;margin:0;padding:0;font-family:'Inter',sans-serif;} body{background:#f1f5f9;color:#0f172a;} a{color:inherit;}</style>
+</head>
+<body>
+    <div style="background:#0b1220;color:#fff;padding:14px 0;">
+        <div style="max-width:1100px;margin:0 auto;padding:0 16px;display:flex;justify-content:space-between;align-items:center;">
+            <a href="/quang-cao" style="color:#fff;text-decoration:none;font-weight:900;font-size:18px;"><i class="fa fa-rectangle-ad" style="color:#0ea5a0;"></i> Quảng cáo · Wisdom IT News</a>
+            <a href="/" style="color:#cbd5e1;text-decoration:none;font-size:14px;"><i class="fa fa-arrow-left"></i> Về trang báo</a>
+        </div>
+    </div>
+
+    <div style="max-width:1100px;margin:22px auto 0;padding:0 16px;display:flex;gap:10px;flex-wrap:wrap;">
+        <a href="/quang-cao" style="@tab("/quang-cao", path == "/quang-cao" || path == "/advertise")">Bảng giá</a>
+        @if (canPost)
+        {
+            <a href="@myOrdersUrl" style="@tab("/advertise/myorders", path.Contains("myorders"))">Đơn của tôi</a>
+        }
+    </div>
+
+    <div style="min-height:74vh;">
+        @RenderBody()
+    </div>
+
+    <div style="background:#0b1220;color:#94a3b8;text-align:center;padding:16px;font-size:13px;margin-top:30px;">
+        © @DateTime.Now.Year Wisdom IT News — Khu quảng cáo ·
+        <a href="mailto:wisdom@itnews.vn" style="color:#0ea5a0;text-decoration:none;">wisdom@itnews.vn</a>
+    </div>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

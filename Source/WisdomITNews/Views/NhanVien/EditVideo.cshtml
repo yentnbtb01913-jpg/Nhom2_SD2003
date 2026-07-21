@@ -1,0 +1,8 @@
+@{
+    ViewData["Title"] = "Sửa video";
+    Layout = "_ManagerLayout";
+    ViewBag.FormAction = $"/nhan-vien/EditVideo/{((WisdomITNews.Models.Video)ViewBag.Video).Id}";
+    ViewBag.BackUrl = "/nhan-vien/Videos";
+    ViewBag.IsEdit = true;
+}
+@await Html.PartialAsync("_CreateVideoFormPartial")

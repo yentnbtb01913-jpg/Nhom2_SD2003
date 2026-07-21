@@ -25,6 +25,9 @@ public class VideoController : Controller
         VideoType = v.VideoType ?? "youtube", VideoUrl = v.VideoUrl
     };
 
+    // Đây là luồng xử lý hiển thị danh sách video
+    // Luồng: lấy video published (mới nhất) + 8 bài xem nhiều; DB rỗng -> hiện dữ liệu mẫu VideoSampleData
+    // Bảng: Videos, Articles
     // Danh sách video — /video
     public async Task<IActionResult> Index()
     {
@@ -44,6 +47,10 @@ public class VideoController : Controller
         return View(items);
     }
 
+    // Đây là luồng xử lý xem 1 video
+    // Luồng: 1) Tìm video published -> tăng Views++
+    //        2) Nạp video khác + bình luận đã duyệt; DB không có -> fallback video mẫu
+    // Bảng: Videos, VideoComments
     // Xem 1 video — /Video/Watch/{id}
     public async Task<IActionResult> Watch(int id)
     {
@@ -74,6 +81,12 @@ public class VideoController : Controller
         return View(sample);
     }
 
+    // Đây là luồng xử lý gửi bình luận video
+    // Luồng: 1) Kiểm tra nội dung + video có thật
+    //        2) Lấy tên (ưu tiên user đăng nhập); ép trả lời về tối đa 1 cấp (ParentId về gốc)
+    //        3) AI kiểm duyệt: score>70 -> Status="rejected"; AI lỗi vẫn cho hiện
+    //        4) Lưu DB -> trả JSON
+    // Bảng: VideoComments, Videos, AILogs
     // Gửi bình luận video (PHẲNG — chỉ trả lời 1 cấp). Hiện ngay sau khi AI lọc.
     [HttpPost]
     public async Task<IActionResult> PostVideoComment([FromBody] VideoCommentRequest req)

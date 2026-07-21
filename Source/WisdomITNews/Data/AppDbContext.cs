@@ -14,7 +14,6 @@ public class AppDbContext : DbContext
     public DbSet<ArticleTag> ArticleTags { get; set; }
     public DbSet<Comment> Comments { get; set; }
     public DbSet<AILog> AILogs { get; set; }
-    public DbSet<NewsletterSubscriber> NewsletterSubscribers { get; set; }
 
     // [A] new tables
     public DbSet<CommentVote> CommentVotes { get; set; }
@@ -37,16 +36,11 @@ public class AppDbContext : DbContext
     public DbSet<StaffProfile> StaffProfiles { get; set; }
     public DbSet<StaffActivityLog> StaffActivityLogs { get; set; }
     public DbSet<Advertisement> Advertisements { get; set; }
-    public DbSet<AdRenewalMessage> AdRenewalMessages { get; set; }
-    public DbSet<TeamChatMessage> TeamChatMessages { get; set; }
-    public DbSet<NewsletterEmailLog> NewsletterEmailLogs { get; set; }
+    public DbSet<AdSlot> AdSlots { get; set; }
+    public DbSet<AdZoneSetting> AdZoneSettings { get; set; }
     public DbSet<Podcast> Podcasts { get; set; }
     public DbSet<EmailConfirmationToken> EmailConfirmationTokens { get; set; }
-    public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
-    public DbSet<PlanFeature> PlanFeatures { get; set; }
-    public DbSet<UserSubscription> UserSubscriptions { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
-    public DbSet<CustomerActivityLog> CustomerActivityLogs { get; set; }
     public DbSet<AutoImportSettings> AutoImportSettings { get; set; }
     public DbSet<CategoryMapping> CategoryMappings { get; set; }
     public DbSet<AiCategoryCorrectionLog> AiCategoryCorrectionLogs { get; set; }
@@ -110,7 +104,6 @@ public class AppDbContext : DbContext
         mb.Entity<Tag>().HasIndex(t => t.Slug).IsUnique();
         mb.Entity<Admin>().HasIndex(a => a.Username).IsUnique();
         mb.Entity<Admin>().Property(a => a.EmploymentStatus).HasDefaultValue("working");
-        mb.Entity<NewsletterSubscriber>().HasIndex(n => n.Email).IsUnique();
         mb.Entity<User>().HasIndex(u => u.Username).IsUnique();
         mb.Entity<User>().HasIndex(u => u.Email).IsUnique();
         mb.Entity<FeedbackReport>().HasIndex(f => f.IsResolved);
@@ -174,7 +167,6 @@ public class AppDbContext : DbContext
         mb.Entity<StaffProfile>().HasIndex(x => x.AdminId).IsUnique();
         mb.Entity<StaffActivityLog>().HasIndex(x => x.CreatedAt);
         mb.Entity<StaffActivityLog>().HasIndex(x => x.TargetAdminId);
-        mb.Entity<NewsletterEmailLog>().HasIndex(x => x.SubscriberId);
 
         // Bình luận video — FK tới Video (xóa video -> xóa bình luận). KHÔNG cấu hình self-FK cho ParentId (giữ phẳng, tránh đệ quy).
         mb.Entity<VideoComment>()
@@ -192,18 +184,7 @@ public class AppDbContext : DbContext
         mb.Entity<EmailConfirmationToken>()
             .HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
 
-        // ===== Chat nội bộ ban quản lý =====
-        mb.Entity<TeamChatMessage>().Property(m => m.ConversationKey).HasMaxLength(120);
-        mb.Entity<TeamChatMessage>().Property(m => m.SenderRole).HasMaxLength(20);
-        mb.Entity<TeamChatMessage>().Property(m => m.SenderName).HasMaxLength(150);
-        mb.Entity<TeamChatMessage>().Property(m => m.RecipientRole).HasMaxLength(20);
-        mb.Entity<TeamChatMessage>().HasIndex(m => m.ConversationKey);
 
-        // ===== Audit log thao tác khách hàng (Quản lý khách hàng) =====
-        mb.Entity<CustomerActivityLog>().Property(l => l.ActorRole).HasMaxLength(20);
-        mb.Entity<CustomerActivityLog>().Property(l => l.ActorName).HasMaxLength(150);
-        mb.Entity<CustomerActivityLog>().Property(l => l.Action).HasMaxLength(60);
-        mb.Entity<CustomerActivityLog>().HasIndex(l => l.UserId);
 
         // ===== Phân loại AI: ánh xạ danh mục + nhật ký sửa =====
         mb.Entity<CategoryMapping>().Property(m => m.AiLabel).HasMaxLength(150);
@@ -215,38 +196,136 @@ public class AppDbContext : DbContext
         mb.Entity<AiCategoryCorrectionLog>().Property(l => l.OldCategory).HasMaxLength(150);
         mb.Entity<AiCategoryCorrectionLog>().Property(l => l.NewCategory).HasMaxLength(150);
 
-        // ===== Chat gia hạn quảng cáo =====
-        mb.Entity<AdRenewalMessage>().Property(m => m.SenderRole).HasMaxLength(20);
-        mb.Entity<AdRenewalMessage>().Property(m => m.SenderName).HasMaxLength(150);
-        mb.Entity<AdRenewalMessage>().HasIndex(m => m.AdvertisementId);
-        mb.Entity<AdRenewalMessage>()
-            .HasOne(m => m.Advertisement).WithMany()
-            .HasForeignKey(m => m.AdvertisementId).OnDelete(DeleteBehavior.Cascade);
+        // ===== Đơn đặt quảng cáo (Advertisement gắn AdSlot) =====
+        mb.Entity<Advertisement>().Property(a => a.Amount).HasColumnType("decimal(18,0)");
+        mb.Entity<Advertisement>()
+            .HasOne(a => a.AdSlot).WithMany()
+            .HasForeignKey(a => a.AdSlotId).OnDelete(DeleteBehavior.SetNull);
 
-        // ===== Gói Premium =====
-        mb.Entity<SubscriptionPlan>().Property(p => p.Name).HasMaxLength(120);
-        mb.Entity<SubscriptionPlan>().Property(p => p.Description).HasMaxLength(500);
-        mb.Entity<SubscriptionPlan>().Property(p => p.Price).HasColumnType("decimal(18,2)");
+        // ===== Slot quảng cáo (bán quảng cáo) =====
+        mb.Entity<AdSlot>().Property(s => s.Name).HasMaxLength(120);
+        mb.Entity<AdSlot>().Property(s => s.SlotKey).HasMaxLength(50);
+        mb.Entity<AdSlot>().Property(s => s.Size).HasMaxLength(50);
+        mb.Entity<AdSlot>().Property(s => s.PricePerDay).HasColumnType("decimal(18,0)");
+        mb.Entity<AdSlot>().HasIndex(s => s.SlotKey).IsUnique();
+        // SlotKey = ĐÚNG mã khu render (header/home_left/home_right/in_article/sidebar) để buy-flow,
+        // hiển thị và preview dùng chung một bộ từ vựng, QC mua slot nào hiện đúng khu đó.
+        mb.Entity<AdSlot>().HasData(
+            new AdSlot { Id=1, Name="Banner Đầu Trang (ngang)", SlotKey="header",      Description="Banner ngang 728x90 nằm trên cùng, phía trên cả logo — mọi trang", Size="Banner728x90",      PricePerDay=500000, IsActive=true, CreatedAt=new DateTime(2025,1,1) },
+            new AdSlot { Id=2, Name="Dải Dọc Trái",            SlotKey="home_left",   Description="Dải dọc 160x600 bên trái trang chủ",                                Size="Skyscraper160x600", PricePerDay=300000, IsActive=true, CreatedAt=new DateTime(2025,1,1) },
+            new AdSlot { Id=3, Name="Dải Dọc Phải",            SlotKey="home_right",  Description="Dải dọc 160x600 bên phải trang chủ",                                Size="Skyscraper160x600", PricePerDay=300000, IsActive=true, CreatedAt=new DateTime(2025,1,1) },
+            new AdSlot { Id=4, Name="Giữa Bài Viết",           SlotKey="in_article",  Description="Banner 728x90 chèn giữa nội dung bài viết",                          Size="Banner728x90",      PricePerDay=400000, IsActive=true, CreatedAt=new DateTime(2025,1,1) },
+            new AdSlot { Id=5, Name="Cạnh Bài Viết",           SlotKey="sidebar",     Description="Quảng cáo 300x250 ở sidebar cạnh bài viết",                          Size="Rectangle300x250",  PricePerDay=250000, IsActive=true, CreatedAt=new DateTime(2025,1,1) }
+        );
 
-        mb.Entity<PlanFeature>().Property(f => f.FeatureText).HasMaxLength(200);
-        mb.Entity<PlanFeature>()
-            .HasOne(f => f.Plan).WithMany(p => p.Features)
-            .HasForeignKey(f => f.PlanId).OnDelete(DeleteBehavior.Cascade);
+        // ===== Cấu hình khu hiển thị (chu kỳ nhảy QC) =====
+        mb.Entity<AdZoneSetting>().Property(z => z.Position).HasMaxLength(50);
+        mb.Entity<AdZoneSetting>().HasIndex(z => z.Position).IsUnique();
+        mb.Entity<AdZoneSetting>().HasData(
+            new AdZoneSetting { Id=1, Position="header",     RotationSeconds=5 },
+            new AdZoneSetting { Id=2, Position="home_left",  RotationSeconds=5 },
+            new AdZoneSetting { Id=3, Position="home_right", RotationSeconds=5 },
+            new AdZoneSetting { Id=4, Position="in_article", RotationSeconds=5 },
+            new AdZoneSetting { Id=5, Position="sidebar",    RotationSeconds=5 }
+        );
 
-        mb.Entity<UserSubscription>().Property(s => s.Notes).HasMaxLength(500);
-        mb.Entity<UserSubscription>().HasIndex(s => s.UserId);
-        mb.Entity<UserSubscription>()
-            .HasOne(s => s.Plan).WithMany()
-            .HasForeignKey(s => s.PlanId).OnDelete(DeleteBehavior.Restrict);
-
+        // ===== Giao dịch (đơn thanh toán quảng cáo) — tái dùng Transaction =====
         mb.Entity<Transaction>().Property(t => t.Amount).HasColumnType("decimal(18,2)");
         mb.Entity<Transaction>().Property(t => t.PaymentMethodLabel).HasMaxLength(50);
         mb.Entity<Transaction>().HasIndex(t => t.UserId);
         mb.Entity<Transaction>()
-            .HasOne(t => t.Plan).WithMany()
-            .HasForeignKey(t => t.PlanId).OnDelete(DeleteBehavior.Restrict);
-        mb.Entity<Transaction>()
-            .HasOne<UserSubscription>().WithMany()
-            .HasForeignKey(t => t.UserSubscriptionId).OnDelete(DeleteBehavior.SetNull);
+            .HasOne(t => t.Advertisement).WithMany()
+            .HasForeignKey(t => t.AdvertisementId).OnDelete(DeleteBehavior.SetNull);
+
+        // =====================================================================
+        // CHUẨN HÓA DOMAIN — FK cho các bảng trước đây đứng lẻ (nullable + Restrict/SetNull,
+        // tránh vòng lặp cascade). KHÔNG ảnh hưởng cụm Users/Articles/Chat đang ổn định.
+        // =====================================================================
+
+        // ---------- Domain ARTICLE: Video (1 Article - nhiều Video, tùy chọn) ----------
+        mb.Entity<Video>()
+            .HasOne(v => v.Article).WithMany(a => a.Videos)
+            .HasForeignKey(v => v.ArticleId).OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<Video>().HasIndex(v => v.ArticleId);
+
+        // ---------- Domain USER ----------
+        mb.Entity<SavedArticle>()
+            .HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Restrict);
+        mb.Entity<SavedArticle>()
+            .HasOne(s => s.Article).WithMany().HasForeignKey(s => s.ArticleId).OnDelete(DeleteBehavior.Cascade);
+
+        mb.Entity<UserCategoryFollow>()
+            .HasOne(f => f.User).WithMany().HasForeignKey(f => f.UserId).OnDelete(DeleteBehavior.Restrict);
+        mb.Entity<UserCategoryFollow>()
+            .HasOne(f => f.Category).WithMany().HasForeignKey(f => f.CategoryId).OnDelete(DeleteBehavior.Cascade);
+
+        // SearchHistory.UserId nullable -> SetNull (giữ lịch sử khi xóa user)
+        mb.Entity<SearchHistory>()
+            .HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.SetNull);
+
+
+        // FeedbackReport.UserId nullable (khách vãng lai = null) -> SetNull
+        mb.Entity<FeedbackReport>()
+            .HasOne(f => f.User).WithMany().HasForeignKey(f => f.UserId).OnDelete(DeleteBehavior.SetNull);
+
+        // Notification: TargetUserId + RelatedArticleId (đều nullable) -> SetNull, FK-only cho gọn
+        mb.Entity<Notification>()
+            .HasOne<User>().WithMany().HasForeignKey(n => n.TargetUserId).OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<Notification>()
+            .HasOne<Article>().WithMany().HasForeignKey(n => n.RelatedArticleId).OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<Notification>().HasIndex(n => n.TargetUserId);
+
+        // ---------- Domain JOURNALIST / STAFF (1-1, FK-only theo convention hiện tại) ----------
+        // JournalistProfile 1-1 User (unique index UserId đã khai ở trên)
+        mb.Entity<JournalistProfile>()
+            .HasOne<User>().WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Restrict);
+        // StaffProfile 1-1 Admin (KHÔNG phải User) — unique index AdminId đã khai ở trên
+        mb.Entity<StaffProfile>()
+            .HasOne<Admin>().WithMany().HasForeignKey(p => p.AdminId).OnDelete(DeleteBehavior.Restrict);
+
+        // ---------- Domain ADMIN / IMPORT ----------
+        // RssSource gắn Category mặc định (cấu hình nguồn nhập) — nullable -> SetNull
+        mb.Entity<RssSource>()
+            .HasOne<Category>().WithMany().HasForeignKey(r => r.DefaultCategoryId).OnDelete(DeleteBehavior.SetNull);
+
+        // StaffActivityLog: người thực hiện + hồ sơ bị tác động (đều nullable) -> SetNull
+        mb.Entity<StaffActivityLog>()
+            .HasOne<Admin>().WithMany().HasForeignKey(l => l.ActorAdminId).OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<StaffActivityLog>()
+            .HasOne<Admin>().WithMany().HasForeignKey(l => l.TargetAdminId).OnDelete(DeleteBehavior.NoAction);
+        // (SeedViewBatch: cố ý KHÔNG FK về Article — 1 đợt trải nhiều bài, đã lưu delta trong DetailsJson)
+
+
+        // =====================================================================
+        // NỐI NỐT — cột "người tạo / người chỉnh sửa" (ownership). Tất cả nullable -> SetNull.
+        // "Admin có gì nối đó, Journalist/User có gì nối đó."
+        // =====================================================================
+
+        // AiCategoryCorrectionLog: bài bị sửa phân loại
+        mb.Entity<AiCategoryCorrectionLog>()
+            .HasOne(l => l.Article).WithMany().HasForeignKey(l => l.ArticleId).OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<AiCategoryCorrectionLog>().HasIndex(l => l.ArticleId);
+
+        // Advertisement: người tạo là Admin hoặc Nhà báo (User)
+        mb.Entity<Advertisement>()
+            .HasOne<Admin>().WithMany().HasForeignKey(a => a.CreatedByAdminId).OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<Advertisement>()
+            .HasOne<User>().WithMany().HasForeignKey(a => a.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
+
+        // Video: người tạo là Admin hoặc User
+        mb.Entity<Video>()
+            .HasOne<Admin>().WithMany().HasForeignKey(v => v.CreatedByAdminId).OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<Video>()
+            .HasOne<User>().WithMany().HasForeignKey(v => v.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
+
+        // Notification: admin đã gửi thông báo
+        mb.Entity<Notification>()
+            .HasOne<Admin>().WithMany().HasForeignKey(n => n.SentByAdminId).OnDelete(DeleteBehavior.SetNull);
+
+        // AiSetting / AutoImportSettings: admin chỉnh cấu hình gần nhất (audit)
+        mb.Entity<AiSetting>()
+            .HasOne<Admin>().WithMany().HasForeignKey(s => s.UpdatedByAdminId).OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<AutoImportSettings>()
+            .HasOne<Admin>().WithMany().HasForeignKey(s => s.UpdatedByAdminId).OnDelete(DeleteBehavior.SetNull);
     }
 }

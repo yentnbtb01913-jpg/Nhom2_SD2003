@@ -26,6 +26,7 @@ public class AccountController : Controller
     private bool IsLoggedIn => HttpContext.Session.GetInt32("UserId") != null;
 
     // ===== REGISTER =====
+    // Đây là luồng xử lý hiển thị form đăng ký tài khoản
     [HttpGet]
     public IActionResult Register()
     {
@@ -35,6 +36,11 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý đăng ký tài khoản độc giả
+    // Luồng: 1) Validate + chống trùng Username/Email (chữ thường)
+    //        2) Tạo User (BCrypt hash mật khẩu, Role="Reader") -> AUTO LOGIN (nạp session)
+    //        3) Gửi email xác nhận (best-effort, lỗi SMTP không chặn đăng ký)
+    // Bảng: Users, EmailConfirmationTokens
     public async Task<IActionResult> Register(RegisterViewModel vm)
     {
         if (!ModelState.IsValid)
@@ -108,6 +114,7 @@ public class AccountController : Controller
 
     // ===== LOGIN =====
     [HttpGet]
+    // Đây là luồng xử lý hiển thị form đăng nhập
     public IActionResult Login(string? returnUrl = null)
     {
         ViewBag.ReturnUrl = returnUrl;
@@ -121,6 +128,9 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý đăng nhập độc giả
+    // Luồng: tìm User theo username/email -> BCrypt.Verify -> chặn nếu bị khóa/xóa -> nạp session -> về returnUrl
+    // Bảng: Users
     public async Task<IActionResult> Login(LoginViewModel vm, string? returnUrl = null)
     {
         ViewBag.ReturnUrl = returnUrl;
@@ -166,6 +176,7 @@ public class AccountController : Controller
     }
 
     // ===== LOGOUT =====
+    // Đây là luồng xử lý đăng xuất độc giả (xóa session)
     public IActionResult Logout()
     {
         HttpContext.Session.Remove("UserId");
@@ -177,6 +188,7 @@ public class AccountController : Controller
     // ===== ĐĂNG NHẬP NGOÀI: GOOGLE / FACEBOOK =====
     // Bước 1: chuyển hướng người dùng sang nhà cung cấp
     [HttpGet]
+    // Đây là luồng xử lý bắt đầu đăng nhập ngoài Google/Facebook (chuyển tới nhà cung cấp)
     public IActionResult ExternalLogin(string provider, string? returnUrl = null)
     {
         if (string.IsNullOrWhiteSpace(provider))
@@ -189,6 +201,9 @@ public class AccountController : Controller
 
     // Bước 2: nhà cung cấp gọi lại — tìm/tạo user theo email rồi set session
     [HttpGet]
+    // Đây là luồng xử lý callback đăng nhập ngoài Google/Facebook
+    // Luồng: lấy email/tên từ claim -> chưa có User thì tạo mới (Reader), có rồi thì đăng nhập -> nạp session
+    // Bảng: Users
     public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null, string? remoteError = null)
     {
         if (!string.IsNullOrEmpty(remoteError))
@@ -273,6 +288,7 @@ public class AccountController : Controller
     // ===== ĐĂNG NHẬP NHÂN VIÊN BẰNG GOOGLE (khu Wisdom Nhân viên) =====
     // Bước 1: chuyển sang Google; callback RIÊNG để map vào bảng Admin (không tạo tài khoản mới).
     [HttpGet]
+    // Đây là luồng xử lý bắt đầu đăng nhập ngoài (Google) cho nhân viên/admin
     public IActionResult StaffExternalLogin(string provider = "Google")
     {
         if (string.IsNullOrWhiteSpace(provider)) provider = "Google";
@@ -283,6 +299,7 @@ public class AccountController : Controller
 
     // Bước 2: Google gọi lại — khớp email với nhân viên ĐÃ được cấp (bảng Admin), set session admin.
     [HttpGet]
+    // Đây là luồng xử lý callback đăng nhập ngoài (Google) cho nhân viên/admin -> nạp session admin
     public async Task<IActionResult> StaffExternalLoginCallback(string? remoteError = null)
     {
         if (!string.IsNullOrEmpty(remoteError))
@@ -328,6 +345,7 @@ public class AccountController : Controller
     // ===== PROFILE — public =====
     [HttpGet]
     [Route("/u/{username}")]
+    // Đây là luồng xử lý xem trang hồ sơ công khai của một người dùng
     public async Task<IActionResult> Profile(string username)
     {
         if (string.IsNullOrEmpty(username)) return NotFound();
@@ -392,6 +410,7 @@ public class AccountController : Controller
 
     // ===== MY PROFILE — private (yêu cầu đăng nhập) =====
     [HttpGet]
+    // Đây là luồng xử lý xem trang hồ sơ của chính mình
     public async Task<IActionResult> MyProfile()
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -418,6 +437,7 @@ public class AccountController : Controller
     // ===== UPDATE PROFILE =====
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý cập nhật hồ sơ cá nhân (tên, email, giới thiệu)
     public async Task<IActionResult> UpdateProfile(string fullName, string email, string? bio)
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -462,6 +482,7 @@ public class AccountController : Controller
     // ===== UPLOAD AVATAR =====
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý tải lên ảnh đại diện (avatar)
     public async Task<IActionResult> UploadAvatar(IFormFile avatarFile)
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -528,6 +549,7 @@ public class AccountController : Controller
     // ===== UPLOAD COVER =====
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý tải lên ảnh bìa (cover)
     public async Task<IActionResult> UploadCover(IFormFile coverFile)
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -587,6 +609,7 @@ public class AccountController : Controller
     // ===== FOLLOWER LIST =====
     [HttpGet]
     [Route("/u/{username}/followers")]
+    // Đây là luồng xử lý xem danh sách người theo dõi
     public async Task<IActionResult> Followers(string username)
     {
         if (string.IsNullOrEmpty(username)) return NotFound();
@@ -606,6 +629,7 @@ public class AccountController : Controller
 
     [HttpGet]
     [Route("/u/{username}/following")]
+    // Đây là luồng xử lý xem danh sách đang theo dõi
     public async Task<IActionResult> Following(string username)
     {
         if (string.IsNullOrEmpty(username)) return NotFound();
@@ -626,6 +650,8 @@ public class AccountController : Controller
     // ===================== KHU CÁ NHÂN (HUB) =====================
     // 1 action, 5 tab: foryou / topics / following / history / saved
     [HttpGet]
+    // Đây là luồng xử lý khu cá nhân (Hub): bài theo chuyên mục đã theo dõi, bài đã lưu
+    // Bảng: SavedArticles, UserCategoryFollows, Articles
     public async Task<IActionResult> Hub(string tab = "foryou")
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -719,6 +745,8 @@ public class AccountController : Controller
 
     // Lưu / bỏ lưu bài (AJAX)
     [HttpPost]
+    // Đây là luồng xử lý lưu / bỏ lưu bài viết ("Báo đã lưu")
+    // Bảng: SavedArticles
     public async Task<IActionResult> ToggleSave(int id)
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -733,6 +761,8 @@ public class AccountController : Controller
 
     // Theo dõi / bỏ theo dõi chuyên mục (AJAX)
     [HttpPost]
+    // Đây là luồng xử lý theo dõi / bỏ theo dõi chuyên mục ("Mục của bạn")
+    // Bảng: UserCategoryFollows
     public async Task<IActionResult> ToggleFollowCategory(int id)
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -747,6 +777,7 @@ public class AccountController : Controller
 
     // ===== NOTIFICATIONS =====
     [HttpGet]
+    // Đây là luồng xử lý đếm số thông báo chưa đọc của độc giả (cho badge)
     public async Task<IActionResult> GetUserUnreadCount()
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -765,6 +796,7 @@ public class AccountController : Controller
     }
 
     [HttpGet]
+    // Đây là luồng xử lý lấy danh sách thông báo của độc giả (dropdown)
     public async Task<IActionResult> GetUserNotifications()
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -802,6 +834,7 @@ public class AccountController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý đánh dấu 1 thông báo đã đọc
     public async Task<IActionResult> MarkUserNotificationRead(int id)
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -817,6 +850,7 @@ public class AccountController : Controller
     }
 
     [HttpPost]
+    // Đây là luồng xử lý đánh dấu tất cả thông báo đã đọc
     public async Task<IActionResult> MarkAllUserNotificationsRead()
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -842,6 +876,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý xóa 1 thông báo của độc giả
     public async Task<IActionResult> DeleteUserNotification(int id)
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -857,6 +892,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý xóa nhiều thông báo cùng lúc
     public async Task<IActionResult> DeleteUserNotifications([FromBody] List<int> ids)
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -873,6 +909,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý xóa tất cả thông báo đã đọc
     public async Task<IActionResult> DeleteAllReadNotifications()
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -898,6 +935,7 @@ public class AccountController : Controller
 
     // ===== HỘP THƯ =====
     [HttpGet]
+    // Đây là luồng xử lý trang hộp thư thông báo của độc giả
     public async Task<IActionResult> Inbox(
         string? keyword, string? type,
         string? status, // "unread" / "read" / "" = tất cả
@@ -976,6 +1014,7 @@ public class AccountController : Controller
 
     // ===== XÁC NHẬN EMAIL =====
     [HttpGet]
+    // Đây là luồng xử lý mở trang xác nhận email (từ link trong email)
     public async Task<IActionResult> ConfirmEmail(string? token, string? purpose)
     {
         ViewBag.Token = token;
@@ -996,6 +1035,8 @@ public class AccountController : Controller
     // Xác nhận THẬT (chỉ khi bấm nút) — không tự xác nhận lúc trang load.
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý xác nhận email (đặt EmailVerified=true qua EmailConfirmationService)
+    // Bảng: EmailConfirmationTokens, Users
     public async Task<IActionResult> ConfirmEmailPost(string token)
     {
         var svc = HttpContext.RequestServices.GetRequiredService<WisdomITNews.Services.EmailConfirmationService>();
@@ -1043,6 +1084,7 @@ public class AccountController : Controller
     // Gửi lại email xác nhận (cooldown 60s/UserId trong service).
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý gửi lại email xác nhận tài khoản
     public async Task<IActionResult> ResendConfirmation(string? token)
     {
         int? userId = HttpContext.Session.GetInt32("UserId");
@@ -1059,55 +1101,10 @@ public class AccountController : Controller
         return RedirectToAction("Index", "Home");
     }
 
-    // ===== ĐĂNG KÝ NHẬN TIN (trang riêng) =====
-    [HttpGet]
-    public async Task<IActionResult> Newsletter()
-    {
-        var userId = HttpContext.Session.GetInt32("UserId");
-        if (userId == null) return RedirectToAction("Login", new { returnUrl = "/Account/Newsletter" });
-        var user = await _db.Users.FindAsync(userId.Value);
-        if (user == null) return RedirectToAction("Login");
-        ViewBag.Email = user.Email;
-        ViewBag.FullName = user.FullName;
-        ViewBag.AlreadySubscribed = await _db.NewsletterSubscribers.AnyAsync(x => x.Email == user.Email && x.Status == "active");
-        ViewBag.Categories = await _db.Categories.Where(c => c.IsVisible).OrderBy(c => c.SortOrder).ThenBy(c => c.Name).ToListAsync();
-        return View();
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Newsletter(string? fullName, string? interested)
-    {
-        var userId = HttpContext.Session.GetInt32("UserId");
-        if (userId == null) return RedirectToAction("Login");
-        var user = await _db.Users.FindAsync(userId.Value);
-        if (user == null) return RedirectToAction("Login");
-
-        var existing = await _db.NewsletterSubscribers.FirstOrDefaultAsync(x => x.Email == user.Email);
-        if (existing == null)
-        {
-            _db.NewsletterSubscribers.Add(new NewsletterSubscriber
-            {
-                Email = user.Email,
-                FullName = string.IsNullOrWhiteSpace(fullName) ? user.FullName : fullName.Trim(),
-                InterestedCategory = string.IsNullOrWhiteSpace(interested) ? null : interested.Trim(),
-                Source = "user",
-                Status = "active",
-                SubscribedAt = DateTime.Now
-            });
-        }
-        else
-        {
-            existing.Status = "active";
-            if (!string.IsNullOrWhiteSpace(fullName)) existing.FullName = fullName.Trim();
-            if (!string.IsNullOrWhiteSpace(interested)) existing.InterestedCategory = interested.Trim();
-        }
-        await _db.SaveChangesAsync();
-        TempData["SubSuccess"] = "Đăng ký nhận tin thành công! Giờ bạn có thể đăng ký gói Premium.";
-        return RedirectToAction("Pricing", "Subscription");
-    }
+    // [ĐÃ GỠ] Newsletter (trang đăng ký nhận tin) đã được loại bỏ.
 
     // ===== DANH MỤC YÊU THÍCH (gộp: chọn danh mục + bài đã lưu theo danh mục) =====
+    // Đây là luồng xử lý trang chọn chuyên mục yêu thích
     public async Task<IActionResult> Favorites(int? cat)
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -1133,6 +1130,8 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Đây là luồng xử lý lưu danh sách chuyên mục yêu thích
+    // Bảng: UserCategoryFollows
     public async Task<IActionResult> SaveFavorites(List<int>? categoryIds)
     {
         var userId = HttpContext.Session.GetInt32("UserId");
@@ -1149,6 +1148,7 @@ public class AccountController : Controller
 
     // ===== CÀI ĐẶT (placeholder — sẽ bổ sung sau) =====
     [HttpGet]
+    // Đây là luồng xử lý hiển thị trang cài đặt tài khoản
     public IActionResult Settings()
     {
         return View();

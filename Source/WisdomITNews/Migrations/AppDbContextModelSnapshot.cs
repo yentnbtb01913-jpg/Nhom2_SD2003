@@ -65,6 +65,162 @@ namespace WisdomITNews.Migrations
                     b.ToTable("AILogs");
                 });
 
+            modelBuilder.Entity("WisdomITNews.Models.AdSlot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<decimal>("PricePerDay")
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<string>("Size")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SlotKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SlotKey")
+                        .IsUnique();
+
+                    b.ToTable("AdSlots");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Banner ngang 728x90 nằm trên cùng, phía trên cả logo — mọi trang",
+                            IsActive = true,
+                            Name = "Banner Đầu Trang (ngang)",
+                            PricePerDay = 500000m,
+                            Size = "Banner728x90",
+                            SlotKey = "header"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Dải dọc 160x600 bên trái trang chủ",
+                            IsActive = true,
+                            Name = "Dải Dọc Trái",
+                            PricePerDay = 300000m,
+                            Size = "Skyscraper160x600",
+                            SlotKey = "home_left"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Dải dọc 160x600 bên phải trang chủ",
+                            IsActive = true,
+                            Name = "Dải Dọc Phải",
+                            PricePerDay = 300000m,
+                            Size = "Skyscraper160x600",
+                            SlotKey = "home_right"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Banner 728x90 chèn giữa nội dung bài viết",
+                            IsActive = true,
+                            Name = "Giữa Bài Viết",
+                            PricePerDay = 400000m,
+                            Size = "Banner728x90",
+                            SlotKey = "in_article"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Quảng cáo 300x250 ở sidebar cạnh bài viết",
+                            IsActive = true,
+                            Name = "Cạnh Bài Viết",
+                            PricePerDay = 250000m,
+                            Size = "Rectangle300x250",
+                            SlotKey = "sidebar"
+                        });
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.AdZoneSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Position")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("RotationSeconds")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Position")
+                        .IsUnique();
+
+                    b.ToTable("AdZoneSettings");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Position = "header",
+                            RotationSeconds = 5
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Position = "home_left",
+                            RotationSeconds = 5
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Position = "home_right",
+                            RotationSeconds = 5
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Position = "in_article",
+                            RotationSeconds = 5
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Position = "sidebar",
+                            RotationSeconds = 5
+                        });
+                });
+
             modelBuilder.Entity("WisdomITNews.Models.Admin", b =>
                 {
                     b.Property<int>("Id")
@@ -127,12 +283,199 @@ namespace WisdomITNews.Migrations
                             Id = 1,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "admin@wisdomitnews.vn",
+                            EmploymentStatus = "working",
                             FullName = "Quản Trị Viên",
                             IsActive = true,
-                            PasswordHash = "$2a$11$j.lPTihd2ahErWIU93TEe.Eyf04Q46RPNPwYgLXxS4WhnGwPpjwgC",
+                            PasswordHash = "$2a$11$92Oo/B.K/yM4exSZqzZHeu7PIVTAytaH5vnt78RFNDwbIkyFy0gE2",
                             Role = "superadmin",
                             Username = "admin"
                         });
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.Advertisement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AdSlotId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<string>("BuyerPhone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Clicks")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByAdminId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Days")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Impressions")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Position")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TargetUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdSlotId");
+
+                    b.HasIndex("CreatedByAdminId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.ToTable("Advertisements");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.AiCategoryCorrectionLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ArticleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EditorName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NewCategory")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("OldCategory")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArticleId");
+
+                    b.ToTable("AiCategoryCorrectionLogs");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.AiSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ApiVersion")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ChatMaxSentences")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ChatTemplate")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("MaxOutputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModerateTemplate")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SuggestTitleTemplate")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SummarizeLength")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SummarizeTemplate")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SystemInstruction")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("Temperature")
+                        .HasColumnType("float");
+
+                    b.Property<int>("ThinkingBudget")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByAdminId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedByAdminId");
+
+                    b.ToTable("AiSettings");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.Article", b =>
@@ -168,19 +511,16 @@ namespace WisdomITNews.Migrations
                     b.Property<bool>("FeaturedPinned")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsBreaking")
-                        .HasColumnType("bit");
-
                     b.Property<string>("ImportedBy")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsBreaking")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsExternal")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsFeatured")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsPremiumOnly")
                         .HasColumnType("bit");
 
                     b.Property<double?>("Latitude")
@@ -270,6 +610,66 @@ namespace WisdomITNews.Migrations
                     b.HasIndex("TagId");
 
                     b.ToTable("ArticleTags");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.AutoImportSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Concurrency")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DelayBetweenArticlesSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DelayBetweenSourcesSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LogConnectionError")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LogError")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LogSkipDuplicate")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LogSuccess")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MaxPerSource")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxTotalPerRun")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("OnlyNew")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("RetrySeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ScanIntervalSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByAdminId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedByAdminId");
+
+                    b.ToTable("AutoImportSettings");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.Category", b =>
@@ -419,6 +819,34 @@ namespace WisdomITNews.Migrations
                             SortOrder = 8,
                             UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         });
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.CategoryMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AiLabel")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AiLabel");
+
+                    b.HasIndex("CategoryId");
+
+                    b.ToTable("CategoryMappings");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.ChatGroup", b =>
@@ -634,6 +1062,50 @@ namespace WisdomITNews.Migrations
                     b.ToTable("CommentVotes");
                 });
 
+            modelBuilder.Entity("WisdomITNews.Models.EmailConfirmationToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int?>("TransactionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("EmailConfirmationTokens");
+                });
+
             modelBuilder.Entity("WisdomITNews.Models.FeedbackReport", b =>
                 {
                     b.Property<int>("Id")
@@ -659,11 +1131,16 @@ namespace WisdomITNews.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("IsResolved");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("FeedbackReports");
                 });
@@ -704,7 +1181,7 @@ namespace WisdomITNews.Migrations
                     b.ToTable("Friendships");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.NewsletterSubscriber", b =>
+            modelBuilder.Entity("WisdomITNews.Models.JournalistProfile", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -712,35 +1189,90 @@ namespace WisdomITNews.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("FullName")
+                    b.Property<string>("Address")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("InterestedCategory")
+                    b.Property<string>("AssignedCategory")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("City")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Country")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Expertise")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Facebook")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Gender")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("InternalNote")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("JobTitle")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LinkedIn")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Nationality")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Organization")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PenName")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Phone")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Source")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("SubscribedAt")
+                    b.Property<DateTime?>("PressCardExpiry")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PressCardIssued")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PressCardNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Telegram")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Twitter")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Website")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("YearsExperience")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Zalo")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("NewsletterSubscribers");
+                    b.ToTable("JournalistProfiles");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.Notification", b =>
@@ -824,7 +1356,64 @@ namespace WisdomITNews.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("RelatedArticleId");
+
+                    b.HasIndex("SentByAdminId");
+
+                    b.HasIndex("TargetUserId");
+
                     b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.Podcast", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ArticleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsAiGenerated")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UploadedByType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("UploadedByUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArticleId");
+
+                    b.ToTable("Podcasts");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.RssSource", b =>
@@ -860,11 +1449,11 @@ namespace WisdomITNews.Migrations
                     b.Property<DateTime?>("LastImportAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("MaxImport")
-                        .HasColumnType("int");
-
                     b.Property<string>("LogoUrl")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("MaxImport")
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -878,7 +1467,69 @@ namespace WisdomITNews.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DefaultCategoryId");
+
                     b.ToTable("RssSources");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.SavedArticle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ArticleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SavedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArticleId");
+
+                    b.HasIndex("UserId", "ArticleId")
+                        .IsUnique();
+
+                    b.ToTable("SavedArticles");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.SearchHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Keyword")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("SearchedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SearchedAt");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("SearchHistories");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.SeedViewBatch", b =>
@@ -911,7 +1562,7 @@ namespace WisdomITNews.Migrations
 
                     b.Property<string>("Scope")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("TargetLabel")
                         .IsRequired()
@@ -929,7 +1580,7 @@ namespace WisdomITNews.Migrations
                     b.ToTable("SeedViewBatches");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.SavedArticle", b =>
+            modelBuilder.Entity("WisdomITNews.Models.StaffActivityLog", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -937,362 +1588,40 @@ namespace WisdomITNews.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("ArticleId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("SavedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "ArticleId")
-                        .IsUnique();
-
-                    b.ToTable("SavedArticles");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.SearchHistory", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Keyword")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("SearchedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("SessionId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int?>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SearchedAt");
-
-                    b.HasIndex("SessionId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("SearchHistories");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.Tag", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Name")
+                    b.Property<string>("Action")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Slug")
-                        .IsUnique();
-
-                    b.ToTable("Tags");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.User", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int?>("ActorAdminId")
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AvatarUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Bio")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CoverUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<bool>("EmailVerified")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("FullName")
+                    b.Property<string>("ActorName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("HasUsedTrial")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsEmailConfirmed")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Phone")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Email")
-                        .IsUnique();
-
-                    b.HasIndex("Username")
-                        .IsUnique();
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.UserCategoryFollow", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("CategoryId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "CategoryId")
-                        .IsUnique();
-
-                    b.ToTable("UserCategoryFollows");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.UserFollow", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("FollowerId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("FollowingId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FollowingId");
-
-                    b.HasIndex("FollowerId", "FollowingId")
-                        .IsUnique();
-
-                    b.ToTable("UserFollows");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.Video", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedByAdminId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<long?>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("PublishedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Source")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("VideoType")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("VideoUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Views")
-                        .HasColumnType("int");
-
-                    b.Property<string>("YouTubeId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Videos");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.VideoComment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AuthorEmail")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AuthorName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Content")
+                    b.Property<string>("ActorRole")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("Likes")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ParentId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
+                    b.Property<string>("Detail")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("UserId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("VideoId")
+                    b.Property<int?>("TargetAdminId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("VideoId");
+                    b.HasIndex("ActorAdminId");
 
-                    b.ToTable("VideoComments");
-                });
+                    b.HasIndex("CreatedAt");
 
-            modelBuilder.Entity("WisdomITNews.Models.AiSetting", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                    b.HasIndex("TargetAdminId");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ApiVersion")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("ChatMaxSentences")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ChatTemplate")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("MaxOutputTokens")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Model")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ModerateTemplate")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SuggestTitleTemplate")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SummarizeLength")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SummarizeTemplate")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SystemInstruction")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<double>("Temperature")
-                        .HasColumnType("float");
-
-                    b.Property<int>("ThinkingBudget")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("AiSettings");
+                    b.ToTable("StaffActivityLogs");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.StaffProfile", b =>
@@ -1389,7 +1718,7 @@ namespace WisdomITNews.Migrations
                     b.ToTable("StaffProfiles");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.StaffActivityLog", b =>
+            modelBuilder.Entity("WisdomITNews.Models.Tag", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1397,24 +1726,26 @@ namespace WisdomITNews.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Action").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<int?>("ActorAdminId").HasColumnType("int");
-                    b.Property<string>("ActorName").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<string>("ActorRole").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<string>("Detail").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<int?>("TargetAdminId").HasColumnType("int");
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedAt");
+                    b.HasIndex("Slug")
+                        .IsUnique();
 
-                    b.HasIndex("TargetAdminId");
-
-                    b.ToTable("StaffActivityLogs");
+                    b.ToTable("Tags");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.Advertisement", b =>
+            modelBuilder.Entity("WisdomITNews.Models.Transaction", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1422,100 +1753,39 @@ namespace WisdomITNews.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("Clicks").HasColumnType("int");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<int?>("CreatedByAdminId").HasColumnType("int");
-                    b.Property<string>("CreatedByName").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<int?>("CreatedByUserId").HasColumnType("int");
-                    b.Property<DateTime?>("EndDate").HasColumnType("datetime2");
-                    b.Property<string>("ImageUrl").HasColumnType("nvarchar(max)");
-                    b.Property<int>("Impressions").HasColumnType("int");
-                    b.Property<bool>("IsActive").HasColumnType("bit");
-                    b.Property<string>("Position").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<DateTime?>("StartDate").HasColumnType("datetime2");
-                    b.Property<string>("Status").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<string>("TargetUrl").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<string>("Title").IsRequired().HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Advertisements");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.AdRenewalMessage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int?>("AdvertisementId")
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("AdvertisementId").HasColumnType("int");
-                    b.Property<string>("Content").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<bool>("IsReadByAdmin").HasColumnType("bit");
-                    b.Property<bool>("IsReadByJournalist").HasColumnType("bit");
-                    b.Property<int>("SenderId").HasColumnType("int");
-                    b.Property<string>("SenderName").IsRequired().HasMaxLength(150).HasColumnType("nvarchar(150)");
-                    b.Property<string>("SenderRole").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentMethodLabel")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("AdvertisementId");
 
-                    b.ToTable("AdRenewalMessages");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.TeamChatMessage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Content").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<string>("ConversationKey").IsRequired().HasMaxLength(120).HasColumnType("nvarchar(120)");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<bool>("IsGroup").HasColumnType("bit");
-                    b.Property<int?>("RecipientId").HasColumnType("int");
-                    b.Property<string>("RecipientRole").HasMaxLength(20).HasColumnType("nvarchar(20)");
-                    b.Property<int>("SenderId").HasColumnType("int");
-                    b.Property<string>("SenderName").IsRequired().HasMaxLength(150).HasColumnType("nvarchar(150)");
-                    b.Property<string>("SenderRole").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ConversationKey");
-
-                    b.ToTable("TeamChatMessages");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.CustomerActivityLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Action").IsRequired().HasMaxLength(60).HasColumnType("nvarchar(60)");
-                    b.Property<string>("ActorName").IsRequired().HasMaxLength(150).HasColumnType("nvarchar(150)");
-                    b.Property<string>("ActorRole").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<string>("NewValue").HasColumnType("nvarchar(max)");
-                    b.Property<string>("Note").HasColumnType("nvarchar(max)");
-                    b.Property<string>("OldValue").HasColumnType("nvarchar(max)");
-                    b.Property<int>("UserId").HasColumnType("int");
-
-                    b.HasKey("Id");
-
                     b.HasIndex("UserId");
 
-                    b.ToTable("CustomerActivityLogs");
+                    b.ToTable("Transactions");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.AutoImportSettings", b =>
+            modelBuilder.Entity("WisdomITNews.Models.User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1523,27 +1793,68 @@ namespace WisdomITNews.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("Concurrency").HasColumnType("int");
-                    b.Property<int>("DelayBetweenArticlesSeconds").HasColumnType("int");
-                    b.Property<int>("DelayBetweenSourcesSeconds").HasColumnType("int");
-                    b.Property<bool>("Enabled").HasColumnType("bit");
-                    b.Property<bool>("LogConnectionError").HasColumnType("bit");
-                    b.Property<bool>("LogError").HasColumnType("bit");
-                    b.Property<bool>("LogSkipDuplicate").HasColumnType("bit");
-                    b.Property<bool>("LogSuccess").HasColumnType("bit");
-                    b.Property<int>("MaxPerSource").HasColumnType("int");
-                    b.Property<int>("MaxTotalPerRun").HasColumnType("int");
-                    b.Property<bool>("OnlyNew").HasColumnType("bit");
-                    b.Property<int>("RetrySeconds").HasColumnType("int");
-                    b.Property<int>("ScanIntervalSeconds").HasColumnType("int");
-                    b.Property<DateTime>("UpdatedAt").HasColumnType("datetime2");
+                    b.Property<string>("AvatarUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Bio")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CoverUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("EmailVerified")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("HasUsedTrial")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsEmailConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("AutoImportSettings");
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("Username")
+                        .IsUnique();
+
+                    b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.CategoryMapping", b =>
+            modelBuilder.Entity("WisdomITNews.Models.UserCategoryFollow", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1551,20 +1862,26 @@ namespace WisdomITNews.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AiLabel").IsRequired().HasMaxLength(150).HasColumnType("nvarchar(150)");
-                    b.Property<int>("CategoryId").HasColumnType("int");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AiLabel");
 
                     b.HasIndex("CategoryId");
 
-                    b.ToTable("CategoryMappings");
+                    b.HasIndex("UserId", "CategoryId")
+                        .IsUnique();
+
+                    b.ToTable("UserCategoryFollows");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.AiCategoryCorrectionLog", b =>
+            modelBuilder.Entity("WisdomITNews.Models.UserFollow", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1572,18 +1889,26 @@ namespace WisdomITNews.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("ArticleId").HasColumnType("int");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<string>("EditorName").IsRequired().HasMaxLength(150).HasColumnType("nvarchar(150)");
-                    b.Property<string>("NewCategory").IsRequired().HasMaxLength(150).HasColumnType("nvarchar(150)");
-                    b.Property<string>("OldCategory").IsRequired().HasMaxLength(150).HasColumnType("nvarchar(150)");
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FollowerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FollowingId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.ToTable("AiCategoryCorrectionLogs");
+                    b.HasIndex("FollowingId");
+
+                    b.HasIndex("FollowerId", "FollowingId")
+                        .IsUnique();
+
+                    b.ToTable("UserFollows");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.NewsletterEmailLog", b =>
+            modelBuilder.Entity("WisdomITNews.Models.Video", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1591,49 +1916,63 @@ namespace WisdomITNews.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Email").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<string>("Error").HasColumnType("nvarchar(max)");
-                    b.Property<bool>("IsSuccess").HasColumnType("bit");
-                    b.Property<string>("Segment").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<DateTime>("SentAt").HasColumnType("datetime2");
-                    b.Property<int>("SubscriberId").HasColumnType("int");
-                    b.Property<string>("Subject").IsRequired().HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SubscriberId");
-
-                    b.ToTable("NewsletterEmailLogs");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.Podcast", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int?>("ArticleId")
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
 
-                    b.Property<int?>("ArticleId").HasColumnType("int");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<string>("Description").HasColumnType("nvarchar(max)");
-                    b.Property<int>("DurationSeconds").HasColumnType("int");
-                    b.Property<string>("FilePath").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<long>("FileSizeBytes").HasColumnType("bigint");
-                    b.Property<bool>("IsAiGenerated").HasColumnType("bit");
-                    b.Property<string>("Title").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<DateTime>("UpdatedAt").HasColumnType("datetime2");
-                    b.Property<string>("UploadedByType").IsRequired().HasColumnType("nvarchar(max)");
-                    b.Property<int?>("UploadedByUserId").HasColumnType("int");
+                    b.Property<int?>("CreatedByAdminId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long?>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("PublishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Source")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VideoType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VideoUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Views")
+                        .HasColumnType("int");
+
+                    b.Property<string>("YouTubeId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ArticleId");
 
-                    b.ToTable("Podcasts");
+                    b.HasIndex("CreatedByAdminId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.ToTable("Videos");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.EmailConfirmationToken", b =>
+            modelBuilder.Entity("WisdomITNews.Models.VideoComment", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1641,150 +1980,41 @@ namespace WisdomITNews.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime?>("ConfirmedAt").HasColumnType("datetime2");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<DateTime>("ExpiresAt").HasColumnType("datetime2");
-                    b.Property<int>("Purpose").HasColumnType("int");
-                    b.Property<int?>("SubscriptionId").HasColumnType("int");
-                    b.Property<string>("Token").IsRequired().HasMaxLength(128).HasColumnType("nvarchar(128)");
-                    b.Property<int?>("TransactionId").HasColumnType("int");
-                    b.Property<int>("UserId").HasColumnType("int");
+                    b.Property<string>("AuthorEmail")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Likes")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ParentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VideoId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Token").IsUnique();
+                    b.HasIndex("VideoId");
 
-                    b.HasIndex("UserId");
-
-                    b.ToTable("EmailConfirmationTokens");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.SubscriptionPlan", b =>
-                {
-                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<string>("Description").HasMaxLength(500).HasColumnType("nvarchar(500)");
-                    b.Property<int>("DurationDays").HasColumnType("int");
-                    b.Property<bool>("IsActive").HasColumnType("bit");
-                    b.Property<string>("Name").IsRequired().HasMaxLength(120).HasColumnType("nvarchar(120)");
-                    b.Property<decimal>("Price").HasColumnType("decimal(18,2)");
-                    b.Property<int>("TrialDays").HasColumnType("int");
-                    b.Property<DateTime>("UpdatedAt").HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SubscriptionPlans");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.PlanFeature", b =>
-                {
-                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("FeatureText").IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
-                    b.Property<int>("PlanId").HasColumnType("int");
-                    b.Property<int>("SortOrder").HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlanId");
-
-                    b.ToTable("PlanFeatures");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.UserSubscription", b =>
-                {
-                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("ConfirmedAt").HasColumnType("datetime2");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<DateTime>("EndDate").HasColumnType("datetime2");
-                    b.Property<DateTime?>("ExpiryReminderSentAt").HasColumnType("datetime2");
-                    b.Property<string>("Notes").HasMaxLength(500).HasColumnType("nvarchar(500)");
-                    b.Property<int>("PlanId").HasColumnType("int");
-                    b.Property<DateTime>("StartDate").HasColumnType("datetime2");
-                    b.Property<int>("Status").HasColumnType("int");
-                    b.Property<int>("UserId").HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlanId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("UserSubscriptions");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.Transaction", b =>
-                {
-                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amount").HasColumnType("decimal(18,2)");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<string>("PaymentMethodLabel").IsRequired().HasMaxLength(50).HasColumnType("nvarchar(50)");
-                    b.Property<int>("PlanId").HasColumnType("int");
-                    b.Property<int>("Status").HasColumnType("int");
-                    b.Property<DateTime>("UpdatedAt").HasColumnType("datetime2");
-                    b.Property<int>("UserId").HasColumnType("int");
-                    b.Property<int?>("UserSubscriptionId").HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlanId");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("UserSubscriptionId");
-
-                    b.ToTable("Transactions");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.JournalistProfile", b =>
-                {
-                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Address").HasColumnType("nvarchar(max)");
-                    b.Property<string>("AssignedCategory").HasColumnType("nvarchar(max)");
-                    b.Property<string>("City").HasColumnType("nvarchar(max)");
-                    b.Property<string>("Country").HasColumnType("nvarchar(max)");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<DateTime?>("DateOfBirth").HasColumnType("datetime2");
-                    b.Property<string>("Expertise").HasColumnType("nvarchar(max)");
-                    b.Property<string>("Facebook").HasColumnType("nvarchar(max)");
-                    b.Property<string>("Gender").HasColumnType("nvarchar(max)");
-                    b.Property<string>("InternalNote").HasColumnType("nvarchar(max)");
-                    b.Property<string>("JobTitle").HasColumnType("nvarchar(max)");
-                    b.Property<string>("LinkedIn").HasColumnType("nvarchar(max)");
-                    b.Property<string>("Nationality").HasColumnType("nvarchar(max)");
-                    b.Property<string>("Organization").HasColumnType("nvarchar(max)");
-                    b.Property<string>("PenName").HasColumnType("nvarchar(max)");
-                    b.Property<string>("Phone").HasColumnType("nvarchar(max)");
-                    b.Property<DateTime?>("PressCardExpiry").HasColumnType("datetime2");
-                    b.Property<DateTime?>("PressCardIssued").HasColumnType("datetime2");
-                    b.Property<string>("PressCardNo").HasColumnType("nvarchar(max)");
-                    b.Property<string>("Telegram").HasColumnType("nvarchar(max)");
-                    b.Property<string>("Twitter").HasColumnType("nvarchar(max)");
-                    b.Property<DateTime>("UpdatedAt").HasColumnType("datetime2");
-                    b.Property<int>("UserId").HasColumnType("int");
-                    b.Property<string>("Website").HasColumnType("nvarchar(max)");
-                    b.Property<int?>("YearsExperience").HasColumnType("int");
-                    b.Property<string>("Zalo").HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId").IsUnique();
-
-                    b.ToTable("JournalistProfiles");
+                    b.ToTable("VideoComments");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.ViewHistory", b =>
@@ -1823,6 +2053,44 @@ namespace WisdomITNews.Migrations
                         .HasForeignKey("ArticleId");
 
                     b.Navigation("Article");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.Advertisement", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.AdSlot", "AdSlot")
+                        .WithMany()
+                        .HasForeignKey("AdSlotId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("WisdomITNews.Models.Admin", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("WisdomITNews.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AdSlot");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.AiCategoryCorrectionLog", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Article", "Article")
+                        .WithMany()
+                        .HasForeignKey("ArticleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Article");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.AiSetting", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Admin", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.Article", b =>
@@ -1868,6 +2136,14 @@ namespace WisdomITNews.Migrations
                     b.Navigation("Tag");
                 });
 
+            modelBuilder.Entity("WisdomITNews.Models.AutoImportSettings", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Admin", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
             modelBuilder.Entity("WisdomITNews.Models.Category", b =>
                 {
                     b.HasOne("WisdomITNews.Models.Category", "ParentCategory")
@@ -1876,6 +2152,17 @@ namespace WisdomITNews.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("ParentCategory");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.CategoryMapping", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.ChatMember", b =>
@@ -1943,16 +2230,6 @@ namespace WisdomITNews.Migrations
                     b.Navigation("Comment");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.Podcast", b =>
-                {
-                    b.HasOne("WisdomITNews.Models.Article", "Article")
-                        .WithMany()
-                        .HasForeignKey("ArticleId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Article");
-                });
-
             modelBuilder.Entity("WisdomITNews.Models.EmailConfirmationToken", b =>
                 {
                     b.HasOne("WisdomITNews.Models.User", "User")
@@ -1964,15 +2241,14 @@ namespace WisdomITNews.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("WisdomITNews.Models.VideoComment", b =>
+            modelBuilder.Entity("WisdomITNews.Models.FeedbackReport", b =>
                 {
-                    b.HasOne("WisdomITNews.Models.Video", "Video")
+                    b.HasOne("WisdomITNews.Models.User", "User")
                         .WithMany()
-                        .HasForeignKey("VideoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("Video");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.Friendship", b =>
@@ -1994,6 +2270,129 @@ namespace WisdomITNews.Migrations
                     b.Navigation("Requester");
                 });
 
+            modelBuilder.Entity("WisdomITNews.Models.JournalistProfile", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.Notification", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Article", null)
+                        .WithMany()
+                        .HasForeignKey("RelatedArticleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("WisdomITNews.Models.Admin", null)
+                        .WithMany()
+                        .HasForeignKey("SentByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("WisdomITNews.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.Podcast", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Article", "Article")
+                        .WithMany()
+                        .HasForeignKey("ArticleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Article");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.RssSource", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Category", null)
+                        .WithMany()
+                        .HasForeignKey("DefaultCategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.SavedArticle", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Article", "Article")
+                        .WithMany()
+                        .HasForeignKey("ArticleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WisdomITNews.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Article");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.SearchHistory", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.StaffActivityLog", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Admin", null)
+                        .WithMany()
+                        .HasForeignKey("ActorAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("WisdomITNews.Models.Admin", null)
+                        .WithMany()
+                        .HasForeignKey("TargetAdminId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.StaffProfile", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Admin", null)
+                        .WithMany()
+                        .HasForeignKey("AdminId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.Transaction", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Advertisement", "Advertisement")
+                        .WithMany()
+                        .HasForeignKey("AdvertisementId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Advertisement");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.UserCategoryFollow", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WisdomITNews.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("WisdomITNews.Models.UserFollow", b =>
                 {
                     b.HasOne("WisdomITNews.Models.User", "Follower")
@@ -2011,6 +2410,37 @@ namespace WisdomITNews.Migrations
                     b.Navigation("Follower");
 
                     b.Navigation("Following");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.Video", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Article", "Article")
+                        .WithMany("Videos")
+                        .HasForeignKey("ArticleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("WisdomITNews.Models.Admin", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("WisdomITNews.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Article");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.VideoComment", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.Video", "Video")
+                        .WithMany()
+                        .HasForeignKey("VideoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Video");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.ViewHistory", b =>
@@ -2036,6 +2466,8 @@ namespace WisdomITNews.Migrations
                     b.Navigation("ArticleTags");
 
                     b.Navigation("Comments");
+
+                    b.Navigation("Videos");
 
                     b.Navigation("ViewHistories");
                 });
@@ -2072,71 +2504,6 @@ namespace WisdomITNews.Migrations
 
                     b.Navigation("Comments");
                 });
-            modelBuilder.Entity("WisdomITNews.Models.PlanFeature", b =>
-                {
-                    b.HasOne("WisdomITNews.Models.SubscriptionPlan", "Plan")
-                        .WithMany("Features")
-                        .HasForeignKey("PlanId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Plan");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.UserSubscription", b =>
-                {
-                    b.HasOne("WisdomITNews.Models.SubscriptionPlan", "Plan")
-                        .WithMany()
-                        .HasForeignKey("PlanId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Plan");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.Transaction", b =>
-                {
-                    b.HasOne("WisdomITNews.Models.SubscriptionPlan", "Plan")
-                        .WithMany()
-                        .HasForeignKey("PlanId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("WisdomITNews.Models.UserSubscription", null)
-                        .WithMany()
-                        .HasForeignKey("UserSubscriptionId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Plan");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.SubscriptionPlan", b =>
-                {
-                    b.Navigation("Features");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.AdRenewalMessage", b =>
-                {
-                    b.HasOne("WisdomITNews.Models.Advertisement", "Advertisement")
-                        .WithMany()
-                        .HasForeignKey("AdvertisementId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Advertisement");
-                });
-
-            modelBuilder.Entity("WisdomITNews.Models.CategoryMapping", b =>
-                {
-                    b.HasOne("WisdomITNews.Models.Category", "Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Category");
-                });
-
 #pragma warning restore 612, 618
         }
     }

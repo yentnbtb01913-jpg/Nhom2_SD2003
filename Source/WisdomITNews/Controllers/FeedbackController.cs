@@ -18,6 +18,12 @@ public class FeedbackController : Controller
         _logger = logger;
     }
 
+    // Đây là luồng xử lý gửi góp ý / báo lỗi
+    // Luồng: 1) Kiểm tra có mô tả (Description) không -> thiếu thì trả 400
+    //        2) Tự lấy URL trang đang xem từ header Referer (fallback req.PageUrl)
+    //        3) Tạo FeedbackReport {PageUrl, Type (mặc định "other"), Description, IsResolved=false}
+    //        4) Lưu DB -> trả JSON cảm ơn; lỗi -> ghi log + trả 500
+    // Bảng: FeedbackReports  (xử lý duyệt tại /admin/Feedbacks)
     [HttpPost]
     [Route("/gop-y")]
     public async Task<IActionResult> Report([FromBody] FeedbackRequest req)

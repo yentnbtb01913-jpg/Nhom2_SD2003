@@ -23,6 +23,12 @@ public class AutoImportBackgroundService : BackgroundService
 
     private static int Clamp(int v, int min, int max) => v < min ? min : (v > max ? max : v);
 
+    // Đây là luồng xử lý tự động nhập RSS chạy nền
+    // Luồng: 1) Chờ 15s cho app khởi động
+    //        2) Mỗi vòng: đọc LẠI AutoImportSettings mới nhất từ DB (đổi cài đặt áp dụng ngay)
+    //        3) Nếu Enabled -> lấy RssSources (IsActive && AutoImport) -> RunCycleAsync
+    //        4) Nghỉ ScanIntervalSeconds rồi lặp
+    // Bảng: AutoImportSettings, RssSources, Articles
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try { await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken); } catch { }
@@ -64,6 +70,11 @@ public class AutoImportBackgroundService : BackgroundService
         }
     }
 
+    // Đây là luồng xử lý một lượt quét tự động nhập RSS
+    // Luồng: 1) Bỏ nguồn đang trong thời gian "nghỉ thử lại" (_retryUntil)
+    //        2) SemaphoreSlim = Concurrency; mỗi nguồn gọi NewsImportService.ImportRssAsync
+    //        3) Lỗi kết nối -> đặt _retryUntil = now + RetrySeconds (tạm bỏ nguồn)
+    //        4) Cộng dồn số bài; dừng khi đạt MaxTotalPerRun; ghi log theo các cờ Log*
     private async Task RunCycleAsync(AutoImportSettings cfg, List<RssSource> sources, CancellationToken ct)
     {
         var now = DateTime.Now;

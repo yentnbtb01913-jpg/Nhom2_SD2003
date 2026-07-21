@@ -90,8 +90,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHub<WisdomITNews.Hubs.ChatHub>("/chatHub");
-app.MapHub<WisdomITNews.Hubs.AdChatHub>("/adChatHub");
-app.MapHub<WisdomITNews.Hubs.TeamChatHub>("/teamChatHub");
 app.MapHub<WisdomITNews.Hubs.NotificationHub>("/hubs/notification");
 app.MapControllerRoute(name: "article",   pattern: "bai-viet/{slug}",    defaults: new { controller = "Article",  action = "Detail" });
 app.MapControllerRoute(name: "category",  pattern: "danh-muc/{slug?}",   defaults: new { controller = "Home",     action = "Category" });

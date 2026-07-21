@@ -1,0 +1,30 @@
+@using WisdomITNews.Models
+@model AdSlot
+@{
+    string lbl = "display:block;font-size:13px;font-weight:600;color:#334155;margin:14px 0 6px;";
+    string inp = "width:100%;padding:10px 14px;border:1px solid #d7dde3;border-radius:8px;font-size:14px;outline:none;font-family:inherit;";
+}
+<label style="@lbl">Tên slot *</label>
+<input type="text" name="Name" value="@Model.Name" style="@inp" placeholder="VD: Banner Đầu Trang" />
+
+<label style="@lbl">Mã vị trí (SlotKey) *</label>
+<input type="text" name="SlotKey" value="@Model.SlotKey" style="@inp" placeholder="Phải là 1 khu render: header / home_left / home_right / in_article / sidebar" />
+<div style="font-size:12px;color:#94a3b8;margin-top:4px;">SlotKey phải trùng mã khu mà website render QC: <b>header</b>, <b>home_left</b>, <b>home_right</b>, <b>in_article</b>, <b>sidebar</b>. Mã khác sẽ không hiển thị ở đâu.</div>
+
+<label style="@lbl">Mô tả</label>
+<textarea name="Description" rows="2" style="@inp" placeholder="VD: Banner 728x90 hiển thị ở đầu mỗi trang bài viết">@Model.Description</textarea>
+
+<div style="display:flex;gap:14px;">
+    <div style="flex:1;">
+        <label style="@lbl">Kích thước</label>
+        <input type="text" name="Size" value="@Model.Size" style="@inp" placeholder="VD: Banner728x90" />
+    </div>
+    <div style="flex:1;">
+        <label style="@lbl">Giá/ngày (đ)</label>
+        <input type="number" name="PricePerDay" value="@Model.PricePerDay" min="0" step="1000" style="@inp" />
+    </div>
+</div>
+
+<label style="display:flex;align-items:center;gap:8px;margin-top:16px;cursor:pointer;font-size:14px;">
+    <input type="checkbox" name="IsActive" value="true" @(Model.IsActive ? "checked" : "") style="width:16px;height:16px;" /> Đang hoạt động (còn nhận đặt quảng cáo)
+</label>

@@ -26,6 +26,10 @@ public class EmailService
     /// <summary>
     /// Gửi 1 email. Trả về (success, errorMessage).
     /// </summary>
+    // Đây là luồng xử lý gửi 1 email qua SMTP
+    // Luồng: 1) Chưa cấu hình SMTP -> trả lỗi
+    //        2) Đọc cấu hình Smtp (host/port/ssl/user/pass/from) từ appsettings
+    //        3) Tạo MailMessage HTML (UTF-8) -> SendMailAsync -> trả (success, error)
     public async Task<(bool success, string? error)> SendAsync(string toEmail, string subject, string htmlBody, string? toName = null)
     {
         if (!IsConfigured)
@@ -78,6 +82,8 @@ public class EmailService
     /// Gửi cùng 1 nội dung tới nhiều người nhận, mỗi người 1 email (không lộ danh sách).
     /// Trả về (countOk, countFail).
     /// </summary>
+    // Đây là luồng xử lý gửi email hàng loạt (mỗi người 1 email riêng, không lộ danh sách)
+    // Luồng: lặp qua từng người nhận (loại trùng) -> gọi SendAsync -> đếm ok/fail
     public async Task<(int ok, int fail)> SendBulkAsync(IEnumerable<string> recipients, string subject, string htmlBody)
     {
         int ok = 0, fail = 0;
@@ -93,6 +99,7 @@ public class EmailService
     /// <summary>
     /// Email chào mừng khi user đăng ký nhận newsletter.
     /// </summary>
+    // Đây là luồng xử lý gửi email chào mừng khi đăng ký nhận bản tin
     public Task<(bool success, string? error)> SendWelcomeAsync(string toEmail)
     {
         var subject = "Chào mừng bạn đến với Wisdom IT News!";

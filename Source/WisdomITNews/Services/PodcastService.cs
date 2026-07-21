@@ -35,6 +35,8 @@ public class PodcastService
     }
 
     // ===== Lưu file audio upload =====
+    // Đây là luồng xử lý upload file podcast (audio) thủ công
+    // Luồng: kiểm tra file audio -> lưu vào wwwroot/uploads/audio -> tạo Podcast (gắn Article tùy chọn)
     public async Task<PodcastResult> SaveUploadAsync(IFormFile file, string? title, string? description,
         int? articleId, int? userId, string uploadedByType)
     {
@@ -79,6 +81,8 @@ public class PodcastService
     }
 
     // ===== Tạo audio TTS từ bài viết bằng Piper =====
+    // Đây là luồng xử lý tạo podcast tự động từ bài viết (TTS)
+    // Luồng: lấy nội dung bài -> chạy Piper (text-to-speech tiếng Việt) sinh file audio -> tạo Podcast gắn bài
     public async Task<PodcastResult> GenerateFromArticleAsync(int articleId, int? userId, string uploadedByType)
     {
         var article = await _db.Articles.FindAsync(articleId);

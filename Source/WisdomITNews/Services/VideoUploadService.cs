@@ -25,6 +25,9 @@ public class VideoUploadService
         public string? Error { get; set; }
     }
 
+    // Đây là luồng xử lý upload file video (kiểm tra + lưu)
+    // Luồng: 1) Kiểm tra có file, kích thước ≤500MB, đuôi mp4/webm/mov
+    //        2) Lưu vào wwwroot/uploads/videos/{guid}{ext} -> trả đường dẫn + dung lượng
     public async Task<UploadResult> SaveAsync(IFormFile file)
     {
         if (file == null || file.Length == 0)
@@ -59,6 +62,7 @@ public class VideoUploadService
         }
     }
 
+    // Đây là luồng xử lý xóa file video vật lý trên ổ đĩa (theo đường dẫn tương đối)
     public void DeletePhysicalFile(string? relativePath)
     {
         if (string.IsNullOrWhiteSpace(relativePath)) return;

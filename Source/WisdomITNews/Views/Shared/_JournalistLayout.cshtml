@@ -405,12 +405,6 @@
             <a href="/journalist/Ads" class="@(currentAction == "Ads" || currentAction == "CreateAd" ? "active" : "")">
                 <i class="fa fa-rectangle-ad"></i> <span>Quảng cáo của tôi</span>
             </a>
-            <a href="/journalist/RenewAds" class="@(currentAction == "RenewAds" || currentAction == "AdChat" ? "active" : "")">
-                <i class="fa fa-clock-rotate-left"></i> <span>Gia hạn quảng cáo</span> @await Component.InvokeAsync("AdRenewalBadge", new { side = "journalist" })
-            </a>
-            <a href="/journalist/TeamChat" class="@(currentAction == "TeamChat" ? "active" : "")">
-                <i class="fa fa-comments"></i> <span>Chat nội bộ</span>
-            </a>
             <div class="j-nav-divider"></div>
             <div class="section-label">Tài khoản</div>
             <a href="/Journalist/Profile" class="@(currentAction == "Profile" ? "active" : "")">

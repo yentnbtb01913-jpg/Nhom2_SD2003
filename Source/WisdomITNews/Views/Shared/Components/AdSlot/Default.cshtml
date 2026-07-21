@@ -1,29 +1,60 @@
-@model WisdomITNews.Models.Advertisement
+@model WisdomITNews.Models.AdZoneRender
 @{
-    // Vị trí "Trang Chủ (trái/phải)" là dải quảng cáo dọc (skyscraper) trong gutter — cần khung cao cố định
-    // + ảnh lấp đầy (object-fit:cover) để "kéo dài xuống" thay vì chỉ cao bằng 1 ảnh nhỏ như các vị trí khác.
-    // Các vị trí khác (header/sidebar/in_article...) giữ NGUYÊN markup/style như cũ, không bị ảnh hưởng.
-    bool isHomeRail = Model != null && (Model.Position == "home_left" || Model.Position == "home_right");
+    var ads = (Model?.Ads ?? new List<WisdomITNews.Models.Advertisement>())
+              .Where(a => !string.IsNullOrEmpty(a.ImageUrl)).ToList();
+    if (ads.Count == 0) { return; }
+    var rotMs = Model?.RotationMs ?? 5000;
+    var first = ads[0];
+    bool isHomeRail = first.Position == "home_left" || first.Position == "home_right";
+    var uid = "adrot_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+    var railH = isHomeRail ? 600 : 0; // 0 = tự khóa theo ảnh cao nhất
 }
-@if (Model != null && !string.IsNullOrEmpty(Model.ImageUrl))
-{
-    if (isHomeRail)
-    {
-        <div class="ad-slot ad-@Model.Position" style="text-align:center;margin:0;width:100%;">
-            <a href="/ad/click/@Model.Id" target="_blank" rel="nofollow sponsored noopener" title="@Model.Title"
-               style="display:block;width:100%;height:600px;min-height:600px;border-radius:8px;overflow:hidden;">
-                <img src="@Model.ImageUrl" alt="@Model.Title" style="width:100%;height:100%;object-fit:cover;display:block;" />
+<div class="ad-slot ad-@first.Position" style="text-align:center;margin:@(isHomeRail ? "0" : "12px 0");width:100%;">
+    <div id="@uid" class="ad-rot" style="position:relative;width:100%;@(isHomeRail ? "height:600px;" : "")overflow:hidden;border-radius:@(isHomeRail ? "8px" : "6px");">
+        @for (int i = 0; i < ads.Count; i++)
+        {
+            var ad = ads[i];
+            <a class="ad-rot-slide" data-id="@ad.Id"
+               href="/ad/click/@ad.Id" target="_blank" rel="nofollow sponsored noopener" title="@ad.Title"
+               style="position:@(i == 0 ? "relative" : "absolute");top:0;left:0;width:100%;display:block;opacity:@(i == 0 ? "1" : "0");transition:opacity .6s ease;@(i == 0 ? "" : "pointer-events:none;")">
+                <img src="@ad.ImageUrl" alt="@ad.Title"
+                     style="width:100%;@(isHomeRail ? "height:600px;object-fit:cover;" : "height:auto;")display:block;" />
             </a>
-            <div style="font-size:10px;color:#9ca3af;margin-top:6px;letter-spacing:.3px;">Quảng cáo</div>
-        </div>
+        }
+    </div>
+    <div style="font-size:10px;color:#9ca3af;margin-top:@(isHomeRail ? "6px" : "2px");letter-spacing:.3px;">Quảng cáo</div>
+</div>
+<script>
+(function () {
+    var box = document.getElementById('@uid');
+    if (!box) return;
+    var slides = box.querySelectorAll('.ad-rot-slide');
+    function ping(el) {
+        var id = el.getAttribute('data-id');
+        try { fetch('/ad/impression/' + id, { method: 'GET', keepalive: true }); } catch (e) {}
     }
-    else
-    {
-        <div class="ad-slot ad-@Model.Position" style="text-align:center;margin:12px 0;">
-            <a href="/ad/click/@Model.Id" target="_blank" rel="nofollow sponsored noopener" title="@Model.Title">
-                <img src="@Model.ImageUrl" alt="@Model.Title" style="max-width:100%;height:auto;border-radius:6px;display:inline-block;" />
-            </a>
-            <div style="font-size:10px;color:#9ca3af;margin-top:2px;letter-spacing:.3px;">Quảng cáo</div>
-        </div>
+    function lockHeight() {
+        if (@railH > 0) return; // rail đã cố định 600px
+        var max = 0;
+        slides.forEach(function (s) { if (s.offsetHeight > max) max = s.offsetHeight; });
+        if (max > 0) box.style.height = max + 'px';
+        slides.forEach(function (s, i) { s.style.position = 'absolute'; });
     }
-}
+    // đếm lượt hiển thị cho QC đầu tiên
+    if (slides.length) ping(slides[0]);
+    if (slides.length < 2) { return; } // chỉ 1 QC -> không xoay
+    // chờ ảnh tải xong để khóa chiều cao chuẩn
+    window.addEventListener('load', lockHeight);
+    setTimeout(lockHeight, 1200);
+    var cur = 0;
+    setInterval(function () {
+        var nxt = (cur + 1) % slides.length;
+        slides[cur].style.opacity = '0';
+        slides[cur].style.pointerEvents = 'none';
+        slides[nxt].style.opacity = '1';
+        slides[nxt].style.pointerEvents = 'auto';
+        ping(slides[nxt]);
+        cur = nxt;
+    }, @rotMs);
+})();
+</script>

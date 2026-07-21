@@ -7,6 +7,8 @@ namespace WisdomITNews.Services;
 // (chỉ dùng System.IO.Compression có sẵn trong .NET). Mọi ô ghi dạng text.
 public static class SimpleXlsx
 {
+    // Đây là luồng xử lý tạo file Excel (.xlsx) từ tiêu đề cột + các dòng dữ liệu
+    // (tự sinh gói OpenXML tối giản, không cần thư viện ngoài) — dùng khi xuất doanh thu/giao dịch.
     public static byte[] Build(string sheetName, string[] headers, List<string[]> rows)
     {
         using var ms = new MemoryStream();

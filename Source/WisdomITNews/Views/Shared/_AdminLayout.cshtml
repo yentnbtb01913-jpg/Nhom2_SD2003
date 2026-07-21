@@ -188,17 +188,13 @@
                 <a href="/admin/Podcasts"><i class="fa fa-podcast" style="width:16px;"></i> Audio / Podcast</a>
             </details>
 
-            <details class="nav-group" open>
-                <summary>Premium &amp; Doanh thu <i class="fa fa-chevron-down chev"></i></summary>
-                <a href="/admin/Products"><i class="fa fa-box" style="width:16px;"></i> Gói Sản phẩm</a>
-                <a href="/admin/Transactions"><i class="fa fa-receipt" style="width:16px;"></i> Giao dịch</a>
-                <a href="/admin/RevenueDashboard"><i class="fa fa-chart-line" style="width:16px;"></i> Doanh thu</a>
-            </details>
+            @* [ĐÃ GỠ] Nhóm Premium & Doanh thu — sẽ thay bằng "Bán Quảng Cáo" ở B5 *@
 
             <details class="nav-group" open>
                 <summary>Quảng cáo <i class="fa fa-chevron-down chev"></i></summary>
+                <a href="/admin/AdSlots"><i class="fa fa-table-cells" style="width:16px;"></i> Slot QC</a>
+                <a href="/admin/AdLayout"><i class="fa fa-object-group" style="width:16px;"></i> Bố cục QC</a>
                 <a href="/admin/Advertisements"><i class="fa fa-rectangle-ad" style="width:16px;"></i> Quảng cáo</a>
-                <a href="/admin/RenewalAds"><i class="fa fa-clock-rotate-left" style="width:16px;"></i> Gia hạn QC @await Component.InvokeAsync("AdRenewalBadge", new { side = "admin" })</a>
             </details>
 
             <details class="nav-group" open>
@@ -209,10 +205,6 @@
                     <a href="/admin/Staff"><i class="fa fa-user-shield" style="width:16px;"></i> Quản lý nhân viên</a>
                 }
                 <a href="/admin/Partners"><i class="fa fa-handshake" style="width:16px;"></i> Đối tác (Nhà Báo)</a>
-                <a href="/admin/PremiumCustomers"><i class="fa fa-user-tie" style="width:16px;"></i> Quản lý khách hàng</a>
-                <a href="/admin/Customers"><i class="fa fa-envelope-open-text" style="width:16px;"></i> Người nhận bản tin</a>
-                @if (isSuper)
-                { <a href="/admin/Newsletter"><i class="fa fa-envelope" style="width:16px;"></i> Newsletter</a> }
             </details>
 
             <details class="nav-group" open>
@@ -220,7 +212,6 @@
                 <a href="/admin/Comments"><i class="fa fa-comments" style="width:16px;"></i> Bình luận</a>
                 <a href="/admin/Feedbacks"><i class="fa fa-flag" style="width:16px;"></i> Báo cáo / Góp ý</a>
                 <a href="/admin/Notifications"><i class="fa fa-bell" style="width:16px;"></i> Quản lý Thông báo <span id="sidebar-notif-count" style="background:#dc2626;color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px;"></span></a>
-                <a href="/admin/TeamChat"><i class="fa fa-comments" style="width:16px;"></i> Chat nội bộ</a>
             </details>
 
             <details class="nav-group">
