@@ -41,6 +41,9 @@ public class AdminController : Controller
         _featuredSvc = featuredSvc;
     }
 
+    // ========================================================================
+    // KHU VỰC 1: HELPER & BIẾN DÙNG CHUNG (session, quyền)
+    // ========================================================================
     private bool IsLoggedIn => HttpContext.Session.GetString("AdminId") != null;
     private int AdminId => int.Parse(HttpContext.Session.GetString("AdminId") ?? "0");
     private bool IsSuperAdmin => HttpContext.Session.GetString("AdminRole") == "superadmin";
@@ -69,6 +72,9 @@ public class AdminController : Controller
         }
     }
 
+    // ========================================================================
+    // KHU VỰC 2: BỘ LỌC PHÂN QUYỀN TOÀN CỤC
+    // ========================================================================
     // KHÓA khu /admin: chỉ Super Admin. Nhân viên (editor) bị đẩy sang khu /nhan-vien.
     public override void OnActionExecuting(Microsoft.AspNetCore.Mvc.Filters.ActionExecutingContext context)
     {
@@ -81,7 +87,10 @@ public class AdminController : Controller
         base.OnActionExecuting(context);
     }
 
-    // ===== AUTH =====
+    // ========================================================================
+    // KHU VỰC 3: AUTH — ĐĂNG NHẬP / ĐĂNG XUẤT
+    // Bảng: Admins
+    // ========================================================================
     public IActionResult Login() => IsLoggedIn ? RedirectToAction("Dashboard") : View();
 
     [HttpPost]
@@ -114,23 +123,26 @@ public class AdminController : Controller
         return RedirectToAction("Login");
     }
 
-    // ===== TRANG QUẢN LÝ (cổng riêng cho nhân viên / editor) =====
+    // ========================================================================
+    // KHU VỰC 4: CỔNG QUẢN LÝ CHO NHÂN VIÊN (EDITOR)
     // Là "nhà" của nhân viên: chỉ gồm các lối tắt tới chức năng họ được phép.
     // Editor đăng nhập sẽ vào thẳng đây; superadmin vẫn dùng Dashboard tổng quan.
-    // Đây là luồng xử lý trang quản lý (cổng riêng cho nhân viên/editor)
+    // ========================================================================
     public async Task<IActionResult> Manage()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
 
-        ViewBag.TotalArticles   = await _db.Articles.CountAsync();
-        ViewBag.DraftArticles   = await _db.Articles.CountAsync(a => a.Status == "draft");
+        ViewBag.TotalArticles = await _db.Articles.CountAsync();
+        ViewBag.DraftArticles = await _db.Articles.CountAsync(a => a.Status == "draft");
         ViewBag.PendingComments = await _db.Comments.CountAsync(c => c.Status == "pending");
-        ViewBag.OpenFeedbacks   = await _db.FeedbackReports.CountAsync(f => !f.IsResolved);
+        ViewBag.OpenFeedbacks = await _db.FeedbackReports.CountAsync(f => !f.IsResolved);
         ViewBag.PendingPartners = await _db.Users.CountAsync(u => u.Role == "Journalist" && !u.IsActive);
         return View();
     }
 
-    // ===== DASHBOARD =====
+    // ========================================================================
+    // KHU VỰC 5: DASHBOARD TỔNG QUAN (SUPER ADMIN)
+    // ========================================================================
     // Đây là luồng xử lý dashboard admin (thống kê tổng quan: bài, người dùng, doanh thu...)
     public async Task<IActionResult> Dashboard()
     {
@@ -171,7 +183,10 @@ public class AdminController : Controller
         return View(vm);
     }
 
-    // ===== ARTICLES =====
+    // ========================================================================
+    // KHU VỰC 6: QUẢN LÝ BÀI VIẾT (ARTICLES) — Danh sách / Tạo / Sửa
+    // Bảng: Articles, Categories, ArticleTags, Tags, AILogs
+    // ========================================================================
     // Đây là luồng xử lý danh sách bài viết (lọc theo trạng thái, phân trang)
     public async Task<IActionResult> Articles(string status = "", int page = 1)
     {
@@ -347,7 +362,10 @@ public class AdminController : Controller
         return View(vm);
     }
 
-    // ===== DUYỆT BÀI VIẾT =====
+    // ========================================================================
+    // KHU VỰC 7: DUYỆT / TỪ CHỐI / XÓA BÀI VIẾT
+    // Bảng: Articles, Notifications, AILogs, SavedArticles
+    // ========================================================================
     [HttpPost]
     // Đây là luồng xử lý duyệt bài viết (đổi Status="published", đặt PublishedAt)
     public async Task<IActionResult> ApproveArticle(int id)
@@ -365,7 +383,6 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
 
-    // ===== TỪ CHỐI BÀI VIẾT =====
     [HttpPost]
     // Đây là luồng xử lý từ chối bài viết (Status="rejected" + bắn thông báo cho tác giả kèm lý do)
     // Bảng: Articles, Notifications
@@ -426,7 +443,10 @@ public class AdminController : Controller
         }
     }
 
-    // ===== COMMENTS =====
+    // ========================================================================
+    // KHU VỰC 8: QUẢN LÝ BÌNH LUẬN (COMMENTS)
+    // Bảng: Comments, Articles
+    // ========================================================================
     // Đây là luồng xử lý danh sách bình luận chờ duyệt (lọc theo trạng thái)
     public async Task<IActionResult> Comments(string status = "pending")
     {
@@ -464,7 +484,10 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
 
-    // ===== CATEGORIES (CRUD + tìm kiếm) =====
+    // ========================================================================
+    // KHU VỰC 9: QUẢN LÝ DANH MỤC (CATEGORIES) — CRUD + tìm kiếm
+    // Bảng: Categories, Articles
+    // ========================================================================
     // Đây là luồng xử lý danh sách danh mục (chuyên mục)
     public async Task<IActionResult> Categories()
     {
@@ -596,10 +619,11 @@ public class AdminController : Controller
     }
 
     // [ĐÃ GỠ] Khu Premium (Products/Subscriptions/Khách hàng Premium/Transactions/Doanh thu) đã được loại bỏ — tái dùng cho Bán Quảng Cáo ở B5.
-    // ===== CHAT NỘI BỘ BAN QUẢN LÝ (phòng chung) =====
     // [ĐÃ GỠ] Action TeamChat (Chat nội bộ) đã được loại bỏ.
 
-    // ===== CHẨN ĐOÁN GỬI EMAIL =====
+    // ========================================================================
+    // KHU VỰC 10: CHẨN ĐOÁN GỬI EMAIL
+    // ========================================================================
     [HttpGet]
     // Đây là luồng xử lý hiển thị trang chẩn đoán gửi email
     public IActionResult TestEmail()
@@ -630,9 +654,11 @@ public class AdminController : Controller
     }
     // [ĐÃ GỠ] Khu Gia hạn quảng cáo (RenewalAds/AdChat/ExtendAdRenewal) đã được loại bỏ.
 
-    // ===== AI LOGS =====
-    // Đây là luồng xử lý xem nhật ký AI (gồm kết quả kiểm duyệt + ngôn từ vi phạm đã ghi)
+    // ========================================================================
+    // KHU VỰC 11: NHẬT KÝ AI (AI LOGS)
     // Bảng: AILogs
+    // ========================================================================
+    // Đây là luồng xử lý xem nhật ký AI (gồm kết quả kiểm duyệt + ngôn từ vi phạm đã ghi)
     public async Task<IActionResult> AILogs(DateTime? from, DateTime? to)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -674,7 +700,7 @@ public class AdminController : Controller
         if (!all)
         {
             if (from.HasValue) query = query.Where(l => l.CreatedAt >= from.Value);
-            if (to.HasValue)   query = query.Where(l => l.CreatedAt < to.Value.AddDays(1));
+            if (to.HasValue) query = query.Where(l => l.CreatedAt < to.Value.AddDays(1));
             if (!from.HasValue && !to.HasValue)
             {
                 TempData["AILogError"] = "Vui lòng chọn khoảng thời gian, hoặc bấm \"Xóa tất cả\".";
@@ -693,7 +719,10 @@ public class AdminController : Controller
         return RedirectToAction("AILogs");
     }
 
-    // ===== FEEDBACK =====
+    // ========================================================================
+    // KHU VỰC 12: QUẢN LÝ PHẢN HỒI (FEEDBACK)
+    // Bảng: FeedbackReports
+    // ========================================================================
     // Đây là luồng xử lý danh sách phản hồi/góp ý của người đọc (lọc open/resolved)
     public async Task<IActionResult> Feedbacks(string filter = "open")
     {
@@ -719,11 +748,14 @@ public class AdminController : Controller
     }
 
     // [ĐÃ GỠ] Khu Newsletter + Quản lý người đăng ký nhận tin đã được loại bỏ.
-    // ===== AI Moderation =====
+
+    // ========================================================================
+    // KHU VỰC 13: KIỂM DUYỆT AI (AI MODERATION) — Hàm dùng chung
+    // Bảng: AILogs, Articles, Notifications
+    // ========================================================================
     // Đây là luồng xử lý kiểm duyệt ngôn từ bài viết bằng AI (dùng chung khi tạo/sửa bài)
     // Luồng: ghép tiêu đề+nội dung -> AIService.ModerateContentAsync -> ghi AILog (score + ngôn từ vi phạm "issues")
     //        -> nếu score cao thì đánh dấu bài cần xem lại. AI lỗi không chặn.
-    // Bảng: AILogs, Articles
     private async Task ApplyAIModerationAsync(Article article)
     {
         try
@@ -762,7 +794,10 @@ public class AdminController : Controller
         }
     }
 
-    // ===== USER MANAGEMENT =====
+    // ========================================================================
+    // KHU VỰC 14: QUẢN LÝ NGƯỜI DÙNG (USER MANAGEMENT) — độc giả
+    // Bảng: Users, Comments, Articles
+    // ========================================================================
     // Đây là luồng xử lý danh sách người dùng (độc giả)
     public async Task<IActionResult> Users()
     {
@@ -910,7 +945,10 @@ public class AdminController : Controller
         return RedirectToAction("UserDetail", new { id = user.Id });
     }
 
-
+    // ========================================================================
+    // KHU VỰC 15: QUẢN LÝ CHAT NỘI BỘ (admin can thiệp)
+    // Bảng: ChatMessages, ChatMembers
+    // ========================================================================
     // Admin xóa tin nhắn bất kỳ
     [HttpPost]
     // Đây là luồng xử lý admin xóa tin nhắn (chat nội bộ)
@@ -946,9 +984,10 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
 
-
-    // ===== HELPER =====
-    // ===================== QUẢN LÝ NHÂN VIÊN (chỉ superadmin) =====================
+    // ========================================================================
+    // KHU VỰC 16: QUẢN LÝ NHÂN VIÊN (STAFF) — chỉ superadmin
+    // Bảng: Admins, StaffProfiles, StaffActivityLogs, Articles
+    // ========================================================================
     // Đây là luồng xử lý danh sách nhân viên (chỉ superadmin)
     public async Task<IActionResult> Staff()
     {
@@ -1106,9 +1145,11 @@ public class AdminController : Controller
         return RedirectToAction("EditStaff", new { id });
     }
 
-    // ===================== ĐỐI TÁC: QUẢN LÝ NHÀ BÁO (admin + quản lý) =====================
+    // ========================================================================
+    // KHU VỰC 17: ĐỐI TÁC — QUẢN LÝ NHÀ BÁO (admin + quản lý)
+    // Bảng: Users (Role=Journalist), JournalistProfiles, Articles
+    // ========================================================================
     // Đây là luồng xử lý danh sách đối tác nhà báo (lọc + tìm kiếm)
-    // Bảng: Users (Role=Journalist), JournalistProfiles
     public async Task<IActionResult> Partners(string filter = "all", string q = "")
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1166,9 +1207,15 @@ public class AdminController : Controller
 
         var user = new User
         {
-            Username = uname, Email = mail, FullName = fullName.Trim(),
+            Username = uname,
+            Email = mail,
+            FullName = fullName.Trim(),
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-            Role = "Journalist", IsActive = true, IsEmailConfirmed = true, IsDeleted = false, CreatedAt = DateTime.Now,
+            Role = "Journalist",
+            IsActive = true,
+            IsEmailConfirmed = true,
+            IsDeleted = false,
+            CreatedAt = DateTime.Now,
             Bio = string.IsNullOrWhiteSpace(bio) ? null : bio.Trim()
         };
         if (avatarFile != null && avatarFile.Length > 0)
@@ -1293,7 +1340,10 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
 
-// ===== ĐĂNG VIDEO (YouTube / Upload) =====
+    // ========================================================================
+    // KHU VỰC 18: ĐĂNG VIDEO (YouTube / Upload)
+    // Bảng: Videos
+    // ========================================================================
     // Đây là luồng xử lý danh sách video (YouTube/upload)
     public async Task<IActionResult> Videos(string q = "")
     {
@@ -1322,7 +1372,7 @@ public class AdminController : Controller
         if (!IsLoggedIn) return RedirectToAction("Login");
         var video = await _db.Videos.FindAsync(id);
         if (video == null) return RedirectToAction("Videos");
-        
+
         ViewBag.Video = video;
         return View();
     }
@@ -1366,7 +1416,7 @@ public class AdminController : Controller
                 {
                     _videoUpload.DeletePhysicalFile(video.VideoUrl);
                 }
-                
+
                 var upload = await _videoUpload.SaveAsync(videoFile);
                 if (!upload.Success)
                 {
@@ -1513,7 +1563,11 @@ public class AdminController : Controller
         ViewBag.VTitle = title;
         ViewBag.Source = source;
         ViewBag.Description = description;
-    }    // ===== XUẤT THỐNG KÊ BÀI VIẾT RA EXCEL =====
+    }
+
+    // ========================================================================
+    // KHU VỰC 19: XUẤT THỐNG KÊ BÀI VIẾT RA EXCEL
+    // ========================================================================
     // Đây là luồng xử lý xuất danh sách bài viết ra Excel
     public async Task<IActionResult> ExportArticlesExcel()
     {
@@ -1545,11 +1599,12 @@ public class AdminController : Controller
             $"thong-ke-bai-viet-{DateTime.Now:yyyyMMdd}.xlsx");
     }
 
-    // ===== QUẢN LÝ NGUỒN TIN =====
-
+    // ========================================================================
+    // KHU VỰC 20: QUẢN LÝ NGUỒN TIN RSS (nhập bài tự động/thủ công)
+    // Bảng: RssSources, Articles, AutoImportSettings
+    // ========================================================================
     // Danh sách nguồn + danh sách bài đã import (IsExternal = true)
     // Đây là luồng xử lý trang quản lý nguồn tin RSS (danh sách nguồn + lịch sử nhập, lọc)
-    // Bảng: RssSources, Articles, AutoImportSettings
     public async Task<IActionResult> RssSources(int? sourceId, string? keyword, DateTime? fromDate, DateTime? toDate, int page = 1)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1643,17 +1698,19 @@ public class AdminController : Controller
         return PartialView("_ImportHistory", list);
     }
 
-    // ===== QUẢN LÝ AI: ánh xạ danh mục + sửa phân loại + nhật ký =====
+    // ========================================================================
+    // KHU VỰC 21: QUẢN LÝ PHÂN LOẠI AI (ánh xạ danh mục + sửa phân loại + nhật ký)
+    // Bảng: Categories, CategoryMappings, Articles, AiCategoryCorrectionLogs, AILogs
+    // ========================================================================
     // Đây là luồng xử lý trang Quản lý Phân Loại AI (ánh xạ nhãn AI -> danh mục + nhật ký sửa)
     // Luồng: nạp danh mục, danh sách quy tắc CategoryMappings, 20 bài ngoài gần nhất, 30 log sửa
-    // Bảng: Categories, CategoryMappings, Articles, AiCategoryCorrectionLogs
     public async Task<IActionResult> AiManage()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
-        ViewBag.Categories   = await _db.Categories.Where(c => c.IsVisible).OrderBy(c => c.Name).ToListAsync();
-        ViewBag.Mappings     = await _db.CategoryMappings.Include(m => m.Category).OrderByDescending(m => m.Id).ToListAsync();
-        ViewBag.RecentArts   = await _db.Articles.Include(a => a.Category).Where(a => a.IsExternal).OrderByDescending(a => a.CreatedAt).Take(20).ToListAsync();
-        ViewBag.Corrections  = await _db.AiCategoryCorrectionLogs.OrderByDescending(l => l.Id).Take(30).ToListAsync();
+        ViewBag.Categories = await _db.Categories.Where(c => c.IsVisible).OrderBy(c => c.Name).ToListAsync();
+        ViewBag.Mappings = await _db.CategoryMappings.Include(m => m.Category).OrderByDescending(m => m.Id).ToListAsync();
+        ViewBag.RecentArts = await _db.Articles.Include(a => a.Category).Where(a => a.IsExternal).OrderByDescending(a => a.CreatedAt).Take(20).ToListAsync();
+        ViewBag.Corrections = await _db.AiCategoryCorrectionLogs.OrderByDescending(l => l.Id).Take(30).ToListAsync();
         return PartialView("_AiManage");
     }
 
@@ -1690,7 +1747,6 @@ public class AdminController : Controller
     //        2) TỰ HỌC: lấy tên danh mục cũ làm nhãn AI -> tạo/cập nhật CategoryMapping trỏ tới danh mục mới
     //        3) Ghi AiCategoryCorrectionLog (audit) + AILog (action "classify_correct")
     // Bảng: Articles, Categories, CategoryMappings, AiCategoryCorrectionLogs, AILogs
-    // Sửa danh mục AI đã gán cho 1 bài + lưu quy tắc ánh xạ + ghi nhật ký (AiCorrectionLog + AILog)
     [HttpPost]
     public async Task<IActionResult> CorrectArticleCategory(int articleId, int categoryId)
     {
@@ -1882,7 +1938,9 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
 
-    // ===== TẠO LƯỢT XEM MẪU (demo) — chỉ điền cho bài đang 0 view =====
+    // ========================================================================
+    // KHU VỰC 22: TẠO LƯỢT XEM MẪU (demo) — chỉ điền cho bài đang 0 view
+    // ========================================================================
     [HttpPost]
     public async Task<IActionResult> SeedViews()
     {
@@ -1901,8 +1959,9 @@ public class AdminController : Controller
         return RedirectToAction("Articles");
     }
 
-    // ===== KÊNH BÊN NGOÀI (trang riêng — chỉ bài IsExternal = true) =====
-
+    // ========================================================================
+    // KHU VỰC 23: KÊNH BÊN NGOÀI (trang riêng — chỉ bài IsExternal = true)
+    // ========================================================================
     public async Task<IActionResult> ExternalArticles(string? source, int page = 1)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -1979,8 +2038,9 @@ public class AdminController : Controller
         return Json(new { success = ok, message = msg });
     }
 
-    // ===== TIN NỔI BẬT TỰ ĐỘNG (Trang chủ) — tab quản lý chỉ xem + can thiệp Ghim/Loại =====
-
+    // ========================================================================
+    // KHU VỰC 24: TIN NỔI BẬT TỰ ĐỘNG (Trang chủ) — tab quản lý chỉ xem + can thiệp Ghim/Loại
+    // ========================================================================
     public async Task<IActionResult> FeaturedArticles()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2021,6 +2081,9 @@ public class AdminController : Controller
         return Json(new { success = ok, message = msg });
     }
 
+    // ========================================================================
+    // KHU VỰC 25: HELPER LƯU TAGS (dùng chung cho CreateArticle/EditArticle)
+    // ========================================================================
     private async Task SaveTagsAsync(int articleId, string tagsRaw)
     {
         if (string.IsNullOrWhiteSpace(tagsRaw)) return;
@@ -2041,8 +2104,10 @@ public class AdminController : Controller
         await _db.SaveChangesAsync();
     }
 
-    // ===== QUẢN LÝ THÔNG BÁO =====
-
+    // ========================================================================
+    // KHU VỰC 26: QUẢN LÝ THÔNG BÁO (NOTIFICATIONS)
+    // Bảng: Notifications
+    // ========================================================================
     public async Task<IActionResult> Notifications(
         string? keyword, string? type,
         DateTime? fromDate, DateTime? toDate, int page = 1)
@@ -2099,10 +2164,15 @@ public class AdminController : Controller
             var notif = new Notification
             {
                 Code = $"NTB{DateTime.Now.Ticks % 10000:D4}",
-                Title = title, Content = content,
-                Type = "custom", Icon = icon, IconColor = iconColor,
-                TargetType = "user", TargetUserId = targetUserId,
-                SentBy = "admin", SentByAdminId = AdminId,
+                Title = title,
+                Content = content,
+                Type = "custom",
+                Icon = icon,
+                IconColor = iconColor,
+                TargetType = "user",
+                TargetUserId = targetUserId,
+                SentBy = "admin",
+                SentByAdminId = AdminId,
                 CreatedAt = DateTime.Now
             };
             _db.Notifications.Add(notif);
@@ -2166,9 +2236,16 @@ public class AdminController : Controller
             .OrderByDescending(n => n.CreatedAt)
             .Take(5)
             .Select(n => new {
-                n.Id, n.Code, n.Title, n.Content,
-                n.Type, n.Icon, n.IconColor,
-                n.IsRead, n.ViolationContent, n.ViolationReason,
+                n.Id,
+                n.Code,
+                n.Title,
+                n.Content,
+                n.Type,
+                n.Icon,
+                n.IconColor,
+                n.IsRead,
+                n.ViolationContent,
+                n.ViolationReason,
                 CreatedAt = n.CreatedAt.ToString("dd/MM/yyyy HH:mm")
             })
             .ToListAsync();
@@ -2190,7 +2267,10 @@ public class AdminController : Controller
         return Json(new { success = true, deleted = list.Count });
     }
 
-    // ===== Quản lý AI (chỉ superadmin) =====
+    // ========================================================================
+    // KHU VỰC 27: CẤU HÌNH AI (AI SETTINGS) — chỉ superadmin
+    // Bảng: AiSettings, AILogs
+    // ========================================================================
     public async Task<IActionResult> AiSettings()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2222,21 +2302,21 @@ public class AdminController : Controller
         var s = await _db.AiSettings.FirstOrDefaultAsync();
         if (s == null) { s = new AiSetting(); _db.AiSettings.Add(s); }
 
-        s.Model             = string.IsNullOrWhiteSpace(form.Model) ? "models/gemini-2.5-flash" : form.Model.Trim();
-        s.ApiVersion        = string.IsNullOrWhiteSpace(form.ApiVersion) ? "v1beta" : form.ApiVersion.Trim();
+        s.Model = string.IsNullOrWhiteSpace(form.Model) ? "models/gemini-2.5-flash" : form.Model.Trim();
+        s.ApiVersion = string.IsNullOrWhiteSpace(form.ApiVersion) ? "v1beta" : form.ApiVersion.Trim();
         var tempStr = Request.Form["Temperature"].ToString();
         var temp = double.TryParse(tempStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var tp) ? tp : form.Temperature;
-        s.Temperature       = temp < 0 ? 0 : (temp > 2 ? 2 : temp);
-        s.MaxOutputTokens   = form.MaxOutputTokens > 0 ? form.MaxOutputTokens : 2048;
-        s.ThinkingBudget    = form.ThinkingBudget < 0 ? 0 : form.ThinkingBudget;
+        s.Temperature = temp < 0 ? 0 : (temp > 2 ? 2 : temp);
+        s.MaxOutputTokens = form.MaxOutputTokens > 0 ? form.MaxOutputTokens : 2048;
+        s.ThinkingBudget = form.ThinkingBudget < 0 ? 0 : form.ThinkingBudget;
         s.SystemInstruction = form.SystemInstruction ?? "";
-        s.SummarizeLength   = string.IsNullOrWhiteSpace(form.SummarizeLength) ? "150-200 từ" : form.SummarizeLength.Trim();
+        s.SummarizeLength = string.IsNullOrWhiteSpace(form.SummarizeLength) ? "150-200 từ" : form.SummarizeLength.Trim();
         // Template trống -> giữ mặc định để AI không hỏng
-        s.SummarizeTemplate    = string.IsNullOrWhiteSpace(form.SummarizeTemplate)    ? AiDefaults.Summarize    : form.SummarizeTemplate;
+        s.SummarizeTemplate = string.IsNullOrWhiteSpace(form.SummarizeTemplate) ? AiDefaults.Summarize : form.SummarizeTemplate;
         s.SuggestTitleTemplate = string.IsNullOrWhiteSpace(form.SuggestTitleTemplate) ? AiDefaults.SuggestTitle : form.SuggestTitleTemplate;
-        s.ModerateTemplate     = string.IsNullOrWhiteSpace(form.ModerateTemplate)     ? AiDefaults.Moderate     : form.ModerateTemplate;
-        s.ChatMaxSentences     = form.ChatMaxSentences > 0 ? form.ChatMaxSentences : 4;
-        s.ChatTemplate         = string.IsNullOrWhiteSpace(form.ChatTemplate)         ? AiDefaults.Chat         : form.ChatTemplate;
+        s.ModerateTemplate = string.IsNullOrWhiteSpace(form.ModerateTemplate) ? AiDefaults.Moderate : form.ModerateTemplate;
+        s.ChatMaxSentences = form.ChatMaxSentences > 0 ? form.ChatMaxSentences : 4;
+        s.ChatTemplate = string.IsNullOrWhiteSpace(form.ChatTemplate) ? AiDefaults.Chat : form.ChatTemplate;
         s.UpdatedAt = DateTime.Now;
 
         await _db.SaveChangesAsync();
@@ -2256,7 +2336,10 @@ public class AdminController : Controller
         return Json(new { success = ok, reply });
     }
 
-    // ===== HỒ SƠ NHÂN VIÊN (GĐ1) =====
+    // ========================================================================
+    // KHU VỰC 28: HỒ SƠ NHÂN VIÊN CHI TIẾT (GĐ1)
+    // Bảng: Admins, StaffProfiles, Articles, StaffActivityLogs
+    // ========================================================================
     public async Task<IActionResult> StaffDetail(int id)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2374,7 +2457,10 @@ public class AdminController : Controller
         }
     }
 
-    // ===== NHẬT KÝ HOẠT ĐỘNG (GĐ3) — Super Admin xem + xóa =====
+    // ========================================================================
+    // KHU VỰC 29: NHẬT KÝ HOẠT ĐỘNG (GĐ3) — Super Admin xem + xóa
+    // Bảng: StaffActivityLogs
+    // ========================================================================
     public async Task<IActionResult> ActivityLog(string? q, string? actionType, int? staffId)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2414,7 +2500,10 @@ public class AdminController : Controller
         return Json(new { success = true, deleted = all.Count });
     }
 
-    // ===== SLOT QUẢNG CÁO (bán quảng cáo) — CRUD + tìm kiếm =====
+    // ========================================================================
+    // KHU VỰC 30: SLOT QUẢNG CÁO — CRUD + tìm kiếm
+    // Bảng: AdSlots
+    // ========================================================================
     // Đây là luồng xử lý danh sách slot quảng cáo (tìm kiếm theo tên/mã/kích thước)
     public async Task<IActionResult> AdSlots(string? q)
     {
@@ -2429,11 +2518,13 @@ public class AdminController : Controller
         return View(await query.OrderBy(s => s.Id).ToListAsync());
     }
 
-    // ===== BẢNG ĐIỀU KHIỂN BỐ CỤC QUẢNG CÁO (preview + sắp thứ tự chạy) =====
+    // ========================================================================
+    // KHU VỰC 31: BẢNG ĐIỀU KHIỂN BỐ CỤC QUẢNG CÁO (preview + sắp thứ tự chạy)
+    // Bảng: AdSlots, Advertisements, AdZoneSettings
+    // ========================================================================
     // Đây là luồng xử lý mở bảng điều khiển bố cục quảng cáo
     // Luồng: lấy mọi khu (AdSlot, SlotKey=zone) -> mỗi khu gom TẤT CẢ QC gắn khu đó (mọi trạng thái)
     //        sắp theo DisplayOrder -> kèm chu kỳ nhảy (AdZoneSettings) -> đổ ra mockup preview.
-    // Bảng: AdSlots, Advertisements, AdZoneSettings
     public async Task<IActionResult> AdLayout()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2557,7 +2648,10 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
 
-    // ===== QUẢNG CÁO (GĐ1) =====
+    // ========================================================================
+    // KHU VỰC 32: QUẢNG CÁO (GĐ1) — duyệt / từ chối / xác nhận thanh toán
+    // Bảng: Advertisements, Transactions, Users, Admins
+    // ========================================================================
     public async Task<IActionResult> Advertisements(string? filter)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
@@ -2658,8 +2752,6 @@ public class AdminController : Controller
     }
 
     [HttpPost]
-    // Đây là luồng xử lý admin xác nhận đã nhận thanh toán đơn quảng cáo
-    [HttpPost]
     // Đây là luồng xử lý xác nhận đã nhận thanh toán đơn quảng cáo
     // Luồng: 1) đánh dấu PaymentStatus="paid" + Transaction=Success
     //        2) tra email người mua (Nhà báo: bảng Users / Admin: bảng Admins) rồi gửi mail biên nhận
@@ -2740,7 +2832,10 @@ public class AdminController : Controller
         return Json(new { success = true });
     }
 
-    // ===== PODCAST / AUDIO =====
+    // ========================================================================
+    // KHU VỰC 33: PODCAST / AUDIO
+    // Bảng: Podcasts
+    // ========================================================================
     public async Task<IActionResult> Podcasts()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
