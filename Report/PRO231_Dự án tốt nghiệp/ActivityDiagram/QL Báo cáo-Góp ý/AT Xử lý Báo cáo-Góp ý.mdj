@@ -2780,6 +2780,121 @@
 									"propertyLabel": {
 										"$ref": "AAAAAAGfXllXiMcNYcA="
 									}
+								},
+								{
+									"_type": "UMLControlNodeView",
+									"_id": "AAAAAAGfk5qkxnoaSQA=",
+									"_parent": {
+										"$ref": "AAAAAAGfXlJXesRGKXw="
+									},
+									"model": {
+										"$ref": "AAAAAAGfk5qkxXoY+v0="
+									},
+									"font": "Arial;13;0",
+									"parentStyle": false,
+									"containerChangeable": true,
+									"left": 1040,
+									"top": 880,
+									"width": 26,
+									"height": 26
+								},
+								{
+									"_type": "UMLControlFlowView",
+									"_id": "AAAAAAGfk5rBenofFhY=",
+									"_parent": {
+										"$ref": "AAAAAAGfXlJXesRGKXw="
+									},
+									"model": {
+										"$ref": "AAAAAAGfk5rBenoeC6Y="
+									},
+									"subViews": [
+										{
+											"_type": "EdgeLabelView",
+											"_id": "AAAAAAGfk5rBe3oguXI=",
+											"_parent": {
+												"$ref": "AAAAAAGfk5rBenofFhY="
+											},
+											"model": {
+												"$ref": "AAAAAAGfk5rBenoeC6Y="
+											},
+											"visible": false,
+											"font": "Arial;13;0",
+											"parentStyle": false,
+											"left": 1016,
+											"top": 872,
+											"height": 13,
+											"alpha": 1.5707963267948966,
+											"distance": 15,
+											"hostEdge": {
+												"$ref": "AAAAAAGfk5rBenofFhY="
+											},
+											"edgePosition": 1
+										},
+										{
+											"_type": "EdgeLabelView",
+											"_id": "AAAAAAGfk5rBe3ohtuM=",
+											"_parent": {
+												"$ref": "AAAAAAGfk5rBenofFhY="
+											},
+											"model": {
+												"$ref": "AAAAAAGfk5rBenoeC6Y="
+											},
+											"visible": null,
+											"font": "Arial;13;0",
+											"parentStyle": false,
+											"left": 1016,
+											"top": 857,
+											"height": 13,
+											"alpha": 1.5707963267948966,
+											"distance": 30,
+											"hostEdge": {
+												"$ref": "AAAAAAGfk5rBenofFhY="
+											},
+											"edgePosition": 1
+										},
+										{
+											"_type": "EdgeLabelView",
+											"_id": "AAAAAAGfk5rBe3oiHMs=",
+											"_parent": {
+												"$ref": "AAAAAAGfk5rBenofFhY="
+											},
+											"model": {
+												"$ref": "AAAAAAGfk5rBenoeC6Y="
+											},
+											"visible": false,
+											"font": "Arial;13;0",
+											"parentStyle": false,
+											"left": 1016,
+											"top": 902,
+											"height": 13,
+											"alpha": -1.5707963267948966,
+											"distance": 15,
+											"hostEdge": {
+												"$ref": "AAAAAAGfk5rBenofFhY="
+											},
+											"edgePosition": 1
+										}
+									],
+									"font": "Arial;13;0",
+									"parentStyle": false,
+									"head": {
+										"$ref": "AAAAAAGfk5qkxnoaSQA="
+									},
+									"tail": {
+										"$ref": "AAAAAAGfXliDIcZhqmE="
+									},
+									"lineStyle": 1,
+									"points": "993:893;1039:893",
+									"showVisibility": true,
+									"nameLabel": {
+										"$ref": "AAAAAAGfk5rBe3oguXI="
+									},
+									"stereotypeLabel": {
+										"$ref": "AAAAAAGfk5rBe3ohtuM="
+									},
+									"propertyLabel": {
+										"$ref": "AAAAAAGfk5rBe3oiHMs="
+									}
 								}
 							]
 						}
@@ -2872,6 +2987,14 @@
 								"$ref": "AAAAAAGfXlJXesRFei4="
 							},
 							"name": "Action4"
+						},
+						{
+							"_type": "UMLActivityFinalNode",
+							"_id": "AAAAAAGfk5qkxXoY+v0=",
+							"_parent": {
+								"$ref": "AAAAAAGfXlJXesRFei4="
+							},
+							"name": "ActivityFinalNode2"
 						}
 					],
 					"edges": [
@@ -3096,6 +3219,19 @@
 							},
 							"target": {
 								"$ref": "AAAAAAGfXlOTtcSIsfs="
+							}
+						},
+						{
+							"_type": "UMLControlFlow",
+							"_id": "AAAAAAGfk5rBenoeC6Y=",
+							"_parent": {
+								"$ref": "AAAAAAGfXlJXesRFei4="
+							},
+							"source": {
+								"$ref": "AAAAAAGfXliDIcZfV00="
+							},
+							"target": {
+								"$ref": "AAAAAAGfk5qkxXoY+v0="
 							}
 						}
 					],
