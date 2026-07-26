@@ -399,11 +399,13 @@ public class AdminController : Controller
         if (article.AuthorUserId.HasValue)
         {
             var notifSvc = HttpContext.RequestServices.GetRequiredService<NotificationService>();
+            var actor = HttpContext.Session.GetString("AdminName") ?? "Quản trị viên";
             await notifSvc.SendArticleRejectedAsync(
                 article.AuthorUserId.Value,
                 article.Id,
                 article.Title,
-                req?.Reason ?? "Không đáp ứng tiêu chuẩn nội dung"
+                req?.Reason ?? "Không đáp ứng tiêu chuẩn nội dung",
+                actor
             );
         }
 
@@ -945,44 +947,8 @@ public class AdminController : Controller
         return RedirectToAction("UserDetail", new { id = user.Id });
     }
 
-    // ========================================================================
-    // KHU VỰC 15: QUẢN LÝ CHAT NỘI BỘ (admin can thiệp)
-    // Bảng: ChatMessages, ChatMembers
-    // ========================================================================
-    // Admin xóa tin nhắn bất kỳ
-    [HttpPost]
-    // Đây là luồng xử lý admin xóa tin nhắn (chat nội bộ)
-    public async Task<IActionResult> AdminDeleteMessage(int id)
-    {
-        if (!IsLoggedIn) return Json(new { success = false });
-        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
-
-        var msg = await _db.ChatMessages.FindAsync(id);
-        if (msg == null) return Json(new { success = false, message = "Không tìm thấy tin nhắn" });
-
-        var groupId = msg.GroupId;
-        _db.ChatMessages.Remove(msg);
-        await _db.SaveChangesAsync();
-
-        return Json(new { success = true, groupId });
-    }
-
-    // Admin kick thành viên khỏi nhóm
-    [HttpPost]
-    // Đây là luồng xử lý admin loại thành viên khỏi nhóm chat
-    public async Task<IActionResult> KickMember(int id)
-    {
-        if (!IsLoggedIn) return Json(new { success = false });
-        if (!IsSuperAdmin) return Json(new { success = false, message = "Bạn không đủ quyền thực hiện thao tác này." });
-
-        var member = await _db.ChatMembers.FindAsync(id);
-        if (member == null) return Json(new { success = false, message = "Không tìm thấy thành viên" });
-
-        _db.ChatMembers.Remove(member);
-        await _db.SaveChangesAsync();
-
-        return Json(new { success = true });
-    }
+    // [ĐÃ GỠ] KHU VỰC 15: Admin can thiệp chat người dùng (AdminDeleteMessage / KickMember)
+    // đã được loại bỏ — chat là quyền riêng tư của người dùng, admin không can thiệp.
 
     // ========================================================================
     // KHU VỰC 16: QUẢN LÝ NHÂN VIÊN (STAFF) — chỉ superadmin
@@ -1747,48 +1713,80 @@ public class AdminController : Controller
     //        2) TỰ HỌC: lấy tên danh mục cũ làm nhãn AI -> tạo/cập nhật CategoryMapping trỏ tới danh mục mới
     //        3) Ghi AiCategoryCorrectionLog (audit) + AILog (action "classify_correct")
     // Bảng: Articles, Categories, CategoryMappings, AiCategoryCorrectionLogs, AILogs
-    [HttpPost]
+    [HttpPost] // Chỉ nhận phương thức POST (thao tác thay đổi dữ liệu).
     public async Task<IActionResult> CorrectArticleCategory(int articleId, int categoryId)
     {
+        // Chưa đăng nhập → từ chối, trả JSON success=false.
         if (!IsLoggedIn) return Json(new { success = false });
+
+        // Lấy bài viết theo id, kèm luôn danh mục hiện tại (Include Category) để biết "danh mục cũ".
         var a = await _db.Articles.Include(x => x.Category).FirstOrDefaultAsync(x => x.Id == articleId);
+        // Lấy danh mục MỚI mà admin muốn gán.
         var cat = await _db.Categories.FindAsync(categoryId);
+
+        // Nếu không tìm thấy bài hoặc danh mục mới → dữ liệu không hợp lệ.
         if (a == null || cat == null) return Json(new { success = false, message = "Không hợp lệ" });
+        // Nếu danh mục mới trùng danh mục cũ → không có gì thay đổi, trả về luôn (không học quy tắc).
         if (a.CategoryId == categoryId) return Json(new { success = true, message = "Không thay đổi" });
 
+        // Lấy tên người đang sửa (từ session) để ghi vào log; mặc định "Admin".
         var editor = HttpContext.Session.GetString("AdminName") ?? "Admin";
+        // Lưu lại TÊN danh mục CŨ (đây chính là "nhãn AI đã gán sai") — dùng làm nhãn cho quy tắc.
         var oldName = a.Category?.Name ?? "(chưa phân loại)";
+
+        // Cập nhật bài sang danh mục mới + mốc thời gian sửa.
         a.CategoryId = categoryId;
         a.UpdatedAt = DateTime.Now;
 
-        // Lưu quy tắc: nhãn AI cũ -> danh mục đúng (ưu tiên áp dụng lần sau)
-        if (oldName != "(chưa phân loại)")
+        // === TỰ HỌC QUY TẮC: nhãn (danh mục cũ) -> danh mục đúng, để lần sau tự áp dụng ===
+        if (oldName != "(chưa phân loại)") // chỉ học khi bài thực sự đã có danh mục cũ
         {
+            // Tìm xem đã có quy tắc cho nhãn này chưa.
             var mp = await _db.CategoryMappings.FirstOrDefaultAsync(m => m.AiLabel == oldName);
+            // Chưa có → THÊM quy tắc mới (nhãn cũ → danh mục mới).
             if (mp == null) _db.CategoryMappings.Add(new CategoryMapping { AiLabel = oldName, CategoryId = categoryId });
+            // Đã có → CẬP NHẬT quy tắc trỏ tới danh mục mới.
             else mp.CategoryId = categoryId;
         }
+
+        // Ghi nhật ký chỉnh sửa phân loại (audit): ai sửa, từ danh mục nào sang danh mục nào.
         _db.AiCategoryCorrectionLogs.Add(new AiCategoryCorrectionLog { ArticleId = articleId, EditorName = editor, OldCategory = oldName, NewCategory = cat.Name });
+        // Ghi thêm 1 AILog loại "classify_correct" (ModelUsed="manual" nghĩa là do người sửa, không phải AI).
         _db.AILogs.Add(new AILog { ArticleId = articleId, Action = "classify_correct", ResultText = $"{oldName} → {cat.Name} (bởi {editor})", ModelUsed = "manual", IsSuccess = true });
+
+        // Lưu tất cả thay đổi (đổi danh mục + quy tắc + 2 log) xuống DB trong 1 lần.
         await _db.SaveChangesAsync();
+        // Trả về thành công.
         return Json(new { success = true, message = "Đã đổi danh mục + lưu quy tắc" });
     }
+
 
     // Import từ 1 nguồn cụ thể
     [HttpPost]
     // Đây là luồng xử lý nhập bài từ 1 nguồn RSS (qua NewsImportService)
     public async Task<IActionResult> ImportFromSource(int id)
     {
+        // Chưa đăng nhập → từ chối.
         if (!IsLoggedIn) return Json(new { success = false });
+
+        // Tìm nguồn RSS theo id.
         var source = await _db.RssSources.FindAsync(id);
+        // Không có nguồn → báo lỗi.
         if (source == null) return Json(new { success = false, message = "Không tìm thấy nguồn" });
+        // Nguồn đang tắt → không cho nhập.
         if (!source.IsActive) return Json(new { success = false, message = "Nguồn này đang bị tắt" });
 
+        // Lấy service NewsImportService từ DI container (theo scope của request hiện tại).
         var svc = HttpContext.RequestServices.GetRequiredService<NewsImportService>();
+        // Gọi nhập bài từ nguồn này. Trả về: số bài THÊM mới, số bài CẬP NHẬT, số bài BỎ QUA (trùng).
         var (added, updated, skipped) = await svc.ImportFromSourceAsync(source, HttpContext.Session.GetString("AdminName") ?? "Admin");
+
+        // Lưu thay đổi (bài mới, cập nhật...) xuống DB.
         await _db.SaveChangesAsync();
+        // Ghi log hoạt động của nhân viên/admin: đã nhập bao nhiêu bài từ nguồn nào.
         await TryLogStaffAsync("import_rss", $"Nhập {added} bài mới từ nguồn {source.Name}");
 
+        // Trả kết quả tóm tắt (thêm/cập nhật/bỏ qua).
         return Json(new { success = true, message = $"Đã nhập {added} bài mới, cập nhật {updated}, bỏ qua {skipped} từ {source.Name}" });
     }
 

@@ -143,14 +143,39 @@ public class NewsImportService
             }
 
             // Tự phân loại vào danh mục có sẵn: từ khóa/RSS-category trước, không khớp thì AI, cuối cùng fallback danh mục nguồn
+            // ^ Chú thích tổng: nêu rõ thứ tự ưu tiên 3 tầng (nhãn/từ khóa -> AI -> danh mục mặc định của nguồn).
+
             int? catId = MatchCategory(cats, rssCats, title, summaryShort);
+            // TẦNG 1 — thử khớp bằng dữ liệu SẴN CÓ (không tốn AI):
+            //   • cats         = danh sách danh mục của hệ thống
+            //   • rssCats      = các thẻ <category> lấy từ feed RSS
+            //   • title, summaryShort = tiêu đề + tóm tắt để dò từ khóa
+            // MatchCategory trả về CategoryId nếu khớp, hoặc null nếu không khớp.
+            // 'int?' = kiểu nullable: cho phép giá trị null khi chưa xác định được danh mục.
+
             if (catId == null && cats.Count > 0)
+            // Chỉ chạy TẦNG 2 (AI) khi:
+            //   • catId == null      -> tầng 1 KHÔNG khớp được danh mục nào
+            //   • cats.Count > 0     -> hệ thống có danh mục để chọn (nếu rỗng thì gọi AI vô nghĩa)
             {
                 try { catId = await _ai.ClassifyCategoryAsync(title, summaryShort, cats); }
-                catch (Exception ex) { _logger.LogWarning(ex, "AI phân loại danh mục lỗi (bỏ qua)"); }
-            }
-            catId ??= categoryId;
+                // TẦNG 2 — nhờ AI (Gemini) đọc tiêu đề + tóm tắt, chọn 1 danh mục trong 'cats'.
+                // 'await' vì gọi API mạng (bất đồng bộ). Kết quả gán lại cho catId.
 
+                catch (Exception ex) { _logger.LogWarning(ex, "AI phân loại danh mục lỗi (bỏ qua)"); }
+                // Nếu AI lỗi/timeout -> KHÔNG làm hỏng việc nhập bài (best-effort):
+                //   chỉ ghi cảnh báo log, catId vẫn là null để tầng 3 xử lý tiếp.
+            }
+
+            catId ??= categoryId;
+            // TẦNG 3 — fallback cuối cùng: nếu vẫn null (cả tầng 1 và 2 đều không ra),
+            // thì dùng 'categoryId' = danh mục MẶC ĐỊNH của nguồn RSS (DefaultCategoryId).
+            // Toán tử '??=' : chỉ gán khi vế trái đang null. Sau dòng này catId luôn có giá trị.
+
+
+
+
+            // tạo slug từ tiêu đề (SlugHelper.MakeSlug) để dùng trong URL. Nếu trùng slug thì thêm timestamp.
             var slug = SlugHelper.MakeSlug(title);
             if (string.IsNullOrWhiteSpace(slug)) slug = "tin-" + Guid.NewGuid().ToString("N").Substring(0, 8);
             if (await _db.Articles.AnyAsync(a => a.Slug == slug)) slug += "-" + DateTimeOffset.Now.ToUnixTimeSeconds();

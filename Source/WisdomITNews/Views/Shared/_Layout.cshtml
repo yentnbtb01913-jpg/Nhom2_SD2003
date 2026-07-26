@@ -735,7 +735,8 @@
     {
         <div style="background:#fee2e2;color:#991b1b;padding:10px 16px;text-align:center;font-size:13.5px;">@TempData["ConfirmError"]</div>
     }
-    @if (_emUid != null && _emVerified == "false")
+    @* [ĐÃ TẮT] Bình luận nay chỉ cần ĐĂNG NHẬP (không còn ràng buộc xác nhận email); khách bị khóa ở form. *@
+    @if (false && _emUid != null && _emVerified == "false")
     {
         <div style="background:#fff7ed;border-bottom:1px solid #fed7aa;color:#9a3412;padding:10px 16px;text-align:center;font-size:13.5px;">
             <i class="fa fa-triangle-exclamation"></i> Vui lòng xác nhận email để dùng đầy đủ tính năng (bình luận...).

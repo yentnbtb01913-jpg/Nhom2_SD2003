@@ -227,18 +227,19 @@
                     </div>
                     <input type="hidden" id="cName" value="@sessionUserName" />
                     <input type="hidden" id="cEmail" value="" />
+                    <textarea id="cText" placeholder="Viết bình luận của bạn..." maxlength="1000"></textarea>
+                    <button class="btn-comment" onclick="submitComment(@article.Id)">
+                        <i class="fa fa-paper-plane"></i> Gửi bình luận
+                    </button>
                 }
                 else
                 {
-                    <div class="comment-form-row">
-                        <input type="text" id="cName" placeholder="Họ và tên *" maxlength="80" />
-                        <input type="email" id="cEmail" placeholder="Email (tuỳ chọn)" maxlength="120" />
+                    <div style="text-align:center;padding:24px;background:var(--bg-gray);border-radius:8px;color:#475569;">
+                        <i class="fa fa-lock" style="font-size:24px;color:#94a3b8;"></i>
+                        <p style="margin:10px 0 14px;font-weight:600;">Vui lòng đăng nhập để bình luận.</p>
+                        <a href="/Account/Login" style="display:inline-block;background:#0e7d85;color:#fff;padding:9px 22px;border-radius:8px;font-weight:700;text-decoration:none;"><i class="fa fa-right-to-bracket"></i> Đăng nhập</a>
                     </div>
                 }
-                <textarea id="cText" placeholder="Viết bình luận của bạn..." maxlength="1000"></textarea>
-                <button class="btn-comment" onclick="submitComment(@article.Id)">
-                    <i class="fa fa-paper-plane"></i> Gửi bình luận
-                </button>
             </div>
             <div id="commentList" class="comment-tree">
                 @if (!rootComments.Any())
@@ -456,6 +457,12 @@
             else { navigator.clipboard.writeText(location.href); Swal.fire('Đã sao chép link!'); }
         }
 
+        function escapeHtml(s) {
+            return (s || '').replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
         function submitComment(articleId) {
             var nameEl = document.getElementById('cName');
             var name = nameEl.value.trim();
@@ -465,9 +472,28 @@
             var email = emailEl ? emailEl.value : '';
             fetch('/api/comment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articleId: articleId, name: name, email: email, content: text }) })
                 .then(function (r) { return r.json(); }).then(function (data) {
-                    // AI đã từ chối — không render, báo lỗi
-                    if (data.status === 'rejected') {
-                        Swal.fire(data.message || 'Bình luận của bạn vi phạm quy định cộng đồng.');
+                    // Chưa đăng nhập — khách không được bình luận
+                    if (data.status === 'login_required') {
+                        Swal.fire({ icon: 'info', title: 'Cần đăng nhập', text: data.message || 'Vui lòng đăng nhập để bình luận.' });
+                        return;
+                    }
+                    // Chống spam — bình luận quá nhanh
+                    if (data.status === 'cooldown') {
+                        Swal.fire({ icon: 'info', title: 'Từ từ thôi', text: data.message });
+                        return;
+                    }
+                    // AI phát hiện vi phạm — bình luận đã bị XÓA NGAY, hiện pop-up kèm nội dung
+                    if (data.status === 'blocked' || data.status === 'rejected') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: data.title || 'Bình luận đã bị xóa',
+                            html: '<div style="text-align:left;">' +
+                                  '<p>' + (data.message || 'Bình luận của bạn vi phạm quy định cộng đồng.') + '</p>' +
+                                  (data.content ? '<div style="margin-top:8px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;"><b>Nội dung bị xóa:</b><br><i>' + escapeHtml(data.content) + '</i></div>' : '') +
+                                  (data.reason ? '<div style="margin-top:8px;color:#991b1b;"><b>Lý do:</b> ' + escapeHtml(data.reason) + '</div>' : '') +
+                                  '</div>'
+                        });
+                        document.getElementById('cText').value = '';
                         return;
                     }
                     if (data.success) {

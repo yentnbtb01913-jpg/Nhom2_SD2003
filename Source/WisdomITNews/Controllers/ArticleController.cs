@@ -264,11 +264,15 @@ public class ArticleController : Controller
             if (parent == null) return NotFound(new { success = false, message = "Bình luận gốc không tồn tại" });
 
             int? userId = HttpContext.Session.GetInt32("UserId");
+            // CHỈ cho người ĐÃ ĐĂNG NHẬP trả lời — khóa khách (guest).
+            if (!userId.HasValue)
+                return Ok(new { success = false, status = "login_required",
+                    message = "Vui lòng đăng nhập để bình luận." });
 
             var reply = new Comment
             {
                 ArticleId = parent.ArticleId,
-                AuthorName = req.Name.Trim(),
+                AuthorName = (req.Name ?? "").Trim(),
                 AuthorEmail = req.Email,
                 Content = req.Content.Trim(),
                 ParentCommentId = req.ParentCommentId,
@@ -397,38 +401,42 @@ public class ArticleController : Controller
         [HttpPost("comment")]
         public async Task<IActionResult> Comment([FromBody] CommentRequest req)
         {
-            if (string.IsNullOrWhiteSpace(req.Name) || string.IsNullOrWhiteSpace(req.Content))
-                return BadRequest(new { success = false, message = "Thiếu thông tin" });
+            if (string.IsNullOrWhiteSpace(req.Content))
+                return BadRequest(new { success = false, message = "Thiếu nội dung bình luận" });
 
             int? userId = null;
             try { userId = HttpContext.Session.GetInt32("UserId"); } catch { /* ignore */ }
 
-            // Chặn bình luận nếu user đã đăng nhập nhưng CHƯA xác nhận email
-            if (userId.HasValue)
+            // CHỈ cho người ĐÃ ĐĂNG NHẬP (mọi vai trò ngoài khách) bình luận — KHÓA khách (guest).
+            if (!userId.HasValue)
+                return Ok(new { success = false, status = "login_required",
+                    message = "Vui lòng đăng nhập để bình luận." });
+
+            // ================================================================
+            // CHỐNG SPAM: mỗi lần bình luận phải cách nhau tối thiểu N giây.
+            // >>> CHỈNH THỜI GIAN CHỜ TẠI ĐÂY (đơn vị: GIÂY) <<<
+            const int CommentCooldownSeconds = 30;
+            // ================================================================
+            var lastRaw = HttpContext.Session.GetString("LastCommentAt");
+            if (lastRaw != null && long.TryParse(lastRaw, out var lastTicks))
             {
-                var currentUser = await _db.Users.FindAsync(userId.Value);
-                if (currentUser != null && !currentUser.EmailVerified)
-                    return BadRequest(new { success = false, message = "Vui lòng xác nhận email trước khi bình luận." });
+                var elapsed = (DateTime.Now - new DateTime(lastTicks)).TotalSeconds;
+                if (elapsed < CommentCooldownSeconds)
+                {
+                    var wait = (int)System.Math.Ceiling(CommentCooldownSeconds - elapsed);
+                    return Ok(new { success = false, status = "cooldown",
+                        message = $"Bạn bình luận quá nhanh. Vui lòng đợi {wait} giây rồi thử lại." });
+                }
             }
+            // Ghi mốc thời gian cho lần này (chống spam kể cả bình luận bị chặn)
+            HttpContext.Session.SetString("LastCommentAt", DateTime.Now.Ticks.ToString());
 
-            var comment = new Comment
-            {
-                ArticleId = req.ArticleId,
-                AuthorName = req.Name.Trim(),
-                AuthorEmail = req.Email,
-                Content = req.Content.Trim(),
-                ParentCommentId = req.ParentCommentId,
-                ParentId = req.ParentCommentId,
-                UserId = userId,
-                Status = "pending"
-            };
+            var content = req.Content.Trim();
 
-            // AI moderation cho comment — không chặn nếu AI lỗi
+            // ===== AI kiểm duyệt: nếu vi phạm -> XÓA NGAY (không lưu) + trả pop-up kèm nội dung =====
             try
             {
-                var mod = await _ai.ModerateContentAsync(comment.Content);
-                if (mod.Score > 70) comment.Status = "rejected";
-
+                var mod = await _ai.ModerateContentAsync(content);
                 _db.AILogs.Add(new AILog
                 {
                     ArticleId  = req.ArticleId,
@@ -436,15 +444,42 @@ public class ArticleController : Controller
                     ResultText = $"score={mod.Score}, issues={string.Join("; ", mod.Issues)}",
                     IsSuccess  = true
                 });
-            }
-            catch { /* AI lỗi thì vẫn cho lưu comment ở trạng thái pending */ }
+                await _db.SaveChangesAsync();
 
+                if (mod.Score > 70)
+                {
+                    var reason = (mod.Issues != null && mod.Issues.Count > 0)
+                        ? string.Join("; ", mod.Issues)
+                        : "Nội dung vi phạm quy định cộng đồng.";
+                    // Không lưu Comment -> coi như bị xóa ngay lập tức.
+                    return Ok(new
+                    {
+                        success = false,
+                        status  = "blocked",
+                        popup   = true,
+                        title   = "Bình luận đã bị xóa",
+                        message = "Bình luận của bạn chứa nội dung không phù hợp nên đã bị AI xóa ngay lập tức.",
+                        content = content,   // nội dung bình luận vi phạm (hiện trong pop-up)
+                        reason  = reason     // lý do vi phạm
+                    });
+                }
+            }
+            catch { /* AI lỗi -> vẫn cho lưu bình luận ở trạng thái chờ duyệt (best-effort) */ }
+
+            // Hợp lệ -> lưu bình luận, chờ duyệt
+            var comment = new Comment
+            {
+                ArticleId = req.ArticleId,
+                AuthorName = (req.Name ?? "").Trim(),
+                AuthorEmail = req.Email,
+                Content = content,
+                ParentCommentId = req.ParentCommentId,
+                ParentId = req.ParentCommentId,
+                UserId = userId,
+                Status = "pending"
+            };
             _db.Comments.Add(comment);
             await _db.SaveChangesAsync();
-
-            if (comment.Status == "rejected")
-                return Ok(new { success = false, status = "rejected",
-                                message = "Bình luận của bạn vi phạm quy định cộng đồng và đã bị từ chối." });
 
             return Ok(new { success = true, status = comment.Status,
                             message = "Bình luận đã được gửi, chờ duyệt!" });

@@ -277,11 +277,13 @@ public class NhanVienController : Controller
         if (article.AuthorUserId.HasValue)
         {
             var notifSvc = HttpContext.RequestServices.GetRequiredService<NotificationService>();
+            var actor = HttpContext.Session.GetString("AdminName") ?? "Nhân viên";
             await notifSvc.SendArticleRejectedAsync(
                 article.AuthorUserId.Value,
                 article.Id,
                 article.Title,
-                req?.Reason ?? "Không đáp ứng tiêu chuẩn nội dung"
+                req?.Reason ?? "Không đáp ứng tiêu chuẩn nội dung",
+                actor
             );
         }
 

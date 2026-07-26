@@ -69,13 +69,14 @@ public class NotificationService
     // Luồng: 1) Tạo Notification Type="article_rejected", TargetUserId=authorUserId, RelatedArticleId
     //        2) Lưu DB  3) Phát realtime tới group "user_{authorUserId}"
     // Bảng: Notifications
-    public async Task SendArticleRejectedAsync(int authorUserId, int articleId, string articleTitle, string reason)
+    // rejectedBy = tác nhân đã từ chối (tên người duyệt, hoặc "AI (Gemini)")
+    public async Task SendArticleRejectedAsync(int authorUserId, int articleId, string articleTitle, string reason, string rejectedBy = "Ban biên tập")
     {
         var notif = new Notification
         {
             Code = GenerateCode(),
             Title = "Bài viết bị từ chối",
-            Content = $"Bài viết \"{articleTitle}\" của bạn đã bị từ chối.",
+            Content = $"Bài viết \"{articleTitle}\" của bạn đã bị {rejectedBy} từ chối.",
             Type = "article_rejected",
             Icon = "ban",
             IconColor = "#dc2626",
@@ -83,7 +84,7 @@ public class NotificationService
             TargetUserId = authorUserId,
             ViolationReason = reason,
             RelatedArticleId = articleId,
-            SentBy = "admin",
+            SentBy = rejectedBy,
             CreatedAt = DateTime.Now
         };
         _db.Notifications.Add(notif);

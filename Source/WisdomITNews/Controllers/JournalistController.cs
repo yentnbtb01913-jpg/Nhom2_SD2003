@@ -38,7 +38,19 @@ public class JournalistController : Controller
             });
 
             if (result.Score > 70)
+            {
                 article.Status = "Rejected";
+                // Gửi thông báo vào Hộp thư nhà báo — tác nhân từ chối là AI, kèm lý do.
+                if (article.AuthorUserId.HasValue && article.Id != 0)
+                {
+                    var reason = (result.Issues != null && result.Issues.Count > 0)
+                        ? "Nội dung không phù hợp: " + string.Join("; ", result.Issues)
+                        : "Nội dung không phù hợp (AI phát hiện vi phạm).";
+                    var notifSvc = HttpContext.RequestServices.GetRequiredService<NotificationService>();
+                    await notifSvc.SendArticleRejectedAsync(
+                        article.AuthorUserId.Value, article.Id, article.Title, reason, "AI (Gemini)");
+                }
+            }
             else if (result.Score >= 40)
                 article.Status = "PendingReview";
             // score < 40: giữ nguyên trạng thái do journalist chọn (draft / PendingReview)
