@@ -1,0 +1,61 @@
+@model List<WisdomITNews.Models.HomeCategoryBlock>
+@if (Model.Any())
+{
+    <section class="wi-readmore">
+        <div class="bm-section-head" style="text-align:center;margin-bottom:22px;">
+            <h3 style="font-size:20px;font-weight:800;display:inline-block;border-bottom:3px solid var(--wi-accent);padding-bottom:6px;">Đọc thêm</h3>
+        </div>
+        @{ const int rmInitial = 3; int rmIdx = 0; }
+        <div class="row" id="wiReadmoreRow">
+            @foreach (var b in Model)
+            {
+                var lead = b.Articles.First();
+                var rest = b.Articles.Skip(1).Take(4).ToList();
+                var hidden = rmIdx >= rmInitial;
+                rmIdx++;
+                <div class="col-12 col-md-6 col-lg-4 wi-readmore-col@(hidden ? " wi-rm-hidden" : "")"@(hidden ? " style=display:none" : "")>
+                    <div class="wi-readmore-cat">
+                        <a class="wi-readmore-head" href="/danh-muc/@b.Category.Slug">@b.Category.Icon @b.Category.Name</a>
+                        <a class="wi-readmore-lead" href="/bai-viet/@lead.Slug">
+                            <span class="wi-readmore-thumb"><img src="@(string.IsNullOrWhiteSpace(lead.Thumbnail) ? "/images/placeholder.jpg" : lead.Thumbnail)" alt="@lead.Title" loading="lazy" /></span>
+                            <h4 class="wi-readmore-lead-title">@lead.Title</h4>
+                        </a>
+                        @if (rest.Any())
+                        {
+                            <ul class="wi-readmore-list">
+                                @foreach (var a in rest)
+                                {
+                                    <li><a href="/bai-viet/@a.Slug">@a.Title</a></li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+        @if (rmIdx > rmInitial)
+        {
+            <div style="text-align:center;margin:8px 0 6px;">
+                <button type="button" id="wiReadmoreMore" class="wi-loadmore-btn"><i class="fa fa-plus" style="font-size:12px;"></i> Tải thêm</button>
+            </div>
+        }
+    </section>
+    <script>
+        (function () {
+            var btn = document.getElementById('wiReadmoreMore');
+            var row = document.getElementById('wiReadmoreRow');
+            if (!btn || !row) return;
+            var STEP = 3;
+            btn.addEventListener('click', function () {
+                var hidden = row.querySelectorAll('.wi-rm-hidden');
+                var shown = 0;
+                for (var i = 0; i < hidden.length && shown < STEP; i++) {
+                    hidden[i].style.display = '';
+                    hidden[i].classList.remove('wi-rm-hidden');
+                    shown++;
+                }
+                if (!row.querySelector('.wi-rm-hidden')) btn.style.display = 'none';
+            });
+        })();
+    </script>
+}

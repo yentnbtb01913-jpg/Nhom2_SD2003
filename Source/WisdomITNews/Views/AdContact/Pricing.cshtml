@@ -1,0 +1,157 @@
+@using WisdomITNews.Models
+@{
+    ViewData["Title"] = "Bảng giá quảng cáo";
+    var slots = ViewBag.Slots as List<AdSlot> ?? new List<AdSlot>();
+
+    // Icon gợi ý theo mã vị trí (không khớp -> icon mặc định)
+    string IconFor(string key) => key switch
+    {
+        "header" or "topbanner" => "fa-window-maximize",
+        "home_left" or "home_right" => "fa-grip-lines-vertical",
+        "home_billboard" or "article_billboard" => "fa-rectangle-ad",
+        "home_bottom" => "fa-minus",
+        "sidebar" or "article_side600" => "fa-table-columns",
+        "in_article" => "fa-newspaper",
+        _ => "fa-rectangle-ad"
+    };
+}
+<div class="container" style="max-width:1080px;margin:0 auto;padding:28px 16px 60px;">
+    <h1 style="text-align:center;color:#0e7d85;font-weight:800;font-size:30px;margin-bottom:4px;">Bảng giá quảng cáo — Báo Online</h1>
+    <p style="text-align:center;color:#6b7280;margin-bottom:30px;">Tất cả vị trí quảng cáo. Giá tính theo <b>ngày</b>; tổng = đơn giá × số ngày. Bấm <b>Xem demo</b> để thấy vị trí trên trang.</p>
+
+    @if (!slots.Any())
+    {
+        <div style="text-align:center;color:#94a3b8;padding:40px;">Chưa có vị trí quảng cáo nào đang mở bán.</div>
+    }
+    else
+    {
+        <!-- Thẻ các vị trí -->
+        <div class="adc-price-grid">
+            @foreach (var s in slots)
+            {
+                <div class="adc-price-card">
+                    <div class="adc-price-icon"><i class="fa @IconFor(s.SlotKey)"></i></div>
+                    <div class="adc-price-name">@s.Name</div>
+                    <div class="adc-price-size">@s.Size</div>
+                    <div class="adc-price-desc">@s.Description</div>
+                    <div class="adc-price-num">@s.PricePerDay.ToString("#,##0") <span>đ/ngày</span></div>
+                    <button type="button" class="adc-demo-btn" onclick="showDemo('@s.SlotKey','@s.Name','@s.Size')"><i class="fa fa-eye"></i> Xem demo vị trí</button>
+                    <a class="adc-price-btn" href="/lien-he-quang-cao/dang-ky?pos=@s.SlotKey"><i class="fa fa-bullhorn"></i> Đăng ký vị trí này</a>
+                </div>
+            }
+        </div>
+
+        <!-- Bảng giá chi tiết -->
+        <h2 style="font-weight:800;font-size:18px;color:#1f2937;margin:34px 0 12px;">Bảng giá chi tiết</h2>
+        <div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:12px;">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:640px;">
+                <thead>
+                    <tr style="background:#0e7d85;color:#fff;text-align:left;">
+                        <th style="padding:12px 16px;">Vị trí</th>
+                        <th style="padding:12px 16px;">Kích thước</th>
+                        <th style="padding:12px 16px;">Đơn giá (đ/ngày)</th>
+                        <th style="padding:12px 16px;text-align:right;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in slots)
+                    {
+                        <tr style="border-top:1px solid #eef0f2;">
+                            <td style="padding:12px 16px;font-weight:600;">@s.Name</td>
+                            <td style="padding:12px 16px;color:#6b7280;">@s.Size</td>
+                            <td style="padding:12px 16px;color:#0e7d85;font-weight:700;">@s.PricePerDay.ToString("#,##0")</td>
+                            <td style="padding:12px 16px;text-align:right;white-space:nowrap;">
+                                <button type="button" onclick="showDemo('@s.SlotKey','@s.Name','@s.Size')" style="background:#fff;color:#0e7d85;border:1px solid #0e7d85;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;margin-right:6px;">Xem demo</button>
+                                <a href="/lien-he-quang-cao/dang-ky?pos=@s.SlotKey" style="background:#0e7d85;color:#fff;padding:7px 16px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Chọn</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p style="color:#94a3b8;font-size:12.5px;margin-top:14px;">* Bảng giá mô phỏng phục vụ demo. Sau khi chọn, bạn điền thông tin và nhận email hướng dẫn thanh toán demo.</p>
+    }
+</div>
+
+<style>
+    .adc-price-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+    .adc-price-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 20px 18px; text-align: center; display: flex; flex-direction: column; }
+    .adc-price-icon { width: 56px; height: 56px; border-radius: 50%; background: #e6f4f5; color: #0e7d85; font-size: 24px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
+    .adc-price-name { font-weight: 800; font-size: 16px; color: #1f2937; margin-bottom: 2px; }
+    .adc-price-size { font-size: 12px; color: #94a3b8; font-weight: 600; margin-bottom: 8px; }
+    .adc-price-desc { font-size: 13px; color: #6b7280; line-height: 1.55; flex: 1; margin-bottom: 12px; }
+    .adc-price-num { font-weight: 800; font-size: 20px; color: #0e7d85; margin-bottom: 12px; }
+    .adc-price-num span { font-size: 12px; font-weight: 600; color: #94a3b8; }
+    .adc-price-btn { background: #0e7d85; color: #fff; font-weight: 700; padding: 9px 14px; border-radius: 8px; text-decoration: none; font-size: 14px; }
+    .adc-price-btn:hover { background: #0b666d; }
+    .adc-demo-btn { background: #fff; color: #0e7d85; border: 1px solid #0e7d85; font-weight: 700; padding: 8px 14px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-bottom: 8px; }
+    .adc-demo-btn:hover { background: #e6f4f5; }
+    @@media(max-width:760px){ .adc-price-grid { grid-template-columns: 1fr; } }
+</style>
+
+<!-- ===== MODAL XEM DEMO ===== -->
+<div id="demoModal" class="adc-demo-overlay" onclick="if(event.target===this)closeDemo()">
+    <div class="adc-demo-dialog">
+        <div class="adc-demo-head">
+            <span id="demoTitle">Xem demo vị trí</span>
+            <button type="button" onclick="closeDemo()" class="adc-demo-x">&times;</button>
+        </div>
+        <div class="adc-demo-body">
+            <div class="mk-page">
+                <!-- Banner đầu trang -->
+                <div class="mk-slot mk-h" data-keys="header topbanner"><b>BANNER ĐẦU TRANG</b></div>
+                <div class="mk-mid">
+                    <div class="mk-center">
+                        <div class="mk-slot mk-bb" data-keys="home_billboard article_billboard"><b>BILLBOARD</b></div>
+                        <div class="mk-line w80"></div>
+                        <div class="mk-line w60"></div>
+                        <div class="mk-slot mk-ia" data-keys="in_article"><b>QC TRONG BÀI</b></div>
+                        <div class="mk-line w90"></div>
+                        <div class="mk-line w70"></div>
+                        <div class="mk-slot mk-bot" data-keys="home_bottom"><b>BANNER CUỐI</b></div>
+                    </div>
+                    <div class="mk-sidecol">
+                        <div class="mk-slot mk-side" data-keys="sidebar article_side600"><b>SIDEBAR</b></div>
+                    </div>
+                </div>
+            </div>
+            <p class="adc-demo-note">Vùng tô xanh là nơi quảng cáo của bạn hiển thị.</p>
+            <div style="text-align:center;"><a id="demoRegBtn" href="#" class="adc-price-btn" style="display:inline-block;"><i class="fa fa-bullhorn"></i> Đăng ký vị trí này</a></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .adc-demo-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.55); z-index: 3000; padding: 24px; overflow: auto; }
+    .adc-demo-overlay.open { display: flex; align-items: flex-start; justify-content: center; }
+    .adc-demo-dialog { background: #fff; border-radius: 14px; width: 100%; max-width: 720px; overflow: hidden; margin: auto; }
+    .adc-demo-head { background: #0e7d85; color: #fff; padding: 14px 20px; font-weight: 800; display: flex; justify-content: space-between; align-items: center; }
+    .adc-demo-x { background: none; border: 0; color: #fff; font-size: 26px; line-height: 1; cursor: pointer; }
+    .adc-demo-body { padding: 20px; }
+    .adc-demo-note { text-align: center; color: #6b7280; font-size: 13px; margin: 14px 0; }
+    .mk-page { border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; background: #fafafa; padding: 8px; }
+    .mk-mid { display: flex; gap: 6px; margin-top: 6px; }
+    .mk-center { flex: 1; }
+    .mk-sidecol { width: 90px; flex-shrink: 0; }
+    .mk-rail { width: 26px; flex-shrink: 0; }
+    .mk-line { height: 9px; background: #e2e8f0; border-radius: 4px; margin: 7px 0; }
+    .mk-line.w90 { width: 90%; } .mk-line.w80 { width: 80%; } .mk-line.w70 { width: 70%; } .mk-line.w60 { width: 60%; }
+    .mk-slot { display: flex; align-items: center; justify-content: center; background: #cbd5e1; color: #64748b; border-radius: 5px; opacity: .4; transition: .2s; text-align: center; }
+    .mk-slot b { font-size: 10px; letter-spacing: .03em; }
+    .mk-h { height: 40px; } .mk-bb { height: 60px; margin: 6px 0; } .mk-ia { height: 54px; margin: 8px 0; }
+    .mk-bot { height: 30px; margin-top: 8px; } .mk-side { height: 260px; } .mk-rail { min-height: 260px; writing-mode: vertical-rl; }
+    .mk-slot.on { background: #0e7d85; color: #fff; opacity: 1; box-shadow: 0 0 0 3px rgba(14,125,133,.3); }
+</style>
+<script>
+    function showDemo(key, name, size) {
+        document.querySelectorAll('#demoModal .mk-slot').forEach(function (s) {
+            var keys = (s.getAttribute('data-keys') || '').split(' ');
+            s.classList.toggle('on', keys.indexOf(key) !== -1);
+        });
+        document.getElementById('demoTitle').textContent = 'Demo: ' + name + (size ? ' · ' + size : '');
+        document.getElementById('demoRegBtn').setAttribute('href', '/lien-he-quang-cao/dang-ky?pos=' + key);
+        document.getElementById('demoModal').classList.add('open');
+    }
+    function closeDemo() { document.getElementById('demoModal').classList.remove('open'); }
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDemo(); });
+</script>

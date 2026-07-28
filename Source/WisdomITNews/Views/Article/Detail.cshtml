@@ -49,43 +49,43 @@
     <script type="application/ld+json">@Html.Raw(_ld)</script>
 }
 <div id="readProgress" class="read-progress"></div>
-<div class="breadcrumb">
-    <div class="container">
-        <ul class="breadcrumb-list">
-            <li><a href="/"><i class="fa fa-home"></i> Trang chủ</a></li>
-            @if (article.Category != null)
-            {
-                <li><a href="/danh-muc/@article.Category.Slug">@article.Category.Icon @article.Category.Name</a></li>
-            }
-            <li>@article.Title</li>
-        </ul>
-    </div>
+<!-- Thanh công cụ dọc bên trái (kiểu Thanh Niên) -->
+<div class="wi-art-rail">
+    <button onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Lên đầu trang"><i class="fa fa-chevron-up"></i></button>
+    <button onclick="window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})" title="Xuống cuối"><i class="fa fa-chevron-down"></i></button>
+    <button onclick="(navigator.clipboard&&navigator.clipboard.writeText(location.href))" title="Chép liên kết"><i class="fa fa-link"></i></button>
+    <button onclick="document.querySelector('.comments-section')&&document.querySelector('.comments-section').scrollIntoView({behavior:'smooth'})" title="Bình luận"><i class="fa fa-comment"></i></button>
 </div>
 <div class="page-wrapper">
     <main>
         <div class="article-header">
-            @if (article.Category != null)
-            {
-                <span class="badge" style="background:@(article.Category.Color ?? "#ba1a1a");margin-bottom:12px;">
-                    @article.Category.Icon @article.Category.Name
-                </span>
-            }
-            <h1 class="article-title">@article.Title</h1>
-            <p class="article-sapo" style="color:var(--text-dark);">@article.Summary</p>
-            <div class="article-meta">
-                <div class="meta-author">
-                    <div class="author-avatar">@authorInitial</div>
-                    <div>
-                        <div class="author-name">@authorName</div>
-                        <div class="author-role">@(article.Author?.Role ?? "Editor")</div>
-                    </div>
-                </div>
-                <div class="meta-stats">
-                    <span><i class="fa fa-calendar"></i> @SlugHelper.FormatDate(article.PublishedAt)</span>
-                    <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(article.Views) lượt xem</span>
-                    <span><i class="fa fa-comments"></i> @allComments.Count bình luận</span>
-                </div>
+            <div class="wi-art-breadcrumb">
+                @if (article.Category != null)
+                {
+                    <a href="/danh-muc/@article.Category.Slug">@article.Category.Name</a><span class="sep">›</span>
+                }
+                <span>@article.Title</span>
             </div>
+            <h1 class="wi-art-title">@article.Title</h1>
+            @{ var _shareUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/bai-viet/{article.Slug}"; }
+            @{ var _pub = article.PublishedAt ?? article.CreatedAt; }
+            <div class="wi-art-meta">
+                <span class="wi-art-date"><i class="fa fa-calendar-day"></i> Ngày đăng: @_pub.ToString("dd/MM/yyyy")</span>
+                <span class="wi-art-time"><i class="fa fa-clock"></i> @_pub.ToString("HH:mm")</span>
+            </div>
+            <div class="wi-art-share" data-share-url="@_shareUrl">
+                <a class="btn-share" target="_blank" href="https://www.facebook.com/sharer.php?u=@Uri.EscapeDataString(_shareUrl)"><i class="fa fa-share"></i> Chia sẻ</a>
+                <a class="ic fb" target="_blank" href="https://www.facebook.com/sharer.php?u=@Uri.EscapeDataString(_shareUrl)" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                <button class="ic js-share-copy" title="Sao chép liên kết"><i class="fa fa-link"></i></button>
+                <button class="ic" onclick="toggleSummary()" title="Tóm tắt bằng AI"><i class="fa fa-magic-wand-sparkles"></i></button>
+                @if (ViewBag.CanSave == true)
+                {
+                    var _saved = ViewBag.IsSaved == true;
+                    <button id="btnSave" class="ic" onclick="toggleSave(@article.Id, this)" title="Lưu bài" style="@(_saved ? "background:var(--wi-accent);color:#fff" : "")"><i class="fa fa-bookmark"></i><span style="display:none"></span></button>
+                }
+                <span class="share-toast"></span>
+            </div>
+            <p class="wi-art-sapo">@article.Summary</p>
 
             @{ var _ap = ViewBag.AuthorProfile as WisdomITNews.Models.JournalistProfile; }
             @if (article.IsExternal && !string.IsNullOrWhiteSpace(article.SourceUrl))
@@ -116,39 +116,15 @@
                 </div>
             }
 
-            <!-- AI Tools Bar -->
-            <div style="display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap;">
-                <span style="font-size:12px;font-weight:700;color:var(--ai-color);text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px;">
-                    <i class="fa fa-robot"></i> AI Tools
-                </span>
-                <button onclick="toggleSummary()" style="background:var(--ai-color);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;">
-                    <i class="fa fa-magic-wand-sparkles"></i> Tóm tắt bằng AI
-                </button>
-                <button onclick="shareArticle()" style="background:var(--bg-gray);color:var(--text-dark);border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;">
-                    <i class="fa fa-share-nodes"></i> Chia sẻ
-                </button>
-                @if (ViewBag.CanSave == true)
-                {
-                    var _saved = ViewBag.IsSaved == true;
-                    <button id="btnSave" onclick="toggleSave(@article.Id, this)" style="background:@(_saved ? "#0e7d85" : "var(--bg-gray)");color:@(_saved ? "#fff" : "var(--text-dark)");border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
-                        <i class="fa fa-bookmark"></i> <span>@(_saved ? "Đã lưu" : "Lưu")</span>
-                    </button>
-                }
-            </div>
         </div>
 
-        @if (article.IsExternal && !string.IsNullOrWhiteSpace(article.SourceUrl))
-        {
-            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin:18px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                <span style="font-size:13.5px;color:#1e3a8a;"><i class="fa fa-newspaper"></i> Bài tổng hợp — Nguồn: <strong>@article.SourceName</strong></span>
-                <a href="@article.SourceUrl" target="_blank" rel="noopener noreferrer" style="margin-left:auto;background:#0e7d85;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;"><i class="fa fa-up-right-from-square"></i> Đọc bài gốc</a>
-            </div>
-        }
+        @* [ĐÃ GỠ] Băng "Bài tổng hợp — Nguồn" — nguồn đã hiển thị ở khu tác giả phía trên. *@
         @if (!string.IsNullOrWhiteSpace(article.AiSummary))
         {
-            <div class="tldr-box" style="background:#e6f4f5;border-left:4px solid #0e7d85;border-radius:10px;padding:16px 18px;margin:18px 0;">
+            @* Tóm tắt nhanh — ẩn mặc định để tránh spoiler; bấm nút "đũa thần" mới hiện (dùng bản đã lưu) *@
+            <div id="tldrBox" class="tldr-box" style="display:none;background:#e6f4f5;border-left:4px solid #0e7d85;border-radius:10px;padding:16px 18px;margin:18px 0;">
                 <div style="font-weight:700;color:#0e7d85;font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;"><i class="fa fa-bolt"></i> Tóm tắt nhanh</div>
-                <div style="font-size:14.5px;line-height:1.7;color:#1f2937;white-space:pre-line;">@article.AiSummary</div>
+                <div class="tldr-content" style="font-size:14.5px;line-height:1.7;color:#1f2937;">@Html.Raw(article.AiSummary)</div>
             </div>
         }
         <div id="summaryBox" class="ai-summary-box" style="display:none;">
@@ -182,7 +158,13 @@
                 </div>
             }
             <div class="article-content">
-                @Html.Raw(article.Content)
+                @{
+                    // Ẩn đoạn "📌 Đây là bài tổng hợp..." đã chèn khi nhập RSS (nguồn đã có ở khu tác giả)
+                    var _content = article.Content ?? "";
+                    var _ni = _content.IndexOf("📌 Đây là", StringComparison.Ordinal);
+                    if (_ni > 0) { var _ps = _content.LastIndexOf("<p", _ni, StringComparison.Ordinal); if (_ps >= 0) { _content = _content.Substring(0, _ps); } }
+                }
+                @Html.Raw(_content)
                 @await Component.InvokeAsync("AdSlot", new { position = "in_article" })
             </div>
             @if (Model.Tags.Any())
@@ -195,21 +177,25 @@
                 </div>
             }
         </div>
-        <div class="share-bar" data-share-url="@Context.Request.Scheme://@Context.Request.Host/bai-viet/@article.Slug">
-            <span class="share-bar-label"><i class="fa fa-share-nodes"></i> Chia sẻ:</span>
-            <a href="https://www.facebook.com/sharer.php?u=@Uri.EscapeDataString($"{Context.Request.Scheme}://{Context.Request.Host}/bai-viet/{article.Slug}")"
-               target="_blank" class="share-btn share-fb"><i class="fa-brands fa-facebook-f"></i> Facebook</a>
-            <button class="share-btn share-copy js-share-copy"><i class="fa fa-link"></i> Sao chép</button>
-            <span class="share-toast"></span>
+
+        <!-- QUẢNG CÁO · Billboard dưới bài (mã: article_billboard) -->
+        <div class="wi-ad-slot wi-ad-billboard" data-ad-label="Quảng cáo · Billboard 970×250" style="min-height:250px;margin:20px 0;">
+            @await Component.InvokeAsync("AdSlot", new { position = "article_billboard" })
         </div>
-        <div class="author-box">
-            <div class="author-box-avatar">@authorInitial</div>
-            <div class="author-box-info">
-                <div class="role"><i class="fa fa-pen-nib"></i> Tác giả</div>
-                <h3 style="font-family:'Playfair Display',serif;font-size:18px;">@authorName</h3>
-                <p style="font-size:13px;color:var(--text-muted);margin-top:6px;">@(article.Author?.Role ?? "Editor") tại Wisdom IT News</p>
+
+        @if (Model.RelatedArticles.Any())
+        {
+            <div class="wi-art-related">
+                <div class="rl-head">Tin liên quan</div>
+                @foreach (var r in Model.RelatedArticles.Take(3))
+                {
+                    <a class="rl-item" href="/bai-viet/@r.Slug">
+                        <img src="@(string.IsNullOrWhiteSpace(r.Thumbnail) ? "/images/placeholder.jpg" : r.Thumbnail)" alt="@r.Title" loading="lazy" />
+                        <div><div class="rl-t">@r.Title</div><div class="rl-s">@r.Summary</div></div>
+                    </a>
+                }
             </div>
-        </div>
+        }
         <!-- Comments Section -->
         <div class="comments-section">
             <h2 class="comments-title">
@@ -266,7 +252,9 @@
                 <div id="relatedMore"></div>
                 <div id="relatedLoader" style="display:none;text-align:center;padding:16px;color:#94a3b8;font-size:14px;"><i class="fa fa-spinner fa-spin"></i> Đang tải bài cùng thể loại...</div>
                 <div id="relatedEnd" style="display:none;text-align:center;padding:16px;color:#cbd5e1;font-size:13px;">— Đã hết bài cùng thể loại —</div>
-                <div id="relatedSentinel" data-cat="@article.CategoryId" data-exclude="@article.Id" data-skip="0" style="height:1px;"></div>
+                <div style="text-align:center;margin:14px 0 6px;">
+                    <button type="button" id="relatedMoreBtn" data-cat="@article.CategoryId" data-exclude="@article.Id" class="wi-loadmore-btn" style="display:none;"><i class="fa fa-plus" style="font-size:12px;"></i> Tải thêm bài cùng thể loại</button>
+                </div>
             </section>
         }
 
@@ -281,64 +269,77 @@
     </main>
     <aside class="sidebar">
         @await Component.InvokeAsync("AdSlot", new { position = "sidebar" })
-        @if (Model.RelatedArticles.Any())
-        {
-            <div class="sidebar-widget">
-                <div class="widget-header"><i class="fa fa-link"></i> Bài viết liên quan</div>
-                <div class="widget-body">
-                    @foreach (var r in Model.RelatedArticles)
-                    {
-                        <div class="related-item" onclick="location.href='/bai-viet/@r.Slug'">
-                            <div class="related-thumb">
-                                <img src="@(string.IsNullOrWhiteSpace(r.Thumbnail) ? "/images/placeholder.jpg" : r.Thumbnail)" alt="@r.Title" loading="lazy" />
-                            </div>
-                            <div>
-                                <div class="related-title">@r.Title</div>
-                                <div class="related-meta"><i class="fa fa-eye"></i> @SlugHelper.FormatViews(r.Views)</div>
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
-        <div class="sidebar-widget">
-            <div class="widget-header hot"><i class="fa fa-fire"></i> Xem nhiều nhất</div>
-            <div class="widget-body">
-                @for (int i = 0; i < Model.PopularArticles.Count; i++)
-                {
-                    var p = Model.PopularArticles[i];
-                    <div class="hot-item" onclick="location.href='/bai-viet/@p.Slug'">
-                        <span class="hot-num @(i < 3 ? "top" : "rest")">@(i + 1)</span>
-                        <span class="hot-item-title">@p.Title</span>
-                    </div>
-                }
-            </div>
+        <!-- (Bỏ widget "Bài viết liên quan" ở sidebar vì đã có hộp Tin liên quan trong bài) -->
+        <div class="wi-ad-slot wi-ad-inline" data-ad-label="Quảng cáo · 300×250" style="min-height:250px;margin-bottom:20px;">@await Component.InvokeAsync("AdSlot", new { position = "article_rect" })</div>
+        <div class="wi-ad-slot wi-ad-sidebar wi-ad-sticky" data-ad-label="Quảng cáo · Sidebar 300×600" style="min-height:600px;margin-bottom:20px;">
+            @await Component.InvokeAsync("AdSlot", new { position = "article_side600" })
+        </div>
+        <div class="wi-most-read">
+            <div class="mr-head">Tin đọc nhiều</div>
+            @foreach (var p in Model.PopularArticles.Take(6))
+            {
+                <a class="mr-item" href="/bai-viet/@p.Slug">
+                    <img src="@(string.IsNullOrWhiteSpace(p.Thumbnail) ? "/images/placeholder.jpg" : p.Thumbnail)" alt="@p.Title" loading="lazy" />
+                    <div class="mr-t">@p.Title</div>
+                </a>
+            }
         </div>
 
-        @* Cột Video — cố định (sticky) dưới "Xem nhiều nhất" *@
-        @await Component.InvokeAsync("VideoSidebar")
+        @* Cột Danh mục — liệt kê tất cả danh mục kèm bài mới nhất, trải dọc xuống (thay cho ô Video) *@
+        @await Component.InvokeAsync("CategoryRail", new { excludeArticleId = article.Id })
     </aside>
+
+    @* "Dành cho bạn" — KHỐI LỚN trải hết chiều rộng, nằm dưới cả bài viết + sidebar *@
+    <div class="wi-foryou-full" style="grid-column:1 / -1;">
+        @await Component.InvokeAsync("ForYou", new { excludeArticleId = article.Id })
+    </div>
+
+    @* "Đọc thêm" — mini trang chủ full-width, lấp khoảng trống cuối trang bài *@
+    <div class="wi-readmore-full" style="grid-column:1 / -1;">
+        @await Component.InvokeAsync("ReadMore", new { excludeArticleId = article.Id })
+    </div>
 </div>
 
-<!-- AI Chatbot Popup -->
-<button class="chatbot-toggle" onclick="toggleChatbot()" title="Trợ lý AI">
-    <i class="fa fa-robot" id="chatbotIcon"></i>
-</button>
-<div class="chatbot-panel" id="chatbotPanel">
-    <div class="chatbot-header">
-        <span><i class="fa fa-robot"></i> Wisdom AI Bot</span>
-        <button class="chatbot-close" onclick="toggleChatbot()">&times;</button>
-    </div>
-    <div class="chatbot-messages" id="chatbotMessages">
-        <div class="chatbot-msg bot">Xin chào! Tôi là trợ lý AI của WisdomITNews. Hỏi tôi bất cứ điều gì về công nghệ, lập trình hoặc AI nhé!</div>
-    </div>
-    <form class="chatbot-form" onsubmit="sendBotMsg(event)">
-        <input type="text" id="chatbotInput" placeholder="Nhập câu hỏi..." autocomplete="off">
-        <button type="submit" id="chatbotSendBtn"><i class="fa fa-paper-plane"></i></button>
-    </form>
-</div>
+@* [ĐÃ GỠ] Chatbot AI trên trang bài — bỏ theo yêu cầu. *@
 
 @section Scripts {
+    <script>
+        // Thanh công cụ dọc bên trái: NEO theo vị trí thật của bài báo.
+        // - Ở đầu trang: nằm đúng mép trên bài (dưới header) -> không đè header.
+        // - Cuộn xuống: đi theo bài rồi GHIM ngay dưới thanh nav dính (mốc MIN).
+        (function () {
+            var rail = document.querySelector('.wi-art-rail');
+            var art = document.querySelector('.page-wrapper');
+            if (!rail || !art) return;
+            var MIN = 78;    // điểm neo: ngay dưới thanh nav dính
+            function pos() {
+                var top = art.getBoundingClientRect().top;   // mép trên bài so với khung nhìn
+                rail.style.top = Math.max(MIN, top) + 'px';
+            }
+            window.addEventListener('scroll', pos, { passive: true });
+            window.addEventListener('resize', pos, { passive: true });
+            pos();
+        })();
+    </script>
+    <script>
+        // Phát video HLS (.m3u8) nhập từ báo gốc: chỉ nạp hls.js khi bài có <video class="wi-hls">
+        (function () {
+            var vids = document.querySelectorAll('video.wi-hls[data-hls]');
+            if (!vids.length) return;
+            function initHls() {
+                vids.forEach(function (v) {
+                    var src = v.getAttribute('data-hls');
+                    if (v.canPlayType('application/vnd.apple.mpegurl')) { v.src = src; }        // Safari phát trực tiếp
+                    else if (window.Hls && window.Hls.isSupported()) { var h = new Hls(); h.loadSource(src); h.attachMedia(v); }
+                });
+            }
+            if (window.Hls) { initHls(); return; }
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1';
+            s.onload = initHls;
+            document.head.appendChild(s);
+        })();
+    </script>
     <script>
         var ARTICLE_ID = @article.Id;
         var summaryLoaded = false;
@@ -382,16 +383,16 @@
                 loadSuggested();
             }
 
-            // --- Cùng thể loại ---
-            var sentinel = document.getElementById('relatedSentinel');
+            // --- Cùng thể loại: nạp 7 bài đầu, muốn xem thêm thì bấm nút "Tải thêm" ---
             var box = document.getElementById('relatedMore');
-            if (!sentinel || !box) { startSuggested(); return; }   // không có mục cùng thể loại -> gợi ý luôn
-            var cat = sentinel.getAttribute('data-cat');
-            var exclude = sentinel.getAttribute('data-exclude');
-            var skip = parseInt(sentinel.getAttribute('data-skip') || '0', 10) || 0;
-            var loading = false, done = false;
+            var btn = document.getElementById('relatedMoreBtn');
+            if (!box || !btn) { startSuggested(); return; }   // không có mục cùng thể loại -> gợi ý luôn
+            var cat = btn.getAttribute('data-cat');
+            var exclude = btn.getAttribute('data-exclude');
+            var skip = 0, loading = false, done = false;
             var loader = document.getElementById('relatedLoader');
             var endMsg = document.getElementById('relatedEnd');
+            var PAGE = 7;   // khớp với LoadRelated (take = 7)
 
             function loadRelated() {
                 if (loading || done) return;
@@ -400,27 +401,31 @@
                     .then(function (r) { return r.text(); })
                     .then(function (html) {
                         var t = (html || '').trim();
-                        if (!t) { done = true; if (loader) loader.style.display = 'none'; if (endMsg) endMsg.style.display = 'block'; startSuggested(); return; }
+                        loading = false; if (loader) loader.style.display = 'none';
+                        if (!t) { done = true; btn.style.display = 'none'; if (endMsg) endMsg.style.display = 'block'; startSuggested(); return; }
                         var tmp = document.createElement('div'); tmp.innerHTML = t;
                         var n = tmp.querySelectorAll('.bm-list-item').length;
                         while (tmp.firstChild) box.appendChild(tmp.firstChild);
-                        skip += n; loading = false; if (loader) loader.style.display = 'none';
-                        if (n === 0) { done = true; if (endMsg) endMsg.style.display = 'block'; startSuggested(); }
+                        skip += n;
+                        if (n < PAGE) { done = true; btn.style.display = 'none'; if (endMsg) endMsg.style.display = 'block'; startSuggested(); }
+                        else { btn.style.display = ''; }   // còn bài -> hiện nút
                     })
                     .catch(function () { loading = false; if (loader) loader.style.display = 'none'; });
             }
 
-            if ('IntersectionObserver' in window) {
-                var io = new IntersectionObserver(function (e) { if (e[0].isIntersecting) loadRelated(); }, { rootMargin: '400px' });
-                io.observe(sentinel);
-            } else {
-                window.addEventListener('scroll', function () {
-                    if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) loadRelated();
-                });
-            }
+            btn.addEventListener('click', loadRelated);
+            loadRelated();   // nạp 7 bài đầu ngay khi mở trang
         })();
 
         function toggleSummary() {
+            // Nếu đã có bản tóm tắt lưu sẵn -> chỉ bật/tắt hiển thị (không gọi AI, không spoiler cho tới khi bấm)
+            var tldr = document.getElementById('tldrBox');
+            if (tldr) {
+                var showing = tldr.style.display !== 'none';
+                tldr.style.display = showing ? 'none' : 'block';
+                if (!showing) tldr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
             var box = document.getElementById('summaryBox');
             if (box.style.display !== 'none') { closeSummary(); return; }
             box.style.display = 'block';
@@ -591,49 +596,7 @@
             else Swal.fire(data.message || 'Lỗi');
         }
 
-        // ===== AI CHATBOT =====
-        function toggleChatbot() {
-            var panel = document.getElementById('chatbotPanel');
-            var icon = document.getElementById('chatbotIcon');
-            panel.classList.toggle('open');
-            icon.className = panel.classList.contains('open') ? 'fa fa-xmark' : 'fa fa-robot';
-        }
-
-        async function sendBotMsg(e) {
-            e.preventDefault();
-            var input = document.getElementById('chatbotInput');
-            var msg = input.value.trim();
-            if (!msg) return;
-
-            var box = document.getElementById('chatbotMessages');
-            var btn = document.getElementById('chatbotSendBtn');
-
-            box.innerHTML += '<div class="chatbot-msg user">' + msg + '</div>';
-            input.value = '';
-            btn.disabled = true;
-            box.innerHTML += '<div class="chatbot-msg typing" id="typingMsg">Đang suy nghĩ...</div>';
-            box.scrollTop = box.scrollHeight;
-
-            try {
-                var res = await fetch('/article/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: msg })
-                });
-                var data = await res.json();
-                var typing = document.getElementById('typingMsg');
-                if (typing) typing.remove();
-                box.innerHTML += '<div class="chatbot-msg bot">' + data.reply + '</div>';
-            } catch {
-                var typing = document.getElementById('typingMsg');
-                if (typing) typing.remove();
-                box.innerHTML += '<div class="chatbot-msg bot" style="color:#dc2626;">Lỗi kết nối, thử lại sau.</div>';
-            }
-
-            btn.disabled = false;
-            box.scrollTop = box.scrollHeight;
-            input.focus();
-        }
+        // [ĐÃ GỠ] Chatbot AI — bỏ theo yêu cầu.
 
         // Lightbox: phóng to ảnh trong nội dung bài viết
         (function(){

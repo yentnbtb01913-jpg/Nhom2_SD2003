@@ -1,0 +1,77 @@
+@using WisdomITNews.Models
+@model WisdomITNews.Models.AdBooking
+@{
+    ViewData["Title"] = "Đăng ký quảng cáo";
+    var slots = ViewBag.Slots as List<AdSlot> ?? new List<AdSlot>();
+}
+<div class="container" style="max-width:720px;margin:0 auto;padding:28px 16px 60px;">
+    <h1 style="color:#0e7d85;font-weight:800;font-size:26px;margin-bottom:4px;">Đăng ký quảng cáo — Báo Online</h1>
+    <p style="color:#6b7280;margin-bottom:22px;">Điền đầy đủ thông tin. Các trường có dấu (*) là bắt buộc.</p>
+
+    @if (ViewBag.Error != null)
+    {
+        <div style="background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c;padding:10px 14px;border-radius:8px;margin-bottom:16px;">@ViewBag.Error</div>
+    }
+
+    <form method="post" action="/lien-he-quang-cao/xac-nhan" class="wi-adc-form">
+        @Html.AntiForgeryToken()
+
+        <div class="wi-adc-section">Loại người đăng ký</div>
+        <div style="display:flex;gap:18px;margin-bottom:16px;">
+            <label class="wi-adc-radio"><input type="radio" name="BuyerType" value="individual" checked onchange="toggleCompany(false)"> Cá nhân</label>
+            <label class="wi-adc-radio"><input type="radio" name="BuyerType" value="company" onchange="toggleCompany(true)"> Công ty / Tổ chức</label>
+        </div>
+
+        <div class="wi-adc-section">Thông tin liên hệ</div>
+        <div class="wi-adc-grid">
+            <div><label>Họ tên người liên hệ *</label><input name="ContactName" value="@Model.ContactName" required /></div>
+            <div><label>Số điện thoại *</label><input name="Phone" value="@Model.Phone" required /></div>
+            <div><label>Email *</label><input name="Email" type="email" value="@Model.Email" required /></div>
+            <div><label>Địa chỉ</label><input name="Address" value="@Model.Address" /></div>
+        </div>
+
+        <div id="companyBox" style="display:none;">
+            <div class="wi-adc-section">Thông tin công ty</div>
+            <div class="wi-adc-grid">
+                <div><label>Tên công ty *</label><input name="CompanyName" value="@Model.CompanyName" /></div>
+                <div><label>Mã số thuế</label><input name="TaxCode" value="@Model.TaxCode" /></div>
+                <div class="wi-adc-full"><label>Website</label><input name="Website" value="@Model.Website" placeholder="https://" /></div>
+            </div>
+        </div>
+
+        <div class="wi-adc-section">Chi tiết quảng cáo</div>
+        <div class="wi-adc-grid">
+            <div>
+                <label>Vị trí quảng cáo *</label>
+                <select name="AdPosition" required>
+                    @foreach (var s in slots)
+                    {
+                        <option value="@s.SlotKey" selected="@(Model.AdPosition == s.SlotKey)">@s.Name (@s.Size) — @s.PricePerDay.ToString("#,##0") đ/ngày</option>
+                    }
+                </select>
+            </div>
+            <div><label>Số ngày chạy *</label><input name="DurationDays" type="number" min="1" max="365" value="@Model.DurationDays" required /></div>
+            <div class="wi-adc-full"><label>Ghi chú / Yêu cầu thêm</label><textarea name="Note" rows="3">@Model.Note</textarea></div>
+        </div>
+
+        <div style="margin-top:22px;display:flex;gap:12px;justify-content:flex-end;">
+            <a href="/lien-he-quang-cao/bang-gia" style="padding:11px 20px;border:1px solid #d1d5db;border-radius:8px;text-decoration:none;color:#374151;"><i class="fa fa-arrow-left"></i> Bảng giá</a>
+            <button type="submit" style="background:#0e7d85;color:#fff;font-weight:700;padding:11px 26px;border:none;border-radius:8px;cursor:pointer;">Tiếp tục xác nhận</button>
+        </div>
+    </form>
+</div>
+
+<style>
+    .wi-adc-section{font-weight:800;color:#0e7d85;font-size:14px;text-transform:uppercase;letter-spacing:.03em;margin:18px 0 10px;border-bottom:2px solid #e6f4f5;padding-bottom:6px;}
+    .wi-adc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    .wi-adc-grid .wi-adc-full{grid-column:1 / -1;}
+    .wi-adc-form label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:5px;}
+    .wi-adc-form input,.wi-adc-form select,.wi-adc-form textarea{width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;}
+    .wi-adc-form input:focus,.wi-adc-form select:focus,.wi-adc-form textarea:focus{outline:none;border-color:#0e7d85;}
+    .wi-adc-radio{font-weight:600;color:#374151;cursor:pointer;}
+    @@media(max-width:600px){.wi-adc-grid{grid-template-columns:1fr;}}
+</style>
+<script>
+    function toggleCompany(show) { document.getElementById('companyBox').style.display = show ? 'block' : 'none'; }
+    @if (Model.BuyerType == "company") { <text>toggleCompany(true); document.querySelector('input[name=BuyerType][value=company]').checked = true;</text> }
+</script>

@@ -225,6 +225,8 @@ public class RssSource
     public string? Country { get; set; }
     public bool IsActive { get; set; } = true;
     public bool AutoImport { get; set; } = false;     // tự động nhập 1 bài/phút
+    // Loại nguồn: null/"article" = nhập BÀI VIẾT (vào Articles); "video" = nhập VIDEO (vào Videos).
+    public string? SourceType { get; set; }
     public int? DefaultCategoryId { get; set; }
     public int MaxImport { get; set; } = 30;
     public DateTime? LastImportAt { get; set; }

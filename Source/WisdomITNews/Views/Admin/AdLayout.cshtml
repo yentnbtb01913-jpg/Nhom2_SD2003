@@ -1,7 +1,7 @@
 @using WisdomITNews.Models
 @model List<AdLayoutZoneVm>
 @{
-    ViewData["Title"] = "Bố cục quảng cáo";
+    ViewData["Title"] = "Bố cục & xoay vòng quảng cáo";
     Layout = "_AdminLayout";
     var payload = Model.Select(z => new
     {
@@ -15,6 +15,7 @@
             title = a.Title,
             imageUrl = a.ImageUrl,
             status = a.Status,
+            isActive = a.IsActive,
             paymentStatus = a.PaymentStatus
         })
     });
@@ -24,7 +25,7 @@
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
     <div>
         <h2 style="margin:0;font-size:22px;font-weight:800;">Bố cục &amp; xoay vòng quảng cáo</h2>
-        <p style="margin:4px 0 0;color:#64748b;font-size:14px;">Xem trước vị trí thật của QC theo từng khu, sắp thứ tự chạy và chỉnh chu kỳ nhảy. Bấm <b>Lưu</b> để áp dụng ngay.</p>
+        <p style="margin:4px 0 0;color:#64748b;font-size:14px;">Mỗi khu hiển thị quảng cáo đang gắn, xem trước xoay vòng, sắp thứ tự chạy và chỉnh chu kỳ nhảy. Bấm <b>Lưu</b> để áp dụng ngay.</p>
     </div>
     <div style="display:flex;gap:10px;">
         <button id="btnCancel" style="background:#e2e8f0;color:#334155;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;"><i class="fa fa-rotate-left"></i> Hủy</button>
@@ -32,40 +33,20 @@
     </div>
 </div>
 
-<!-- MOCKUP PREVIEW: khung trang báo thu nhỏ -->
-<div style="background:#eef2f6;border:1px solid #dbe2ea;border-radius:14px;padding:18px;margin-bottom:22px;">
-    <div style="text-align:center;color:#94a3b8;font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;">Xem trước bố cục (đang chạy demo)</div>
+@if (!Model.Any())
+{
+    <div style="background:#fff;border-radius:10px;padding:40px;text-align:center;color:#64748b;">Chưa có khu quảng cáo (slot) nào. Tạo slot ở mục <b>Slot QC</b> trước.</div>
+}
 
-    <div class="pv-zone" data-zone="header" style="height:70px;margin-bottom:10px;"></div>
-
-    <div style="background:#0b1220;color:#fff;border-radius:8px;padding:10px 16px;font-weight:800;margin-bottom:10px;"><i class="fa fa-bolt" style="color:#0ea5a0;"></i> Wisdom IT News <span style="float:right;color:#64748b;font-weight:500;font-size:12px;">NÓNG · MỚI · VIDEO</span></div>
-
-    <div style="display:grid;grid-template-columns:90px 1fr 90px;gap:12px;align-items:start;">
-        <div class="pv-zone" data-zone="home_left" style="height:260px;"></div>
-        <div style="display:grid;grid-template-columns:1fr 200px;gap:12px;">
-            <div>
-                <div style="height:12px;background:#dde5ec;border-radius:4px;margin-bottom:8px;"></div>
-                <div style="height:12px;background:#dde5ec;border-radius:4px;width:80%;margin-bottom:14px;"></div>
-                <div class="pv-zone" data-zone="in_article" style="height:80px;margin-bottom:14px;"></div>
-                <div style="height:12px;background:#dde5ec;border-radius:4px;margin-bottom:8px;"></div>
-                <div style="height:12px;background:#dde5ec;border-radius:4px;width:90%;"></div>
-            </div>
-            <div class="pv-zone" data-zone="sidebar" style="height:200px;"></div>
-        </div>
-        <div class="pv-zone" data-zone="home_right" style="height:260px;"></div>
-    </div>
-</div>
-
-<!-- EDITOR: sắp thứ tự + chu kỳ + nút tiếp theo -->
-<div id="editors" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;"></div>
+<div id="editors" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;"></div>
 
 <style>
-    .pv-zone { position:relative; background:#fff; border:2px dashed #c3ccd6; border-radius:8px; overflow:hidden; }
-    .pv-slide { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .5s; font-size:12px; text-align:center; }
+    .ed-card { background:#fff;border:1px solid #e5eaf0;border-radius:12px;padding:14px 16px;box-shadow:0 1px 6px rgba(0,0,0,.04);display:flex;flex-direction:column; }
+    .pv-box { position:relative;background:#f1f5f9;border:2px dashed #c3ccd6;border-radius:8px;height:150px;overflow:hidden;margin-bottom:10px; }
+    .pv-slide { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .5s;font-size:12px;text-align:center;padding:6px; }
     .pv-slide.on { opacity:1; }
-    .pv-empty { display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:11px;text-align:center; }
-    .pv-num { position:absolute;top:4px;left:4px;background:rgba(14,125,133,.92);color:#fff;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px;z-index:2; }
-    .ed-card { background:#fff;border:1px solid #e5eaf0;border-radius:12px;padding:14px 16px;box-shadow:0 1px 6px rgba(0,0,0,.04); }
+    .pv-empty { display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:12px;text-align:center; }
+    .pv-num { position:absolute;top:6px;left:6px;background:rgba(14,125,133,.92);color:#fff;font-size:11px;font-weight:800;padding:1px 8px;border-radius:20px;z-index:2; }
     .ed-row { display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid #eef1f4;border-radius:8px;margin-bottom:6px;background:#fafbfc; }
     .ed-row.playing { background:#ecfdf5;border-color:#a7f3d0; }
     .ed-num { width:22px;height:22px;flex:none;border-radius:50%;background:#0e7d85;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center; }
@@ -73,133 +54,97 @@
     .ed-btn { border:none;background:#e2e8f0;color:#334155;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:12px; }
     .ed-btn:disabled { opacity:.35;cursor:default; }
     .badge { font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;color:#fff; }
-    .btn-next { background:#0e7d85;color:#fff;border:none;padding:7px 14px;border-radius:7px;font-weight:700;cursor:pointer;font-size:13px; }
+    .btn-next { background:#0e7d85;color:#fff;border:none;padding:6px 12px;border-radius:7px;font-weight:700;cursor:pointer;font-size:12px; }
     .btn-next:disabled { opacity:.4;cursor:default; }
 </style>
 
 <script>
     var ZONES = @Html.Raw(json);
-    var CUR = {};      // pos -> index đang hiển thị
-    var timers = {};   // pos -> interval
+    var CUR = {}, timers = {};
 
-    function statusBadge(a) {
+    function statusBadge(a){
         if (a.status === 'rejected') return '<span class="badge" style="background:#dc2626;">Từ chối</span>';
-        if (a.status === 'approved' && a.paymentStatus === 'paid') return '<span class="badge" style="background:#16a34a;">Đang chạy</span>';
-        if (a.paymentStatus === 'paid') return '<span class="badge" style="background:#2563eb;">Đã TT, chờ duyệt</span>';
-        return '<span class="badge" style="background:#ca8a04;">Chờ TT</span>';
+        if (a.status === 'pending')  return '<span class="badge" style="background:#ca8a04;">Chờ duyệt</span>';
+        if (!a.isActive)             return '<span class="badge" style="background:#6b7280;">Đang dừng</span>';
+        return '<span class="badge" style="background:#16a34a;">Đang chạy</span>';
     }
     function zoneOf(pos){ return ZONES.find(function(z){ return z.position===pos; }); }
 
-    // ---- Preview ----
-    function renderPreview(zone) {
-        var box = document.querySelector('.pv-zone[data-zone="' + zone.position + '"]');
-        if (!box) return;
-        box.innerHTML = '';
-        CUR[zone.position] = 0;
-        if (!zone.ads.length) { box.innerHTML = '<div class="pv-empty">' + zone.name + '<br>(chưa có QC)</div>'; return; }
-        var num = document.createElement('div'); num.className = 'pv-num'; num.id = 'num_' + zone.position; box.appendChild(num);
-        zone.ads.forEach(function (a, i) {
-            var s = document.createElement('div');
-            s.className = 'pv-slide' + (i === 0 ? ' on' : '');
-            s.style.background = a.imageUrl ? '#000' : '#f1f5f9';
-            s.innerHTML = a.imageUrl ? '<img src="' + a.imageUrl + '" style="width:100%;height:100%;object-fit:cover;">'
-                                     : '<div style="padding:4px;color:#475569;">' + a.title + '</div>';
-            box.appendChild(s);
-        });
-        showSlide(zone.position, 0);
-    }
-    function showSlide(pos, idx) {
+    function showSlide(pos, idx){
         var zone = zoneOf(pos); if (!zone || !zone.ads.length) return;
-        var box = document.querySelector('.pv-zone[data-zone="' + pos + '"]');
-        var slides = box.querySelectorAll('.pv-slide');
-        slides.forEach(function (s, i) { s.classList.toggle('on', i === idx); });
+        var box = document.getElementById('pv_' + pos); if(!box) return;
+        box.querySelectorAll('.pv-slide').forEach(function(s,i){ s.classList.toggle('on', i===idx); });
         CUR[pos] = idx;
-        var num = document.getElementById('num_' + pos);
-        if (num) num.textContent = (idx + 1) + '/' + zone.ads.length;
-        var st = document.getElementById('st_' + pos);
-        if (st) st.innerHTML = '▶ Đang chạy: <b>' + (idx + 1) + '/' + zone.ads.length + '</b> — ' + zone.ads[idx].title;
-        // tô sáng dòng đang chạy trong editor
-        var rows = document.querySelectorAll('.ed-row[data-pos="' + pos + '"]');
-        rows.forEach(function (r, i) { r.classList.toggle('playing', i === idx); });
+        var num = document.getElementById('num_' + pos); if (num) num.textContent = (idx+1) + '/' + zone.ads.length;
+        document.querySelectorAll('.ed-row[data-pos="' + pos + '"]').forEach(function(r,i){ r.classList.toggle('playing', i===idx); });
     }
-    function nextSlide(pos) {
-        var zone = zoneOf(pos); if (!zone || zone.ads.length < 2) return;
-        showSlide(pos, ((CUR[pos] || 0) + 1) % zone.ads.length);
-        resetTimer(pos); // bấm tay thì đếm lại chu kỳ từ đầu
-    }
-    function resetTimer(pos) {
+    function nextSlide(pos){ var z=zoneOf(pos); if(!z||z.ads.length<2)return; showSlide(pos, ((CUR[pos]||0)+1)%z.ads.length); resetTimer(pos); }
+    function resetTimer(pos){
         if (timers[pos]) clearInterval(timers[pos]);
-        var zone = zoneOf(pos); if (!zone || zone.ads.length < 2) return;
-        timers[pos] = setInterval(function () {
-            showSlide(pos, ((CUR[pos] || 0) + 1) % zone.ads.length);
-        }, Math.max(1, zone.rotationSeconds) * 1000);
+        var z = zoneOf(pos); if (!z || z.ads.length < 2) return;
+        timers[pos] = setInterval(function(){ showSlide(pos, ((CUR[pos]||0)+1)%z.ads.length); }, Math.max(1, z.rotationSeconds)*1000);
     }
-    function startAllTimers() { ZONES.forEach(function (z) { resetTimer(z.position); }); }
 
-    // ---- Editor ----
-    function renderEditors() {
+    function renderEditors(){
         var wrap = document.getElementById('editors');
         wrap.innerHTML = '';
-        ZONES.forEach(function (zone, zi) {
-            var card = document.createElement('div');
-            card.className = 'ed-card';
-            var rows = zone.ads.map(function (a, i) {
+        ZONES.forEach(function(zone, zi){
+            // preview slides
+            var slides = zone.ads.length
+                ? '<div class="pv-num" id="num_' + zone.position + '"></div>' + zone.ads.map(function(a,i){
+                    return '<div class="pv-slide' + (i===0?' on':'') + '" style="background:' + (a.imageUrl?'#000':'#f1f5f9') + ';">' +
+                        (a.imageUrl ? '<img src="' + a.imageUrl + '" style="width:100%;height:100%;object-fit:cover;">' : '<div style="color:#475569;">' + a.title + '</div>') + '</div>';
+                  }).join('')
+                : '<div class="pv-empty">' + zone.name + '<br>(chưa có quảng cáo)</div>';
+
+            var rows = zone.ads.length ? zone.ads.map(function(a,i){
                 return '<div class="ed-row" data-pos="' + zone.position + '">' +
-                    '<span class="ed-num">' + (i + 1) + '</span>' +
+                    '<span class="ed-num">' + (i+1) + '</span>' +
                     (a.imageUrl ? '<img class="thumb" src="' + a.imageUrl + '">' : '<span class="thumb"></span>') +
                     '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + a.title + '</div>' + statusBadge(a) + '</div>' +
-                    '<button class="ed-btn" onclick="move(' + zi + ',' + i + ',-1)" ' + (i === 0 ? 'disabled' : '') + '>▲</button>' +
-                    '<button class="ed-btn" onclick="move(' + zi + ',' + i + ',1)" ' + (i === zone.ads.length - 1 ? 'disabled' : '') + '>▼</button>' +
+                    '<button class="ed-btn" onclick="move(' + zi + ',' + i + ',-1)" ' + (i===0?'disabled':'') + '>▲</button>' +
+                    '<button class="ed-btn" onclick="move(' + zi + ',' + i + ',1)" ' + (i===zone.ads.length-1?'disabled':'') + '>▼</button>' +
                     '</div>';
-            }).join('');
-            if (!zone.ads.length) rows = '<div style="color:#94a3b8;font-size:13px;padding:8px 0;">Chưa có quảng cáo nào cho khu này.</div>';
+            }).join('') : '<div style="color:#94a3b8;font-size:13px;padding:6px 0;">Chưa có quảng cáo nào cho khu này.</div>';
+
+            var card = document.createElement('div');
+            card.className = 'ed-card';
             card.innerHTML =
-                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                     '<b style="font-size:15px;">' + zone.name + '</b>' +
                     '<span style="font-size:11px;color:#94a3b8;">' + zone.size + '</span>' +
                 '</div>' +
-                '<div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">mã khu: ' + zone.position + ' · thứ tự chạy từ trên xuống</div>' +
-                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">' +
+                '<div style="font-size:12px;color:#94a3b8;margin:2px 0 10px;">mã khu: ' + zone.position + '</div>' +
+                '<div class="pv-box" id="pv_' + zone.position + '">' + slides + '</div>' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
                     '<span style="font-size:13px;color:#475569;">Chu kỳ:</span>' +
-                    '<input type="number" min="1" value="' + zone.rotationSeconds + '" onchange="setSec(' + zi + ',this.value)" style="width:64px;padding:5px 8px;border:1px solid #d7dde3;border-radius:6px;"><span style="font-size:13px;color:#475569;">giây</span>' +
-                    '<button class="btn-next" onclick="nextSlide(\'' + zone.position + '\')" ' + (zone.ads.length < 2 ? 'disabled' : '') + '>Tiếp theo ▶</button>' +
+                    '<input type="number" min="1" value="' + zone.rotationSeconds + '" onchange="setSec(' + zi + ',this.value)" style="width:60px;padding:5px 8px;border:1px solid #d7dde3;border-radius:6px;"><span style="font-size:13px;color:#475569;">giây</span>' +
+                    '<button class="btn-next" onclick="nextSlide(\'' + zone.position + '\')" ' + (zone.ads.length<2?'disabled':'') + '>Tiếp ▶</button>' +
                 '</div>' +
-                '<div id="st_' + zone.position + '" style="font-size:12px;color:#0e7d85;font-weight:600;margin-bottom:10px;min-height:16px;">' + (zone.ads.length ? '' : '—') + '</div>' +
                 rows;
             wrap.appendChild(card);
         });
-        // đồng bộ nhãn "đang chạy" + dòng sáng theo CUR hiện tại
-        ZONES.forEach(function (z) { if (z.ads.length) showSlide(z.position, CUR[z.position] || 0); });
+        ZONES.forEach(function(z){ if (z.ads.length) showSlide(z.position, CUR[z.position]||0); });
     }
 
-    // ---- Thao tác ----
-    function move(zi, i, dir) {
+    function move(zi, i, dir){
         var ads = ZONES[zi].ads, j = i + dir;
         if (j < 0 || j >= ads.length) return;
         var t = ads[i]; ads[i] = ads[j]; ads[j] = t;
-        renderPreview(ZONES[zi]); renderEditors(); resetTimer(ZONES[zi].position);
+        CUR[ZONES[zi].position] = 0;
+        renderEditors(); resetTimer(ZONES[zi].position);
     }
-    function setSec(zi, v) {
-        ZONES[zi].rotationSeconds = Math.max(1, parseInt(v) || 5);
-        resetTimer(ZONES[zi].position);
-    }
+    function setSec(zi, v){ ZONES[zi].rotationSeconds = Math.max(1, parseInt(v)||5); resetTimer(ZONES[zi].position); }
 
-    // ---- Lưu / Hủy ----
-    document.getElementById('btnSave').addEventListener('click', function () {
-        var dto = { zones: ZONES.map(function (z) {
-            return { position: z.position, rotationSeconds: z.rotationSeconds, adIds: z.ads.map(function (a) { return a.id; }) };
-        }) };
-        fetch('/admin/SaveAdLayout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dto) })
-            .then(function (r) { return r.json(); })
-            .then(function (res) {
-                if (window.swalToast) swalToast(res.success ? 'success' : 'error', res.success ? 'Đã lưu bố cục — có hiệu lực ngay!' : (res.message || 'Lỗi'));
-                else alert(res.success ? 'Đã lưu!' : (res.message || 'Lỗi'));
-            }).catch(function () { alert('Không kết nối được máy chủ.'); });
+    document.getElementById('btnSave').addEventListener('click', function(){
+        var dto = { zones: ZONES.map(function(z){ return { position: z.position, rotationSeconds: z.rotationSeconds, adIds: z.ads.map(function(a){ return a.id; }) }; }) };
+        fetch('/admin/SaveAdLayout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(dto) })
+            .then(function(r){ return r.json(); })
+            .then(function(res){ if (window.swalToast) swalToast(res.success?'success':'error', res.success?'Đã lưu bố cục — có hiệu lực ngay!':(res.message||'Lỗi')); else alert(res.success?'Đã lưu!':(res.message||'Lỗi')); })
+            .catch(function(){ alert('Không kết nối được máy chủ.'); });
     });
-    document.getElementById('btnCancel').addEventListener('click', function () { location.reload(); });
+    document.getElementById('btnCancel').addEventListener('click', function(){ location.reload(); });
 
-    // ---- Khởi tạo ----
-    ZONES.forEach(function (z) { renderPreview(z); });
     renderEditors();
-    startAllTimers();
+    ZONES.forEach(function(z){ resetTimer(z.position); });
 </script>

@@ -1611,6 +1611,19 @@ public class AdminController : Controller
         ViewBag.Page = page;
         ViewBag.TotalPages = (int)Math.Ceiling((double)total / pageSize);
         ViewBag.AutoCfg = await _db.AutoImportSettings.FirstOrDefaultAsync() ?? new AutoImportSettings();
+
+        // ===== VIDEO đã import (nhập từ nguồn RSS loại Video) — có Source = tên nguồn =====
+        var vq = _db.Videos.Where(v => v.Source != null && v.Source != "");
+        if (sourceId.HasValue)
+        {
+            var vsrc = sources.FirstOrDefault(s => s.Id == sourceId);
+            if (vsrc != null) vq = vq.Where(v => v.Source == vsrc.Name);
+        }
+        if (!string.IsNullOrWhiteSpace(keyword)) vq = vq.Where(v => v.Title.Contains(keyword));
+        if (fromDate.HasValue) vq = vq.Where(v => v.PublishedAt >= fromDate.Value);
+        if (toDate.HasValue) vq = vq.Where(v => v.PublishedAt < toDate.Value.AddDays(1));
+        ViewBag.ImportedVideos = await vq.OrderByDescending(v => v.PublishedAt).Take(50).ToListAsync();
+
         return View(articles);
     }
 
@@ -1665,100 +1678,11 @@ public class AdminController : Controller
     }
 
     // ========================================================================
-    // KHU VỰC 21: QUẢN LÝ PHÂN LOẠI AI (ánh xạ danh mục + sửa phân loại + nhật ký)
-    // Bảng: Categories, CategoryMappings, Articles, AiCategoryCorrectionLogs, AILogs
+    // [ĐÃ GỠ] KHU VỰC 21: QUẢN LÝ PHÂN LOẠI AI (ánh xạ danh mục + tự học + sửa phân loại)
+    // Lý do: bỏ AI phân loại — mỗi nguồn RSS gắn 1 danh mục cố định (DefaultCategoryId).
+    // Các action AiManage / AddCategoryMapping / DeleteCategoryMapping / CorrectArticleCategory đã xóa.
+    // (Bảng CategoryMappings, AiCategoryCorrectionLogs vẫn giữ trong DB, không còn dùng.)
     // ========================================================================
-    // Đây là luồng xử lý trang Quản lý Phân Loại AI (ánh xạ nhãn AI -> danh mục + nhật ký sửa)
-    // Luồng: nạp danh mục, danh sách quy tắc CategoryMappings, 20 bài ngoài gần nhất, 30 log sửa
-    public async Task<IActionResult> AiManage()
-    {
-        if (!IsLoggedIn) return RedirectToAction("Login");
-        ViewBag.Categories = await _db.Categories.Where(c => c.IsVisible).OrderBy(c => c.Name).ToListAsync();
-        ViewBag.Mappings = await _db.CategoryMappings.Include(m => m.Category).OrderByDescending(m => m.Id).ToListAsync();
-        ViewBag.RecentArts = await _db.Articles.Include(a => a.Category).Where(a => a.IsExternal).OrderByDescending(a => a.CreatedAt).Take(20).ToListAsync();
-        ViewBag.Corrections = await _db.AiCategoryCorrectionLogs.OrderByDescending(l => l.Id).Take(30).ToListAsync();
-        return PartialView("_AiManage");
-    }
-
-    [HttpPost]
-    // Đây là luồng xử lý thêm/sửa quy tắc ánh xạ danh mục AI (nhãn AI -> CategoryId)
-    // Luồng: nhãn đã tồn tại -> đổi CategoryId; chưa có -> thêm CategoryMapping mới
-    // Bảng: CategoryMappings, Categories
-    public async Task<IActionResult> AddCategoryMapping(string aiLabel, int categoryId)
-    {
-        if (!IsLoggedIn) return Json(new { success = false });
-        aiLabel = (aiLabel ?? "").Trim();
-        if (aiLabel.Length == 0 || await _db.Categories.FindAsync(categoryId) == null)
-            return Json(new { success = false, message = "Dữ liệu không hợp lệ" });
-        var existing = await _db.CategoryMappings.FirstOrDefaultAsync(m => m.AiLabel == aiLabel);
-        if (existing == null) _db.CategoryMappings.Add(new CategoryMapping { AiLabel = aiLabel, CategoryId = categoryId });
-        else existing.CategoryId = categoryId;
-        await _db.SaveChangesAsync();
-        return Json(new { success = true });
-    }
-
-    [HttpPost]
-    // Đây là luồng xử lý xóa một quy tắc ánh xạ danh mục AI
-    // Bảng: CategoryMappings
-    public async Task<IActionResult> DeleteCategoryMapping(int id)
-    {
-        if (!IsLoggedIn) return Json(new { success = false });
-        var m = await _db.CategoryMappings.FindAsync(id);
-        if (m != null) { _db.CategoryMappings.Remove(m); await _db.SaveChangesAsync(); }
-        return Json(new { success = true });
-    }
-
-    // Đây là luồng xử lý sửa danh mục AI đã gán cho 1 bài (kèm TỰ HỌC quy tắc ánh xạ)
-    // Luồng: 1) Đổi Article.CategoryId sang danh mục đúng
-    //        2) TỰ HỌC: lấy tên danh mục cũ làm nhãn AI -> tạo/cập nhật CategoryMapping trỏ tới danh mục mới
-    //        3) Ghi AiCategoryCorrectionLog (audit) + AILog (action "classify_correct")
-    // Bảng: Articles, Categories, CategoryMappings, AiCategoryCorrectionLogs, AILogs
-    [HttpPost] // Chỉ nhận phương thức POST (thao tác thay đổi dữ liệu).
-    public async Task<IActionResult> CorrectArticleCategory(int articleId, int categoryId)
-    {
-        // Chưa đăng nhập → từ chối, trả JSON success=false.
-        if (!IsLoggedIn) return Json(new { success = false });
-
-        // Lấy bài viết theo id, kèm luôn danh mục hiện tại (Include Category) để biết "danh mục cũ".
-        var a = await _db.Articles.Include(x => x.Category).FirstOrDefaultAsync(x => x.Id == articleId);
-        // Lấy danh mục MỚI mà admin muốn gán.
-        var cat = await _db.Categories.FindAsync(categoryId);
-
-        // Nếu không tìm thấy bài hoặc danh mục mới → dữ liệu không hợp lệ.
-        if (a == null || cat == null) return Json(new { success = false, message = "Không hợp lệ" });
-        // Nếu danh mục mới trùng danh mục cũ → không có gì thay đổi, trả về luôn (không học quy tắc).
-        if (a.CategoryId == categoryId) return Json(new { success = true, message = "Không thay đổi" });
-
-        // Lấy tên người đang sửa (từ session) để ghi vào log; mặc định "Admin".
-        var editor = HttpContext.Session.GetString("AdminName") ?? "Admin";
-        // Lưu lại TÊN danh mục CŨ (đây chính là "nhãn AI đã gán sai") — dùng làm nhãn cho quy tắc.
-        var oldName = a.Category?.Name ?? "(chưa phân loại)";
-
-        // Cập nhật bài sang danh mục mới + mốc thời gian sửa.
-        a.CategoryId = categoryId;
-        a.UpdatedAt = DateTime.Now;
-
-        // === TỰ HỌC QUY TẮC: nhãn (danh mục cũ) -> danh mục đúng, để lần sau tự áp dụng ===
-        if (oldName != "(chưa phân loại)") // chỉ học khi bài thực sự đã có danh mục cũ
-        {
-            // Tìm xem đã có quy tắc cho nhãn này chưa.
-            var mp = await _db.CategoryMappings.FirstOrDefaultAsync(m => m.AiLabel == oldName);
-            // Chưa có → THÊM quy tắc mới (nhãn cũ → danh mục mới).
-            if (mp == null) _db.CategoryMappings.Add(new CategoryMapping { AiLabel = oldName, CategoryId = categoryId });
-            // Đã có → CẬP NHẬT quy tắc trỏ tới danh mục mới.
-            else mp.CategoryId = categoryId;
-        }
-
-        // Ghi nhật ký chỉnh sửa phân loại (audit): ai sửa, từ danh mục nào sang danh mục nào.
-        _db.AiCategoryCorrectionLogs.Add(new AiCategoryCorrectionLog { ArticleId = articleId, EditorName = editor, OldCategory = oldName, NewCategory = cat.Name });
-        // Ghi thêm 1 AILog loại "classify_correct" (ModelUsed="manual" nghĩa là do người sửa, không phải AI).
-        _db.AILogs.Add(new AILog { ArticleId = articleId, Action = "classify_correct", ResultText = $"{oldName} → {cat.Name} (bởi {editor})", ModelUsed = "manual", IsSuccess = true });
-
-        // Lưu tất cả thay đổi (đổi danh mục + quy tắc + 2 log) xuống DB trong 1 lần.
-        await _db.SaveChangesAsync();
-        // Trả về thành công.
-        return Json(new { success = true, message = "Đã đổi danh mục + lưu quy tắc" });
-    }
 
 
     // Import từ 1 nguồn cụ thể
@@ -1899,7 +1823,7 @@ public class AdminController : Controller
     [HttpPost]
     // Đây là luồng xử lý thêm nguồn RSS mới
     // Bảng: RssSources
-    public async Task<IActionResult> AddRssSource(string name, string feedUrl, string? websiteUrl, string? description, string? country, int? defaultCategoryId, int maxImport = 30)
+    public async Task<IActionResult> AddRssSource(string name, string feedUrl, string? websiteUrl, string? description, string? country, int? defaultCategoryId, int maxImport = 30, string? sourceType = null)
     {
         if (!IsLoggedIn) return Json(new { success = false });
         if (!IsSuperAdmin) return Json(new { success = false, message = "Không đủ quyền" });
@@ -1915,6 +1839,7 @@ public class AdminController : Controller
             Country = country?.Trim(),
             DefaultCategoryId = defaultCategoryId,
             MaxImport = maxImport > 0 ? maxImport : 30,
+            SourceType = sourceType == "video" ? "video" : "article",
             IsActive = true,
             CreatedAt = DateTime.Now
         });
@@ -2513,6 +2438,11 @@ public class AdminController : Controller
             query = query.Where(s => s.Name.Contains(kw) || s.SlotKey.Contains(kw) || s.Size.Contains(kw));
         }
         ViewBag.Q = q;
+        // Slug 1 bài mẫu để nút "Xem trên trang" mở đúng trang bài cho các slot ở trang chi tiết
+        ViewBag.SampleArticleSlug = await _db.Articles
+            .Where(a => a.Status == "published")
+            .OrderByDescending(a => a.PublishedAt)
+            .Select(a => a.Slug).FirstOrDefaultAsync();
         return View(await query.OrderBy(s => s.Id).ToListAsync());
     }
 
@@ -2528,8 +2458,9 @@ public class AdminController : Controller
         if (!IsLoggedIn) return RedirectToAction("Login");
         var slots = await _db.AdSlots.OrderBy(s => s.Id).ToListAsync();
         var settings = await _db.AdZoneSettings.ToListAsync();
-        // Lấy TẤT CẢ quảng cáo (kể cả QC tự thêm không qua slot, AdSlotId = null) — gom theo Position/khu.
+        // Lấy quảng cáo CHƯA xóa mềm (kể cả QC tự thêm không qua slot) — gom theo Position/khu.
         var ads = await _db.Advertisements
+            .Where(a => !a.IsDeleted)
             .OrderBy(a => a.DisplayOrder).ThenBy(a => a.Id).ToListAsync();
 
         var zones = slots.Select(s => new AdLayoutZoneVm
@@ -2653,21 +2584,30 @@ public class AdminController : Controller
     public async Task<IActionResult> Advertisements(string? filter)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
-        var query = _db.Advertisements.AsQueryable();
+        // CHỈ lấy quảng cáo CHƯA xóa cho danh sách chính
+        var query = _db.Advertisements.Where(a => !a.IsDeleted);
         if (filter == "pending") query = query.Where(a => a.Status == "pending");
         else if (filter == "active") query = query.Where(a => a.Status == "approved" && a.IsActive);
-        else if (filter == "header" || filter == "sidebar" || filter == "in_article" || filter == "home_left" || filter == "home_right") query = query.Where(a => a.Position == filter);
+        else if (filter == "paused") query = query.Where(a => a.Status == "approved" && !a.IsActive);
+        else if (!string.IsNullOrEmpty(filter) && filter != "all") query = query.Where(a => a.Position == filter);
         var ads = await query.OrderByDescending(a => a.CreatedAt).ToListAsync();
+
         ViewBag.Filter = filter ?? "all";
-        ViewBag.PendingCount = await _db.Advertisements.CountAsync(a => a.Status == "pending");
-        ViewBag.TotalImpressions = (await _db.Advertisements.SumAsync(a => (int?)a.Impressions)) ?? 0;
-        ViewBag.TotalClicks = (await _db.Advertisements.SumAsync(a => (int?)a.Clicks)) ?? 0;
+        ViewBag.PendingCount = await _db.Advertisements.CountAsync(a => !a.IsDeleted && a.Status == "pending");
+        ViewBag.TotalImpressions = (await _db.Advertisements.Where(a => !a.IsDeleted).SumAsync(a => (int?)a.Impressions)) ?? 0;
+        ViewBag.TotalClicks = (await _db.Advertisements.Where(a => !a.IsDeleted).SumAsync(a => (int?)a.Clicks)) ?? 0;
+        // Thùng rác: các QC đã xóa mềm
+        ViewBag.DeletedAds = await _db.Advertisements.Where(a => a.IsDeleted).OrderByDescending(a => a.DeletedAt).ToListAsync();
+        // Map mã vị trí -> tên tiếng Việt (đủ mọi slot hiện có) + danh sách vị trí để lọc
+        ViewBag.SlotNames = await _db.AdSlots.ToDictionaryAsync(s => s.SlotKey, s => s.Name);
+        ViewBag.SlotList = await _db.AdSlots.OrderBy(s => s.Id).ToListAsync();
         return View(ads);
     }
 
-    public IActionResult CreateAd()
+    public async Task<IActionResult> CreateAd()
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
+        ViewBag.SlotList = await _db.AdSlots.OrderBy(s => s.Id).ToListAsync();
         return View(new Advertisement());
     }
 
@@ -2686,7 +2626,7 @@ public class AdminController : Controller
             var up = await _imageUpload.SaveAsync(imageFile);
             if (up.Success) img = up.RelativePath;
         }
-        var validPos = new[] { "header", "sidebar", "in_article", "home_left", "home_right" };
+        var validPos = await _db.AdSlots.Select(s => s.SlotKey).ToListAsync();
         _db.Advertisements.Add(new Advertisement
         {
             Title = form.Title.Trim(),
@@ -2711,6 +2651,7 @@ public class AdminController : Controller
         if (!IsLoggedIn) return RedirectToAction("Login");
         var ad = await _db.Advertisements.FindAsync(id);
         if (ad == null) return RedirectToAction("Advertisements");
+        ViewBag.SlotList = await _db.AdSlots.OrderBy(s => s.Id).ToListAsync();
         return View(ad);
     }
 
@@ -2728,7 +2669,7 @@ public class AdminController : Controller
         else if (!string.IsNullOrWhiteSpace(form.ImageUrl)) ad.ImageUrl = form.ImageUrl.Trim();
         ad.Title = (form.Title ?? "").Trim();
         ad.TargetUrl = (form.TargetUrl ?? "").Trim();
-        var validPos = new[] { "header", "sidebar", "in_article", "home_left", "home_right" };
+        var validPos = await _db.AdSlots.Select(s => s.SlotKey).ToListAsync();
         ad.Position = validPos.Contains(form.Position) ? form.Position : ad.Position;
         ad.StartDate = form.StartDate;
         ad.EndDate = form.EndDate;
@@ -2825,9 +2766,195 @@ public class AdminController : Controller
         if (!IsLoggedIn) return Json(new { success = false });
         var ad = await _db.Advertisements.FindAsync(id);
         if (ad == null) return Json(new { success = false });
+        // XÓA MỀM: đưa vào thùng rác, tắt hiển thị; có thể khôi phục lại.
+        ad.IsDeleted = true;
+        ad.DeletedAt = DateTime.Now;
+        ad.IsActive = false;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // Khôi phục quảng cáo từ thùng rác
+    [HttpPost]
+    public async Task<IActionResult> RestoreAd(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var ad = await _db.Advertisements.FindAsync(id);
+        if (ad == null) return Json(new { success = false });
+        ad.IsDeleted = false;
+        ad.DeletedAt = null;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // Xóa VĨNH VIỄN (chỉ với QC đã ở trong thùng rác)
+    [HttpPost]
+    public async Task<IActionResult> PurgeAd(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var ad = await _db.Advertisements.FindAsync(id);
+        if (ad == null) return Json(new { success = false });
+        if (!ad.IsDeleted) return Json(new { success = false, message = "Chỉ xóa vĩnh viễn quảng cáo trong thùng rác." });
         _db.Advertisements.Remove(ad);
         await _db.SaveChangesAsync();
         return Json(new { success = true });
+    }
+
+    // ========================================================================
+    // ĐƠN ĐĂNG KÝ QUẢNG CÁO (AdBooking) — admin/nhân viên duyệt đơn của khách,
+    // xác nhận (gửi mail), rồi ĐƯA quảng cáo lên trang (tạo Advertisement thật).
+    // ========================================================================
+    public async Task<IActionResult> AdBookings()
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var bookings = await _db.AdBookings.OrderByDescending(b => b.CreatedAt).ToListAsync();
+        ViewBag.SlotNames = await _db.AdSlots.ToDictionaryAsync(s => s.SlotKey, s => s.Name);
+        return View(bookings);
+    }
+
+    // Xác nhận đơn + GỬI MAIL cho khách
+    [HttpPost]
+    public async Task<IActionResult> ConfirmAdBooking(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var b = await _db.AdBookings.FindAsync(id);
+        if (b == null) return Json(new { success = false });
+        b.Status = "AwaitingPayment";
+        await _db.SaveChangesAsync();
+
+        bool emailSent = false; string? emailMsg = null;
+        try
+        {
+            if (_email.IsConfigured && !string.IsNullOrWhiteSpace(b.Email))
+            {
+                var html = $@"<div style='font-family:Arial,sans-serif;max-width:560px;margin:auto;'>
+<h2 style='color:#0e7d85;'>Đơn quảng cáo #{b.Id} đã được xác nhận</h2>
+<p>Xin chào <b>{System.Net.WebUtility.HtmlEncode(b.ContactName)}</b>,</p>
+<p>Đơn đăng ký quảng cáo của bạn tại <b>Báo Online WisdomITNews</b> đã được <b>xác nhận</b>. Sau khi nhận thanh toán, chúng tôi sẽ đưa banner của bạn lên trang theo vị trí đã đăng ký.</p>
+<p style='color:#475569;'>Cảm ơn bạn đã tin dùng WisdomITNews.</p></div>";
+                var (ok, err) = await _email.SendAsync(b.Email, $"[WisdomITNews] Xác nhận đơn quảng cáo #{b.Id}", html, b.ContactName);
+                emailSent = ok; emailMsg = err;
+            }
+            else emailMsg = "SMTP chưa cấu hình";
+        }
+        catch (Exception ex) { emailMsg = ex.Message; _logger.LogWarning(ex, "Gửi mail xác nhận đơn QC #{Id} lỗi", b.Id); }
+
+        return Json(new { success = true, emailSent, emailMsg });
+    }
+
+    // Hủy đơn
+    [HttpPost]
+    public async Task<IActionResult> CancelAdBooking(int id)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var b = await _db.AdBookings.FindAsync(id);
+        if (b == null) return Json(new { success = false });
+        b.Status = "Rejected";
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // Đặt trạng thái theo quy trình (admin bấm thanh trạng thái)
+    [HttpPost]
+    public async Task<IActionResult> SetBookingStatus(int id, string status)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var allowed = new[] { "PendingConfirmation", "AwaitingPayment", "AwaitingContent", "UnderReview", "Scheduled", "Live", "Completed", "Rejected" };
+        if (!allowed.Contains(status)) return Json(new { success = false, message = "Trạng thái không hợp lệ." });
+        var b = await _db.AdBookings.FindAsync(id);
+        if (b == null) return Json(new { success = false });
+        b.Status = status;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // Lưu ghi chú nội bộ cho đơn
+    [HttpPost]
+    public async Task<IActionResult> SaveBookingNote(int id, string? note)
+    {
+        if (!IsLoggedIn) return Json(new { success = false });
+        var b = await _db.AdBookings.FindAsync(id);
+        if (b == null) return Json(new { success = false });
+        b.AdminNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    // ĐƯA LÊN TRANG: từ đơn -> tạo Advertisement thật.
+    //  adType = "image": tải banner ảnh + link đích.
+    //  adType = "html" : dán mã HTML/JS hoặc upload file .html (chạy trong iframe sandbox).
+    [HttpPost]
+    public async Task<IActionResult> PublishAdBooking(int id, string? adType, string? targetUrl,
+        IFormFile? bannerFile, string? htmlContent, IFormFile? htmlFile)
+    {
+        if (!IsLoggedIn) { TempData["Ok"] = "Chưa đăng nhập."; return RedirectToAction("AdBookings"); }
+        var b = await _db.AdBookings.FindAsync(id);
+        if (b == null) return RedirectToAction("AdBookings");
+
+        adType = adType == "html" ? "html" : "image";
+        string? img = null, html = null;
+
+        if (adType == "html")
+        {
+            // Ưu tiên file .html tải lên; không có thì lấy phần dán trong ô mã
+            if (htmlFile != null && htmlFile.Length > 0)
+            {
+                using var reader = new StreamReader(htmlFile.OpenReadStream());
+                html = await reader.ReadToEndAsync();
+            }
+            else html = htmlContent;
+            if (string.IsNullOrWhiteSpace(html)) { TempData["Ok"] = "⚠ Vui lòng dán mã HTML/JS hoặc chọn file .html."; return RedirectToAction("AdBookings"); }
+        }
+        else
+        {
+            if (bannerFile != null && bannerFile.Length > 0)
+            {
+                var up = await _imageUpload.SaveAsync(bannerFile);
+                if (up.Success) img = up.RelativePath;
+            }
+            if (string.IsNullOrEmpty(img)) { TempData["Ok"] = "⚠ Vui lòng chọn ảnh banner để đưa lên trang."; return RedirectToAction("AdBookings"); }
+        }
+
+        var now = DateTime.Now;
+        var slot = await _db.AdSlots.FirstOrDefaultAsync(s => s.SlotKey == b.AdPosition);
+        _db.Advertisements.Add(new Advertisement
+        {
+            Title = (string.IsNullOrWhiteSpace(b.CompanyName) ? b.ContactName : b.CompanyName) + $" — Đơn #{b.Id}",
+            AdType = adType,
+            ImageUrl = img,
+            HtmlContent = html,
+            TargetUrl = string.IsNullOrWhiteSpace(targetUrl) ? (b.Website ?? "#") : targetUrl.Trim(),
+            Position = b.AdPosition,
+            AdSlotId = slot?.Id,
+            Days = b.DurationDays,
+            Amount = b.Amount,
+            StartDate = now,
+            EndDate = now.AddDays(b.DurationDays <= 0 ? 7 : b.DurationDays),
+            IsActive = true,
+            Status = "approved",
+            PaymentStatus = "paid",
+            CreatedByAdminId = AdminId,
+            CreatedByName = (HttpContext.Session.GetString("AdminName") ?? "Admin") + $" (đơn #{b.Id})",
+            BuyerPhone = b.Phone,
+            CreatedAt = now
+        });
+        b.Status = "Live";
+        await _db.SaveChangesAsync();
+
+        try
+        {
+            if (_email.IsConfigured && !string.IsNullOrWhiteSpace(b.Email))
+            {
+                var emailHtml = $@"<div style='font-family:Arial,sans-serif;max-width:560px;margin:auto;'>
+<h2 style='color:#16a34a;'>Quảng cáo của bạn đã lên sóng 🎉</h2>
+<p>Xin chào <b>{System.Net.WebUtility.HtmlEncode(b.ContactName)}</b>, banner quảng cáo (đơn #{b.Id}) đã được đưa lên trang tại vị trí <b>{System.Net.WebUtility.HtmlEncode(slot?.Name ?? b.AdPosition)}</b>, chạy {b.DurationDays} ngày.</p></div>";
+                await _email.SendAsync(b.Email, $"[WisdomITNews] Quảng cáo đơn #{b.Id} đã lên sóng", emailHtml, b.ContactName);
+            }
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Gửi mail lên sóng đơn QC #{Id} lỗi", b.Id); }
+
+        TempData["Ok"] = $"Đã đưa quảng cáo của đơn #{b.Id} lên trang.";
+        return RedirectToAction("AdBookings");
     }
 
     // ========================================================================

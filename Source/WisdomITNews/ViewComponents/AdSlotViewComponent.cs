@@ -20,7 +20,8 @@ public class AdSlotViewComponent : ViewComponent
         var now = DateTime.Now;
         // Xoay vòng theo THỨ TỰ admin đặt (DisplayOrder tăng dần), không còn random.
         var ads = await _db.Advertisements
-            .Where(a => a.Position == position && a.IsActive && a.Status == "approved"
+            .Include(a => a.AdSlot)
+            .Where(a => a.Position == position && !a.IsDeleted && a.IsActive && a.Status == "approved"
                         && (a.StartDate == null || a.StartDate <= now)
                         && (a.EndDate == null || a.EndDate >= now))
             .OrderBy(a => a.DisplayOrder).ThenBy(a => a.Id)

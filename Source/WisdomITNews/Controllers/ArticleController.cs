@@ -147,7 +147,7 @@ public class ArticleController : Controller
     // Đây là luồng xử lý nạp thêm bài cùng thể loại (cuộn vô hạn ở trang chi tiết)
     public async Task<IActionResult> LoadRelated(int categoryId, int excludeId, int skip)
     {
-        const int take = 6;
+        const int take = 7;
         var arts = await _db.Articles
             .Include(a => a.Category)
             .Where(a => a.Status == "published" && a.CategoryId == categoryId && a.Id != excludeId)

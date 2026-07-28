@@ -1,25 +1,55 @@
 @model WisdomITNews.Models.AdZoneRender
 @{
     var ads = (Model?.Ads ?? new List<WisdomITNews.Models.Advertisement>())
-              .Where(a => !string.IsNullOrEmpty(a.ImageUrl)).ToList();
+              .Where(a => !string.IsNullOrEmpty(a.ImageUrl) || (a.AdType == "html" && !string.IsNullOrEmpty(a.HtmlContent)))
+              .ToList();
     if (ads.Count == 0) { return; }
     var rotMs = Model?.RotationMs ?? 5000;
     var first = ads[0];
     bool isHomeRail = first.Position == "home_left" || first.Position == "home_right";
     var uid = "adrot_" + Guid.NewGuid().ToString("N").Substring(0, 8);
-    var railH = isHomeRail ? 600 : 0; // 0 = tự khóa theo ảnh cao nhất
+
+    // Chiều cao khu: rail=600; nếu có ad HTML thì phải cố định chiều cao theo kích thước slot (…x{H}).
+    int ParseH(string? size)
+    {
+        if (string.IsNullOrEmpty(size)) return 0;
+        var i = size.LastIndexOf('x');
+        if (i < 0 || i + 1 >= size.Length) return 0;
+        var d = new string(size.Substring(i + 1).TakeWhile(char.IsDigit).ToArray());
+        return int.TryParse(d, out var h) ? h : 0;
+    }
+    int slotH = ParseH(first.AdSlot?.Size);
+    bool hasHtml = ads.Any(a => a.AdType == "html");
+    int boxH = isHomeRail ? 600 : (hasHtml ? (slotH > 0 ? slotH : 250) : 0); // 0 = tự khóa theo ảnh
+    // Tính sẵn chuỗi style (tránh nội suy $"" trong thuộc tính -> Razor báo lỗi)
+    string boxHeightCss = boxH > 0 ? ("height:" + boxH + "px;") : "";
+    string imgHeightCss = boxH > 0 ? ("height:" + boxH + "px;object-fit:cover;") : "height:auto;";
+    int iframeH = boxH > 0 ? boxH : 250;
 }
 <div class="ad-slot ad-@first.Position" style="text-align:center;margin:@(isHomeRail ? "0" : "12px 0");width:100%;">
-    <div id="@uid" class="ad-rot" style="position:relative;width:100%;@(isHomeRail ? "height:600px;" : "")overflow:hidden;border-radius:@(isHomeRail ? "8px" : "6px");">
+    <div id="@uid" class="ad-rot" style="position:relative;width:100%;@(boxHeightCss)overflow:hidden;border-radius:@(isHomeRail ? "8px" : "6px");">
         @for (int i = 0; i < ads.Count; i++)
         {
             var ad = ads[i];
-            <a class="ad-rot-slide" data-id="@ad.Id"
-               href="/ad/click/@ad.Id" target="_blank" rel="nofollow sponsored noopener" title="@ad.Title"
-               style="position:@(i == 0 ? "relative" : "absolute");top:0;left:0;width:100%;display:block;opacity:@(i == 0 ? "1" : "0");transition:opacity .6s ease;@(i == 0 ? "" : "pointer-events:none;")">
-                <img src="@ad.ImageUrl" alt="@ad.Title"
-                     style="width:100%;@(isHomeRail ? "height:600px;object-fit:cover;" : "height:auto;")display:block;" />
-            </a>
+            var on = i == 0;
+            if (ad.AdType == "html" && !string.IsNullOrEmpty(ad.HtmlContent))
+            {
+                <div class="ad-rot-slide" data-id="@ad.Id"
+                     style="position:@(on ? "relative" : "absolute");top:0;left:0;width:100%;opacity:@(on ? "1" : "0");transition:opacity .6s ease;@(on ? "" : "pointer-events:none;")">
+                    @* Mã HTML/JS của khách chạy trong iframe SANDBOX null-origin: cách ly hoàn toàn khỏi site *@
+                    <iframe sandbox="allow-scripts allow-popups allow-forms" srcdoc="@ad.HtmlContent" scrolling="no"
+                            style="width:100%;height:@(iframeH)px;border:0;display:block;background:#fff;"></iframe>
+                </div>
+            }
+            else
+            {
+                <a class="ad-rot-slide" data-id="@ad.Id"
+                   href="/ad/click/@ad.Id" target="_blank" rel="nofollow sponsored noopener" title="@ad.Title"
+                   style="position:@(on ? "relative" : "absolute");top:0;left:0;width:100%;display:block;opacity:@(on ? "1" : "0");transition:opacity .6s ease;@(on ? "" : "pointer-events:none;")">
+                    <img src="@ad.ImageUrl" alt="@ad.Title"
+                         style="width:100%;@(imgHeightCss)display:block;" />
+                </a>
+            }
         }
     </div>
     <div style="font-size:10px;color:#9ca3af;margin-top:@(isHomeRail ? "6px" : "2px");letter-spacing:.3px;">Quảng cáo</div>
@@ -34,7 +64,7 @@
         try { fetch('/ad/impression/' + id, { method: 'GET', keepalive: true }); } catch (e) {}
     }
     function lockHeight() {
-        if (@railH > 0) return; // rail đã cố định 600px
+        if (@boxH > 0) return; // đã cố định chiều cao (rail / có ad HTML)
         var max = 0;
         slides.forEach(function (s) { if (s.offsetHeight > max) max = s.offsetHeight; });
         if (max > 0) box.style.height = max + 'px';
