@@ -1,9 +1,12 @@
 @using WisdomITNews.Models
+@using Microsoft.EntityFrameworkCore
+@inject WisdomITNews.Data.AppDbContext _rssDb
 @model List<Article>
 @{
     Layout = "_ManagerLayout";
     ViewData["Title"] = "Nhập Bài Báo";
     var sources = ViewBag.Sources as List<RssSource> ?? new List<RssSource>();
+    var catList = await _rssDb.Categories.Where(c => c.IsVisible).OrderBy(c => c.SortOrder).ToListAsync();
     var selectedSourceId = ViewBag.SelectedSourceId as int?;
     var keyword = ViewBag.Keyword as string;
     var fromDate = ViewBag.FromDate as string;
@@ -34,8 +37,18 @@
             <input type="url" name="feedUrl" placeholder="URL RSS feed" required style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
             <input type="url" name="websiteUrl" placeholder="Link trang chủ" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
             <input type="text" name="country" placeholder="Quốc gia (VN/US)" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
-            <input type="number" name="defaultCategoryId" placeholder="Danh mục mặc định (ID)" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+            <select name="defaultCategoryId" required title="Danh mục cho nguồn này" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;">
+                <option value="">— Chọn danh mục —</option>
+                @foreach (var c in catList)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
             <input type="number" name="maxImport" placeholder="Số bài tối đa" value="30" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
+            <select name="sourceType" title="Loại nội dung nguồn này nhập về" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;">
+                <option value="article">Loại: Bài viết</option>
+                <option value="video">Loại: Video (YouTube)</option>
+            </select>
             <input type="text" name="description" placeholder="Mô tả" style="padding:8px 12px;border:1px solid #d1d5db;font-size:13px;" />
             <button type="submit" style="background:#0e7d85;color:#fff;padding:8px 16px;border:none;font-weight:600;font-size:13px;cursor:pointer;">Thêm nguồn</button>
         </form>
@@ -56,6 +69,7 @@
                     <th style="padding:10px;">Trạng thái</th>
                     <th style="padding:10px;">Lần import</th>
                     <th style="padding:10px;">Tổng bài</th>
+                    <th style="padding:10px;">Danh mục</th>
                     <th style="padding:10px;text-align:right;">Hành động</th>
                 </tr>
             </thead>
@@ -91,6 +105,17 @@
                         </td>
                         <td style="padding:10px;color:#6c757d;">@(src.LastImportAt?.ToString("dd/MM/yyyy HH:mm") ?? "Chưa")</td>
                         <td style="padding:10px;font-weight:600;">@src.TotalImported</td>
+                        <td style="padding:10px;">
+                            @{ var srcCat = catList.FirstOrDefault(c => c.Id == src.DefaultCategoryId); }
+                            @if (srcCat != null)
+                            {
+                                <span style="display:inline-block;padding:3px 9px;background:#e0f2f1;color:#0e7d85;font-size:11px;font-weight:600;border-radius:12px;">@srcCat.Name</span>
+                            }
+                            else
+                            {
+                                <span style="color:#94a3b8;">—</span>
+                            }
+                        </td>
                         <td style="padding:10px;text-align:right;white-space:nowrap;">
                             <button onclick="importFromSource(@src.Id)"
                                     style="padding:5px 10px;background:#16a34a;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;">

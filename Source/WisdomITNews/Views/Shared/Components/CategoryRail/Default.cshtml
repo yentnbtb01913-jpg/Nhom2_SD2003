@@ -1,0 +1,19 @@
+@model List<WisdomITNews.Models.HomeCategoryBlock>
+@if (Model.Any())
+{
+    <div class="wi-cat-rail">
+        @foreach (var b in Model)
+        {
+            <div class="wi-cat-rail-block">
+                <a href="/danh-muc/@b.Category.Slug" class="wi-cat-rail-head">@b.Category.Icon @b.Category.Name</a>
+                @foreach (var a in b.Articles)
+                {
+                    <a class="wi-cat-rail-item" href="/bai-viet/@a.Slug">
+                        <img src="@(string.IsNullOrWhiteSpace(a.Thumbnail) ? "/images/placeholder.jpg" : a.Thumbnail)" alt="@a.Title" loading="lazy" />
+                        <span>@a.Title</span>
+                    </a>
+                }
+            </div>
+        }
+    </div>
+}

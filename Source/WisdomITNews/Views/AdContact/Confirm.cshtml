@@ -1,0 +1,64 @@
+@using WisdomITNews.Models
+@model WisdomITNews.Models.AdBooking
+@{
+    ViewData["Title"] = "Xác nhận đơn quảng cáo";
+    var slots = ViewBag.Slots as List<AdSlot> ?? new List<AdSlot>();
+    var slot = slots.FirstOrDefault(s => s.SlotKey == Model.AdPosition);
+    var posLabel = slot != null ? $"{slot.Name} ({slot.Size})" : Model.AdPosition;
+}
+<div class="container" style="max-width:640px;margin:0 auto;padding:28px 16px 60px;">
+    <h1 style="color:#0e7d85;font-weight:800;font-size:24px;margin-bottom:4px;">Xác nhận thông tin</h1>
+    <p style="color:#6b7280;margin-bottom:20px;">Vui lòng kiểm tra lại. Bấm "Xác nhận đặt" để hoàn tất và nhận email hướng dẫn thanh toán.</p>
+
+    <div style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <div style="background:#e6f4f5;padding:12px 18px;font-weight:800;color:#0e7d85;">Đơn quảng cáo — Báo Online</div>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <tbody>
+                <tr><td class="k">Loại</td><td class="v">@(Model.BuyerType == "company" ? "Công ty / Tổ chức" : "Cá nhân")</td></tr>
+                <tr><td class="k">Người liên hệ</td><td class="v">@Model.ContactName</td></tr>
+                <tr><td class="k">Điện thoại</td><td class="v">@Model.Phone</td></tr>
+                <tr><td class="k">Email</td><td class="v">@Model.Email</td></tr>
+                @if (!string.IsNullOrWhiteSpace(Model.Address))
+                {
+                    <tr><td class="k">Địa chỉ</td><td class="v">@Model.Address</td></tr>
+                }
+                @if (Model.BuyerType == "company")
+                {
+                    <tr><td class="k">Công ty</td><td class="v">@Model.CompanyName</td></tr>
+                    @if (!string.IsNullOrWhiteSpace(Model.TaxCode)) { <tr><td class="k">Mã số thuế</td><td class="v">@Model.TaxCode</td></tr> }
+                    @if (!string.IsNullOrWhiteSpace(Model.Website)) { <tr><td class="k">Website</td><td class="v">@Model.Website</td></tr> }
+                }
+                <tr><td class="k">Vị trí</td><td class="v">@posLabel</td></tr>
+                <tr><td class="k">Thời lượng</td><td class="v">@Model.DurationDays ngày</td></tr>
+                @if (!string.IsNullOrWhiteSpace(Model.Note))
+                {
+                    <tr><td class="k">Ghi chú</td><td class="v">@Model.Note</td></tr>
+                }
+                <tr><td class="k" style="border-top:2px solid #0e7d85;">Tạm tính</td>
+                    <td class="v" style="border-top:2px solid #0e7d85;font-weight:800;color:#0e7d85;font-size:17px;">@Model.Amount.ToString("#,##0") đ</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <form method="post" action="/lien-he-quang-cao/dat" style="margin-top:22px;display:flex;gap:12px;justify-content:flex-end;">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="BuyerType" value="@Model.BuyerType" />
+        <input type="hidden" name="ContactName" value="@Model.ContactName" />
+        <input type="hidden" name="Phone" value="@Model.Phone" />
+        <input type="hidden" name="Email" value="@Model.Email" />
+        <input type="hidden" name="Address" value="@Model.Address" />
+        <input type="hidden" name="CompanyName" value="@Model.CompanyName" />
+        <input type="hidden" name="TaxCode" value="@Model.TaxCode" />
+        <input type="hidden" name="Website" value="@Model.Website" />
+        <input type="hidden" name="AdPosition" value="@Model.AdPosition" />
+        <input type="hidden" name="DurationDays" value="@Model.DurationDays" />
+        <input type="hidden" name="Note" value="@Model.Note" />
+        <a href="/lien-he-quang-cao/dang-ky" style="padding:11px 20px;border:1px solid #d1d5db;border-radius:8px;text-decoration:none;color:#374151;">Quay lại sửa</a>
+        <button type="submit" style="background:#0e7d85;color:#fff;font-weight:700;padding:11px 26px;border:none;border-radius:8px;cursor:pointer;"><i class="fa fa-check"></i> Xác nhận đặt</button>
+    </form>
+</div>
+
+<style>
+    .container table .k{padding:11px 18px;color:#6b7280;width:38%;border-top:1px solid #f1f5f9;}
+    .container table .v{padding:11px 18px;color:#1f2937;font-weight:600;border-top:1px solid #f1f5f9;}
+</style>

@@ -1,364 +1,351 @@
 @model WisdomITNews.Models.HomeViewModel
+@using WisdomITNews.Models
 @using WisdomITNews.Services
 @*
-    Trang chủ — re-skin theo phong cách Báo Mới (2 cột: nội dung chính + "Nóng 24H").
-    Dùng nguyên HomeViewModel cũ (Featured / Latest / AI / Popular / Categories / Tags).
-    Style trong wwwroot/css/baomoi-skin.css. Không đụng controller/route/model.
+    TRANG CHỦ — bố cục đầy đủ theo Báo Thanh Niên:
+    Focus (tin lớn + tag Tiêu điểm + lưới 4 cột) | sidebar (Tin mới/Đọc nhiều)
+    → dải 3 quảng cáo → HAI LUỒNG CỘT (block chính + widget sidebar sticky)
+    → Multimedia (nền xanh) → "Đừng bỏ lỡ" (đánh số 1..9).
+    Khung: Bootstrap row/col. Style: wwwroot/css/wisdom-site.css. Dữ liệu thật.
 *@
 @{
-    ViewData["Title"] = "Trang Chủ";
+    ViewData["Title"] = "Trang chủ";
     Layout = "_Layout";
 
-    var shown = new HashSet<int>();
+    Func<Article, string> U = a => "/bai-viet/" + a.Slug;
+    Func<Article, string> T = a => string.IsNullOrWhiteSpace(a.Thumbnail) ? "/images/placeholder.jpg" : a.Thumbnail;
 
-    // Tin chủ đạo (ưu tiên Featured, fallback Latest)
-    var top = Model.FeaturedArticles.FirstOrDefault() ?? Model.LatestArticles.FirstOrDefault();
-    if (top != null) shown.Add(top.Id);
+    var feat = Model.FeaturedArticles.Concat(Model.LatestArticles)
+        .GroupBy(x => x.Id).Select(g => g.First()).ToList();
+    var big = feat.FirstOrDefault();
+    var related = feat.Skip(1).Take(3).ToList();
+    var subGrid = feat.Skip(4).Take(8).ToList();
 
-    // Hàng 3 card nổi bật (loại trùng tin chủ đạo)
-    var highlights = Model.FeaturedArticles.Concat(Model.LatestArticles)
-        .Where(a => !shown.Contains(a.Id))
-        .GroupBy(a => a.Id).Select(g => g.First())
-        .Take(3).ToList();
-    foreach (var a in highlights) shown.Add(a.Id);
+    // Tách riêng khối AI để đặt xuống CUỐI cột trái (lấp vùng trống dưới cùng)
+    var aiBlock = Model.CategoryBlocks.FirstOrDefault(b =>
+        (b.Category.Slug ?? "").Contains("ai")
+        || (b.Category.Name ?? "").ToLower().Contains("ai")
+        || (b.Category.Name ?? "").ToLower().Contains("machine"));
+    var restBlocks = Model.CategoryBlocks.Where(b => b != aiBlock).ToList();
 
-    // Danh sách "Tin mới nhất" (loại các tin đã hiển thị)
-    var latest = Model.LatestArticles
-        .Where(a => !shown.Contains(a.Id))
-        .GroupBy(a => a.Id).Select(g => g.First())
-        .Take(6).ToList();
-    foreach (var a in latest) shown.Add(a.Id);
+    // Chia khối còn lại thành 2 luồng: cột chính (chẵn) và sidebar (lẻ)
+    var mainBlocks = restBlocks.Where((b, i) => i % 2 == 0).ToList();
+    var sideBlocks = restBlocks.Where((b, i) => i % 2 == 1).ToList();
+    if (aiBlock != null) { mainBlocks.Add(aiBlock); }   // AI xuống cuối cột trái
 
-    // Số bài đã hiển thị (để infinite scroll bỏ qua, tránh trùng)
-    foreach (var a in Model.AIArticles) shown.Add(a.Id);
-    int shownCount = shown.Count;
+    // Danh mục con theo danh mục cha (cho sub-tab)
+    var childLookup = Model.Categories.Where(c => c.ParentCategoryId != null)
+        .GroupBy(c => c.ParentCategoryId!.Value)
+        .ToDictionary(g => g.Key, g => g.ToList());
+
+    // "Đừng bỏ lỡ" — 9 tin
+    var dontMiss = Model.PopularArticles.Concat(Model.LatestArticles)
+        .GroupBy(x => x.Id).Select(g => g.First()).Take(9).ToList();
 }
 
-<!-- TICKER (Breaking News) -->
-<div class="ticker-wrap">
-    <div class="container">
-        <span class="ticker-label">⚡ Nóng</span>
-        <div class="ticker-track">
-            <div class="ticker-content">
-                @foreach (var a in Model.LatestArticles.Where(a => a.IsBreaking).Take(5).ToList().Concat(Model.LatestArticles.Where(a => a.IsBreaking).Take(5).ToList()))
-                {
-                    <a href="/bai-viet/@a.Slug" style="color:#fff;text-decoration:none;">@a.Title</a>
-                }
-                @if (!Model.LatestArticles.Any(a => a.IsBreaking))
-                {
-                    @foreach (var a in Model.LatestArticles.Take(3).ToList().Concat(Model.LatestArticles.Take(3).ToList()))
-                    {
-                        <a href="/bai-viet/@a.Slug" style="color:#fff;text-decoration:none;">@a.Title</a>
-                    }
-                }
-            </div>
-        </div>
-    </div>
-</div>
+<div class="wi-home container" style="max-width:1200px;">
 
-<!-- Dải quảng cáo "Trang Chủ" (home_left/home_right) — hiện ở 2 gutter trái/phải khi màn hình đủ rộng,
-     sticky trong vùng nội dung, tự ẩn trên tablet/mobile, không hiện khung rỗng nếu không có QC. -->
-<div class="home-rail-wrap">
-    <aside class="home-rail home-rail-left">
-        @await Component.InvokeAsync("AdSlot", new { position = "home_left" })
-    </aside>
-
-    <div class="bm-home container">
-    <div class="bm-grid">
-
-        <!-- ===================== CỘT CHÍNH ===================== -->
-        <main class="bm-main">
-
-            <!-- Tin chủ đạo: tiêu đề trái + ảnh phải -->
-            @if (top != null)
+    <!-- ==================== KHU NỔI BẬT + SIDEBAR ==================== -->
+    <div class="row">
+        <div class="col-lg-8">
+            @if (big != null)
             {
-                <article class="bm-top-story" onclick="location.href='/bai-viet/@top.Slug'">
-                    <div class="bm-ts-text">
-                        <div class="bm-meta"><span class="bm-cat">@top.Category?.Icon @top.Category?.Name</span></div>
-                        <h2><a href="/bai-viet/@top.Slug">@top.Title</a></h2>
-                        <div class="bm-meta">
-                            <span><i class="fa fa-clock"></i> @SlugHelper.FormatDate(top.PublishedAt)</span>
-                            <span class="sep">·</span>
-                            <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(top.Views)</span>
+                <article class="wi-lead">
+                    <div class="row g-0">
+                        <div class="col-md-7">
+                            <a href="@U(big)" class="wi-thumb"><img src="@T(big)" alt="@big.Title" fetchpriority="high" /></a>
                         </div>
-                        <p class="bm-desc">@top.Summary</p>
-                    </div>
-                    <div class="bm-ts-thumb">
-                        @if (!string.IsNullOrWhiteSpace(top.Thumbnail))
-                        {
-                            <img src="@top.Thumbnail" alt="@top.Title" loading="lazy" />
-                        }
-                        else
-                        {
-                            <div class="bm-noimg"></div>
-                        }
+                        <div class="col-md-5 wi-lead-body">
+                            @if (big.Category != null) { <a href="/danh-muc/@big.Category.Slug" class="wi-cat-label">@big.Category.Name</a> }
+                            <a href="@U(big)"><h2 class="wi-lc-title">@big.Title</h2></a>
+                            <p class="wi-sapo">@big.Summary</p>
+                        </div>
                     </div>
                 </article>
             }
 
-            <!-- Hàng 3 card -->
-            @if (highlights.Any())
+            @if (related.Any())
             {
-                <div class="bm-cards3">
-                    @foreach (var a in highlights)
+                <div class="row wi-lead-related">
+                    @foreach (var a in related)
                     {
-                        <article class="bm-card" onclick="location.href='/bai-viet/@a.Slug'">
-                            <div class="bm-thumb" style="position:relative;">
-                                @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
-                                {
-                                    <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
-                                }
-                                else
-                                {
-                                    <div class="bm-noimg"></div>
-                                }
-                            </div>
-                            <h4><a href="/bai-viet/@a.Slug">@a.Title</a></h4>
-                            <div class="bm-meta">
-                                <span class="bm-cat">@a.Category?.Name</span>
-                                <span class="sep">·</span>
-                                <span>@SlugHelper.FormatDate(a.PublishedAt)</span>
-                            </div>
-                        </article>
-                    }
-                </div>
-            }
-
-            <!-- Dải chip chủ đề -->
-            @if (Model.Categories.Any())
-            {
-                <div class="bm-chips">
-                    @foreach (var c in Model.Categories.Take(6))
-                    {
-                        <a class="bm-chip" href="/danh-muc/@c.Slug"># @c.Name</a>
-                    }
-                </div>
-            }
-
-            <!-- Tin mới nhất (danh sách ảnh-trái) -->
-            @if (latest.Any())
-            {
-                <section class="bm-section">
-                    <div class="bm-section-head">
-                        <h3>Tin mới nhất</h3>
-                        <a class="bm-more" href="/danh-muc">Xem tất cả ›</a>
-                    </div>
-                    @foreach (var a in latest)
-                    {
-                        <div class="bm-list-item" onclick="location.href='/bai-viet/@a.Slug'">
-                            <div class="bm-thumb" style="position:relative;">
-                                @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
-                                {
-                                    <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
-                                }
-                                else
-                                {
-                                    <div class="bm-noimg"></div>
-                                }
-                            </div>
-                            <div class="bm-it-body">
-                                <div class="bm-meta"><span class="bm-cat">@a.Category?.Icon @a.Category?.Name</span></div>
-                                <h4><a href="/bai-viet/@a.Slug">@a.Title</a></h4>
-                                <p class="bm-desc">@a.Summary</p>
-                                <div class="bm-meta">
-                                    <span><i class="fa fa-clock"></i> @SlugHelper.FormatDate(a.PublishedAt)</span>
-                                    <span class="sep">·</span>
-                                    <span><i class="fa fa-eye"></i> @SlugHelper.FormatViews(a.Views)</span>
-                                </div>
+                        <div class="col-md-4">
+                            <div class="wi-rel-item">
+                                <a href="@U(a)"><h3 class="wi-lc-title">@a.Title</h3></a>
+                                <p class="wi-sapo">@a.Summary</p>
                             </div>
                         </div>
                     }
-                </section>
-            }
-
-            <!-- Góc AI & Công nghệ (giữ chất báo IT) -->
-            @if (Model.AIArticles.Any())
-            {
-                <section class="bm-section bm-ai">
-                    <div class="bm-section-head">
-                        <h3><span class="hash">#</span>GÓC AI &amp; CÔNG NGHỆ</h3>
-                        <a class="bm-more" href="/danh-muc/ai-machine-learning">Xem tất cả ›</a>
-                    </div>
-                    <div class="bm-cards3">
-                        @foreach (var a in Model.AIArticles)
-                        {
-                            <article class="bm-card" onclick="location.href='/bai-viet/@a.Slug'">
-                                <div class="bm-thumb" style="position:relative;">
-                                    @if (!string.IsNullOrWhiteSpace(a.Thumbnail))
-                                    {
-                                        <img src="@a.Thumbnail" alt="@a.Title" loading="lazy" />
-                                    }
-                                    else
-                                    {
-                                        <div class="bm-noimg"></div>
-                                    }
-                                </div>
-                                <h4><a href="/bai-viet/@a.Slug">@a.Title</a></h4>
-                                <div class="bm-meta">
-                                    <span>@SlugHelper.FormatDate(a.PublishedAt)</span>
-                                    <span class="sep">·</span>
-                                    <span>@SlugHelper.FormatViews(a.Views) xem</span>
-                                </div>
-                            </article>
-                        }
-                    </div>
-                </section>
-            }
-            <!-- Infinite scroll: tự nạp thêm bài sau Góc AI (có video xen kẽ) -->
-            <div id="feedMore"></div>
-            <div id="feedLoader" style="display:none;text-align:center;padding:18px;color:#94a3b8;font-size:14px;"><i class="fa fa-spinner fa-spin"></i> Đang tải thêm bài...</div>
-            <div id="feedEnd" style="display:none;text-align:center;padding:18px;color:#cbd5e1;font-size:13px;">— Bạn đã xem hết tin —</div>
-            <div id="feedSentinel" data-skip="@shownCount" style="height:1px;"></div>
-        </main>
-
-        <!-- ===================== SIDEBAR ===================== -->
-        <aside class="bm-aside">
-
-            <!-- Nóng 24H = Xem nhiều nhất -->
-            @if (Model.PopularArticles.Any())
-            {
-                <div class="bm-widget">
-                    <div class="bm-widget-head">Nóng 24H</div>
-                    @{ var rank = 0; }
-                    @foreach (var a in Model.PopularArticles)
-                    {
-                        rank++;
-                        <div class="bm-rank-item @(rank <= 3 ? "top" : "")" onclick="location.href='/bai-viet/@a.Slug'">
-                            <div class="bm-rank-num">@rank</div>
-                            <h4><a href="/bai-viet/@a.Slug">@a.Title</a></h4>
-                        </div>
-                    }
                 </div>
             }
 
-            <!-- Chủ đề (danh mục) -->
-            @if (Model.Categories.Any())
-            {
-                <div class="bm-widget">
-                    <div class="bm-widget-head">Chủ đề</div>
-                    <div class="bm-cats">
-                        @foreach (var c in Model.Categories)
-                        {
-                            <a href="/danh-muc/@c.Slug">@c.Icon @c.Name</a>
-                        }
-                    </div>
-                </div>
-            }
-
-            <!-- Tag phổ biến -->
+            <!-- Hàng "Tiêu điểm" (tag chips) -->
             @if (Model.Tags.Any())
             {
-                <div class="bm-widget">
-                    <div class="bm-widget-head">Chủ đề phổ biến</div>
-                    <div class="bm-tagcloud">
-                        @foreach (var t in Model.Tags)
+                <div class="wi-focus-tags">
+                    <span class="wi-tt-label"><i class="fa fa-arrow-trend-up"></i> Tiêu điểm</span>
+                    @foreach (var t in Model.Tags.Take(6))
+                    {
+                        <a href="/tim-kiem?q=@t.Name" class="wi-tag-chip">@t.Name</a>
+                    }
+                </div>
+            }
+
+            @if (subGrid.Any())
+            {
+                <div class="row wi-lead-grid">
+                    @foreach (var a in subGrid)
+                    {
+                        <div class="col-6 col-md-3 wi-grid-item">
+                            <a href="@U(a)" class="wi-thumb"><img src="@T(a)" alt="@a.Title" loading="lazy" /></a>
+                            <a href="@U(a)"><h3 class="wi-lc-title">@a.Title</h3></a>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <aside class="col-lg-4">
+            <div class="wi-sidebox">
+                <div class="wi-sidebox-tabs">
+                    <div class="wi-sidebox-tab active" data-tab="new">Tin mới</div>
+                    <div class="wi-sidebox-tab" data-tab="read">Đọc nhiều</div>
+                </div>
+                <div class="wi-sidebox-body" data-body="new">
+                    @foreach (var a in Model.LatestArticles.Take(8))
+                    { <a href="@U(a)" class="wi-side-item">@a.Title</a> }
+                </div>
+                <div class="wi-sidebox-body hidden" data-body="read">
+                    @foreach (var a in Model.PopularArticles.Take(8))
+                    { <a href="@U(a)" class="wi-side-item">@a.Title</a> }
+                </div>
+            </div>
+            <div class="wi-ad-slot wi-ad-sidebar" data-ad-label="Quảng cáo · Sidebar 300×250">@await Component.InvokeAsync("AdSlot", new { position = "home_focus_rect" })</div>
+        </aside>
+    </div>
+
+    <!-- ==================== DẢI 3 Ô QUẢNG CÁO ==================== -->
+    <div class="row wi-ad-row">
+        <div class="col-md-4"><div class="wi-ad-slot wi-ad-inline" data-ad-label="QC 300×250">@await Component.InvokeAsync("AdSlot", new { position = "home_rect_1" })</div></div>
+        <div class="col-md-4"><div class="wi-ad-slot wi-ad-inline" data-ad-label="QC 300×250">@await Component.InvokeAsync("AdSlot", new { position = "home_rect_2" })</div></div>
+        <div class="col-md-4"><div class="wi-ad-slot wi-ad-inline" data-ad-label="QC 300×250">@await Component.InvokeAsync("AdSlot", new { position = "home_rect_3" })</div></div>
+    </div>
+
+    <!-- ==================== HAI LUỒNG CỘT: block chính + widget sidebar ==================== -->
+    <div class="row">
+        <!-- CỘT CHÍNH -->
+        <div class="col-lg-8">
+            @{ int mIdx = 0; }
+            @foreach (var blk in mainBlocks)
+            {
+                var lead = blk.Articles.FirstOrDefault();
+                var list = blk.Articles.Skip(1).Take(4).ToList();
+                var kids = childLookup.TryGetValue(blk.Category.Id, out var kk) ? kk : null;
+                <section class="wi-mblock">
+                    <div class="wi-mblock-head">
+                        <a href="/danh-muc/@blk.Category.Slug" class="wi-mblock-title">@blk.Category.Name</a>
+                        @if (kids != null && kids.Count > 0)
                         {
-                            <a href="/tim-kiem?q=@Uri.EscapeDataString(t.Name)">@t.Name</a>
+                            <div class="wi-mblock-subtabs">
+                                @foreach (var k in kids.Take(3))
+                                { <a href="/danh-muc/@k.Slug">@k.Name</a> }
+                            </div>
+                        }
+                    </div>
+                    <div class="row">
+                        <div class="col-lg-6 wi-cat-lead">
+                            @if (lead != null)
+                            {
+                                <a href="@U(lead)" class="wi-thumb"><img src="@T(lead)" alt="@lead.Title" loading="lazy" /></a>
+                                @if (lead.Category != null) { <span class="wi-cat-label">@lead.Category.Name</span> }
+                                <a href="@U(lead)"><h3 class="wi-lc-title">@lead.Title</h3></a>
+                                <p class="wi-sapo">@lead.Summary</p>
+                            }
+                        </div>
+                        <div class="col-lg-6">
+                            @foreach (var a in list)
+                            {
+                                <div class="wi-cat-list-item">
+                                    <div class="wi-cat-list-thumb">
+                                        <a href="@U(a)" class="wi-thumb"><img src="@T(a)" alt="@a.Title" loading="lazy" /></a>
+                                    </div>
+                                    <div class="wi-cat-list-body">
+                                        @if (a.Category != null) { <span class="wi-cat-label">@a.Category.Name</span> }
+                                        <a href="@U(a)"><h4 class="wi-lc-title">@a.Title</h4></a>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </section>
+                mIdx++;
+                if (mIdx == 2)
+                {
+                    <div class="wi-ad-slot wi-ad-inline" data-ad-label="Quảng cáo · Inline 970×90">@await Component.InvokeAsync("AdSlot", new { position = "home_mid_banner" })</div>
+                }
+            }
+        </div>
+
+        <!-- CỘT SIDEBAR (widget + quảng cáo sticky) -->
+        <aside class="col-lg-4">
+            @{ int sIdx = 0; }
+            @foreach (var blk in sideBlocks)
+            {
+                var wlead = blk.Articles.FirstOrDefault();
+                var wlist = blk.Articles.Skip(1).Take(3).ToList();
+                <section class="wi-widget">
+                    <div class="wi-cat-head">
+                        <a href="/danh-muc/@blk.Category.Slug" class="wi-cat-title">@blk.Category.Name</a>
+                    </div>
+                    <div class="wi-widget-lead">
+                        @if (wlead != null)
+                        {
+                            <a href="@U(wlead)" class="wi-thumb"><img src="@T(wlead)" alt="@wlead.Title" loading="lazy" /></a>
+                            <a href="@U(wlead)"><h3 class="wi-lc-title">@wlead.Title</h3></a>
+                        }
+                    </div>
+                    @foreach (var a in wlist)
+                    {
+                        <div class="wi-cat-list-item">
+                            <div class="wi-cat-list-thumb">
+                                <a href="@U(a)" class="wi-thumb"><img src="@T(a)" alt="@a.Title" loading="lazy" /></a>
+                            </div>
+                            <div class="wi-cat-list-body">
+                                <a href="@U(a)"><h4 class="wi-lc-title">@a.Title</h4></a>
+                            </div>
+                        </div>
+                    }
+                </section>
+                sIdx++;
+                if (sIdx == 1)
+                {
+                    <div class="wi-ad-slot wi-ad-sidebar wi-ad-sticky" style="min-height:600px;" data-ad-label="Quảng cáo · Sidebar 300×600">@await Component.InvokeAsync("AdSlot", new { position = "home_side600" })</div>
+                }
+            }
+        </aside>
+    </div>
+
+    <!-- ==================== QUẢNG CÁO · BILLBOARD GIỮA TRANG (mã: home_billboard) ==================== -->
+    <div class="wi-ad-slot wi-ad-billboard" data-ad-label="Quảng cáo · Billboard 970×250" style="min-height:250px;margin:22px 0;">
+        @await Component.InvokeAsync("AdSlot", new { position = "home_billboard" })
+    </div>
+
+    <!-- ==================== MULTIMEDIA (nền xanh) ==================== -->
+    @if (Model.LatestVideos.Any())
+    {
+        var vlead = Model.LatestVideos.First();
+        var vrest = Model.LatestVideos.Skip(1).Take(6).ToList();
+        Func<Video, string> VT = v => string.IsNullOrWhiteSpace(v.YouTubeId)
+            ? "/images/placeholder.jpg" : $"https://img.youtube.com/vi/{v.YouTubeId}/hqdefault.jpg";
+        <section class="wi-multi">
+            <div class="wi-cat-head d-flex justify-content-between align-items-center">
+                <a href="/video" class="wi-cat-title">Multimedia</a>
+                <div class="wi-multi-menu"><a href="/video">Video</a><a href="/video">Podcast</a></div>
+            </div>
+            <div class="row">
+                <div class="col-lg-5 wi-multi-lead">
+                    <a href="/video" class="wi-thumb"><span class="wi-play-badge"><i class="fa fa-play"></i></span><img src="@VT(vlead)" alt="@vlead.Title" loading="lazy" /></a>
+                    <a href="/video"><h3 class="wi-lc-title"><i class="fa fa-play wi-ntype"></i>@vlead.Title</h3></a>
+                </div>
+                <div class="col-lg-7">
+                    <div class="row">
+                        @foreach (var v in vrest)
+                        {
+                            <div class="col-6 col-md-4 wi-multi-item">
+                                <a href="/video" class="wi-thumb"><span class="wi-play-badge"><i class="fa fa-play"></i></span><img src="@VT(v)" alt="@v.Title" loading="lazy" /></a>
+                                <a href="/video"><h4 class="wi-lc-title"><i class="fa fa-play wi-ntype"></i>@v.Title</h4></a>
+                            </div>
                         }
                     </div>
                 </div>
+            </div>
+        </section>
+    }
+
+    <!-- ==================== DÒNG TIN MỚI NHẤT (nạp sẵn 35 bài, hết mới hiện "Tải thêm bài") ==================== -->
+    <section class="wi-mblock" style="margin-top:8px;">
+        <div id="feedHead" class="wi-mblock-head" style="@(Model.FeedArticles.Any() ? "" : "display:none;")"><span class="wi-mblock-title">Dòng tin mới nhất</span></div>
+        <div id="feedMore">
+            @if (Model.FeedArticles.Any())
+            {
+                @await Html.PartialAsync("_FeedMore", Model.FeedArticles)
             }
-            <!-- Cột Video (tìm kiếm + cuộn) — dính đáy màn hình -->
-            @await Component.InvokeAsync("VideoSidebar")
+        </div>
+        <div id="feedLoader" style="display:none;text-align:center;padding:16px;color:var(--wi-text-soft);"><i class="fa fa-spinner fa-spin"></i> Đang tải…</div>
+        <div style="text-align:center;margin:14px 0 6px;">
+            <button type="button" id="feedMoreBtn" data-skip="@Model.FeedArticles.Count" class="wi-loadmore-btn"><i class="fa fa-plus" style="font-size:12px;"></i> Tải thêm bài</button>
+        </div>
+    </section>
 
-        </aside>
-
+    <!-- ==================== QUẢNG CÁO · BANNER TRƯỚC "ĐỪNG BỎ LỠ" (mã: home_bottom) ==================== -->
+    <div class="wi-ad-slot wi-ad-inline" data-ad-label="Quảng cáo · Banner 970×90" style="min-height:90px;margin:8px 0 18px;">
+        @await Component.InvokeAsync("AdSlot", new { position = "home_bottom" })
     </div>
-    </div>
 
-    <aside class="home-rail home-rail-right">
-        @await Component.InvokeAsync("AdSlot", new { position = "home_right" })
-    </aside>
+    <!-- ==================== ĐỪNG BỎ LỠ (đánh số 1..9 — NGAY TRÊN FOOTER) ==================== -->
+    @if (dontMiss.Any())
+    {
+        <section class="wi-dontmiss">
+            <div class="wi-cat-head"><span class="wi-cat-title">Đừng bỏ lỡ</span></div>
+            <div class="row">
+                @{ int n = 0; }
+                @foreach (var a in dontMiss)
+                {
+                    n++;
+                    <div class="col-md-4">
+                        <div class="wi-dm-item">
+                            <span class="wi-dm-num">@n</span>
+                            <a href="@U(a)"><h3 class="wi-lc-title">@a.Title</h3></a>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
 </div>
 
 @section Scripts {
-<style>
-    .feed-vid { position: relative; }
-    .feed-vid .feed-vid-badge {
-        position: absolute; top: 6px; left: 6px; z-index: 2;
-        background: #e63946; color: #fff; font-size: 10px; font-weight: 800;
-        padding: 2px 8px; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
-    }
-    .vid-hover .bm-thumb, .vid-hover .vid-thumb { overflow: hidden; }
-    .vid-hover:hover { cursor: pointer; }
-    .vid-hover .vid-thumb img { transition: transform .3s ease; }
-    .vid-hover:hover .vid-thumb img { transform: scale(1.05); }
-</style>
-<script>
-(function () {
-    // ---- Hover preview: phát video thật (tắt tiếng) khi di chuột vào ----
-    function attachVidHover(root) {
-        (root || document).querySelectorAll('.vid-hover:not([data-hooked])').forEach(function (el) {
-            el.setAttribute('data-hooked', '1');
-            var thumb = el.querySelector('.vid-thumb') || el.querySelector('.bm-thumb');
-            if (!thumb) return;
-            var yt = el.getAttribute('data-yt') || '';
-            var type = el.getAttribute('data-type') || '';
-            var vurl = el.getAttribute('data-vurl') || '';
-            var orig = thumb.innerHTML, timer = null;
-            el.addEventListener('mouseenter', function () {
-                timer = setTimeout(function () {
-                    if (type === 'upload' && vurl) {
-                        thumb.innerHTML = '<video src="' + vurl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;"></video>';
-                    } else if (yt) {
-                        thumb.innerHTML = '<iframe src="https://www.youtube.com/embed/' + yt + '?autoplay=1&mute=1&controls=0&loop=1&playlist=' + yt + '&modestbranding=1&rel=0&playsinline=1" allow="autoplay" frameborder="0" style="width:100%;height:100%;border:0;position:absolute;inset:0;"></iframe>';
-                    }
-                }, 320);
-            });
-            el.addEventListener('mouseleave', function () {
-                if (timer) { clearTimeout(timer); timer = null; }
-                thumb.innerHTML = orig;
+    <script>
+        document.querySelectorAll('.wi-sidebox-tab').forEach(function (t) {
+            t.addEventListener('click', function () {
+                var box = t.closest('.wi-sidebox');
+                box.querySelectorAll('.wi-sidebox-tab').forEach(function (x) { x.classList.remove('active'); });
+                t.classList.add('active');
+                box.querySelectorAll('.wi-sidebox-body').forEach(function (b) {
+                    b.classList.toggle('hidden', b.getAttribute('data-body') !== t.getAttribute('data-tab'));
+                });
             });
         });
-    }
-    window.attachVidHover = attachVidHover;
-    attachVidHover(document);
 
-    // ---- Infinite scroll: tự nạp thêm bài sau Góc AI ----
-    var sentinel = document.getElementById('feedSentinel');
-    var box = document.getElementById('feedMore');
-    var loader = document.getElementById('feedLoader');
-    var endMsg = document.getElementById('feedEnd');
-    if (sentinel && box) {
-        var skip = parseInt(sentinel.getAttribute('data-skip') || '0', 10) || 0;
-        var loading = false, done = false;
-
-        var MAX_MORE = 18; // giới hạn số bài nạp thêm để còn thấy footer
-        function loadMore() {
-            if (loading || done) return;
-            if (skip >= MAX_MORE) { done = true; if (endMsg) endMsg.style.display = 'block'; return; }
-            loading = true;
-            loader.style.display = 'block';
-            fetch('/Home/LoadMore?skip=' + skip, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(function (r) { return r.text(); })
-                .then(function (html) {
-                    var t = (html || '').trim();
-                    if (!t) { done = true; loader.style.display = 'none'; endMsg.style.display = 'block'; return; }
-                    var tmp = document.createElement('div');
-                    tmp.innerHTML = t;
-                    // đếm số bài viết thật (không tính thẻ video) để tăng skip đúng
-                    var articleCount = tmp.querySelectorAll('.bm-list-item:not(.feed-vid)').length;
-                    while (tmp.firstChild) box.appendChild(tmp.firstChild);
-                    attachVidHover(box);
-                    skip += articleCount;
-                    loader.style.display = 'none';
-                    loading = false;
-                    if (articleCount === 0) { done = true; endMsg.style.display = 'block'; }
-                })
-                .catch(function () { loader.style.display = 'none'; loading = false; });
-        }
-
-        if ('IntersectionObserver' in window) {
-            var io = new IntersectionObserver(function (entries) {
-                if (entries[0].isIntersecting) loadMore();
-            }, { rootMargin: '400px' });
-            io.observe(sentinel);
-        } else {
-            window.addEventListener('scroll', function () {
-                if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) loadMore();
+        // "Dòng tin mới nhất" — CHỈ tải khi bấm nút, không tự cuộn, KHÔNG báo hết tin.
+        (function () {
+            var btn = document.getElementById('feedMoreBtn');
+            var box = document.getElementById('feedMore');
+            var head = document.getElementById('feedHead');
+            var loader = document.getElementById('feedLoader');
+            if (!btn || !box) return;
+            var loading = false;
+            btn.addEventListener('click', function () {
+                if (loading) return;
+                loading = true;
+                var skip = parseInt(btn.getAttribute('data-skip') || '0', 10) || 0;
+                loader.style.display = 'block';
+                fetch('/Home/LoadMore?skip=' + skip, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { return r.text(); })
+                    .then(function (html) {
+                        loader.style.display = 'none'; loading = false;
+                        var t = (html || '').trim();
+                        if (!t) { btn.style.display = 'none'; return; }          // hết bài -> ẩn nút, không báo gì
+                        var tmp = document.createElement('div'); tmp.innerHTML = t;
+                        var articleCount = tmp.querySelectorAll('.bm-list-item:not(.feed-vid)').length || 6;
+                        if (articleCount === 0) { btn.style.display = 'none'; return; }
+                        if (head) head.style.display = '';                       // hiện tiêu đề khi đã có tin
+                        while (tmp.firstChild) box.appendChild(tmp.firstChild);
+                        if (typeof attachVidHover === 'function') { try { attachVidHover(box); } catch (e) { } }
+                        btn.setAttribute('data-skip', skip + articleCount);
+                    })
+                    .catch(function () { loader.style.display = 'none'; loading = false; });
             });
-        }
-    }
-})();
-</script>
+        })();
+    </script>
 }

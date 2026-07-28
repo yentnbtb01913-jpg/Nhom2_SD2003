@@ -65,6 +65,76 @@ namespace WisdomITNews.Migrations
                     b.ToTable("AILogs");
                 });
 
+            modelBuilder.Entity("WisdomITNews.Models.AdBooking", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdPosition")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AdminNote")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("BuyerType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CompanyName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContactName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DurationDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TaxCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Website")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AdBookings");
+                });
+
             modelBuilder.Entity("WisdomITNews.Models.AdSlot", b =>
                 {
                     b.Property<int>("Id")
@@ -286,7 +356,7 @@ namespace WisdomITNews.Migrations
                             EmploymentStatus = "working",
                             FullName = "Quản Trị Viên",
                             IsActive = true,
-                            PasswordHash = "$2a$11$92Oo/B.K/yM4exSZqzZHeu7PIVTAytaH5vnt78RFNDwbIkyFy0gE2",
+                            PasswordHash = "$2a$11$W63bcN3NNPTt.RDEgUvin.kbg1L.C4jFkSstyXNz3T44yIV0vblXW",
                             Role = "superadmin",
                             Username = "admin"
                         });
@@ -302,6 +372,10 @@ namespace WisdomITNews.Migrations
 
                     b.Property<int?>("AdSlotId")
                         .HasColumnType("int");
+
+                    b.Property<string>("AdType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,0)");
@@ -328,11 +402,17 @@ namespace WisdomITNews.Migrations
                     b.Property<int>("Days")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("HtmlContent")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ImageUrl")
                         .HasColumnType("nvarchar(max)");
@@ -341,6 +421,9 @@ namespace WisdomITNews.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("PaymentStatus")
@@ -1459,6 +1542,9 @@ namespace WisdomITNews.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("SourceType")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("TotalImported")
                         .HasColumnType("int");
 
@@ -2053,6 +2139,17 @@ namespace WisdomITNews.Migrations
                         .HasForeignKey("ArticleId");
 
                     b.Navigation("Article");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.AdBooking", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.Advertisement", b =>

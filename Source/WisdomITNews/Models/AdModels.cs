@@ -5,8 +5,11 @@ public class Advertisement
 {
     public int Id { get; set; }
     public string Title { get; set; } = "";
+    // Loại sáng tạo: "image" = banner ảnh (ImageUrl+TargetUrl); "html" = mã HTML/JS (HtmlContent, nhúng iframe sandbox).
+    public string AdType { get; set; } = "image";
     public string? ImageUrl { get; set; }
-    public string TargetUrl { get; set; } = "";           // link đích khi click
+    public string? HtmlContent { get; set; }              // mã HTML/JS khách gửi (chạy trong iframe cách ly)
+    public string TargetUrl { get; set; } = "";           // link đích khi click (dùng cho loại ảnh)
     public string Position { get; set; } = "sidebar";     // header / sidebar / in_article
     public DateTime? StartDate { get; set; }              // lịch chạy (null = không giới hạn)
     public DateTime? EndDate { get; set; }
@@ -27,11 +30,15 @@ public class Advertisement
     public string? BuyerPhone { get; set; }               // SĐT liên hệ người mua
     public string PaymentStatus { get; set; } = "unpaid"; // unpaid / paid
 
+    // ===== Xóa mềm (thùng rác) — xóa không mất hẳn, có thể khôi phục =====
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
+
     public AdSlot? AdSlot { get; set; }
 
     // Đang hiệu lực để hiển thị?
     public bool IsLive(DateTime now) =>
-        IsActive && Status == "approved"
+        !IsDeleted && IsActive && Status == "approved"
         && (StartDate == null || StartDate <= now)
         && (EndDate == null || EndDate >= now);
 }

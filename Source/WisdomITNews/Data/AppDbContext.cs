@@ -46,9 +46,13 @@ public class AppDbContext : DbContext
     public DbSet<AiCategoryCorrectionLog> AiCategoryCorrectionLogs { get; set; }
     public DbSet<SearchHistory> SearchHistories { get; set; }
     public DbSet<SeedViewBatch> SeedViewBatches { get; set; }
+    public DbSet<AdBooking> AdBookings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
+        // Số tiền đơn quảng cáo — khai báo precision rõ ràng để hết cảnh báo decimal
+        mb.Entity<AdBooking>().Property(b => b.Amount).HasPrecision(18, 2);
+
         // ArticleTag composite key
         mb.Entity<ArticleTag>().HasKey(at => new { at.ArticleId, at.TagId });
 

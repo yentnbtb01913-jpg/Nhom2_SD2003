@@ -18,6 +18,49 @@ public class HomeController : Controller
         _featured = featured;
     }
 
+    // Chiếu bài về dạng "thẻ" cho các danh sách (trang chủ, tải thêm): LƯỢC BỎ cột Content
+    // (toàn văn rất nặng sau khi bật full-text) để danh sách nhẹ và tải nhanh. Trang chi tiết
+    // vẫn nạp đầy đủ Content như thường vì query riêng.
+    private static readonly System.Linq.Expressions.Expression<Func<Article, Article>> ArticleCard = a => new Article
+    {
+        Id = a.Id,
+        Title = a.Title,
+        Slug = a.Slug,
+        Summary = a.Summary,
+        Content = "",
+        Thumbnail = a.Thumbnail,
+        ThumbnailAlt = a.ThumbnailAlt,
+        CategoryId = a.CategoryId,
+        AuthorId = a.AuthorId,
+        AuthorUserId = a.AuthorUserId,
+        Views = a.Views,
+        Status = a.Status,
+        IsFeatured = a.IsFeatured,
+        IsBreaking = a.IsBreaking,
+        PublishedAt = a.PublishedAt,
+        SourceName = a.SourceName,
+        SourceUrl = a.SourceUrl,
+        IsExternal = a.IsExternal,
+        ImportedBy = a.ImportedBy,
+        Region = a.Region,
+        CreatedAt = a.CreatedAt,
+        UpdatedAt = a.UpdatedAt,
+        FeaturedPinned = a.FeaturedPinned,
+        FeaturedHidden = a.FeaturedHidden,
+        Category = a.Category == null ? null : new Category
+        {
+            Id = a.Category.Id,
+            Name = a.Category.Name,
+            Slug = a.Category.Slug,
+            Icon = a.Category.Icon,
+            Color = a.Category.Color
+        }
+    };
+
+    // Trang LIÊN HỆ (tĩnh) — thông tin tòa soạn / quảng cáo / phát hành / văn phòng
+    [Route("/lien-he")]
+    public IActionResult Contact() => View();
+
     // Đây là luồng xử lý hiển thị trang chủ
     // Luồng: 1) Đọc vùng hiện tại từ session (ưu tiên bài cùng vùng, thiếu thì bù bài chung)
     //        2) Nạp các khu: Tin nổi bật tự động (Top 4), Mới nhất (12), AI (danh mục 3),
@@ -46,7 +89,7 @@ public class HomeController : Controller
         // Latest: ưu tiên vùng, fallback chung
         var latestRegion = await regionQuery
             .OrderByDescending(a => a.PublishedAt)
-            .Take(12).ToListAsync();
+            .Take(12).Select(ArticleCard).ToListAsync();
 
         if (latestRegion.Count < 12)
         {
@@ -54,7 +97,7 @@ public class HomeController : Controller
             var more = await allQuery
                 .Where(a => !existIds.Contains(a.Id))
                 .OrderByDescending(a => a.PublishedAt)
-                .Take(12 - latestRegion.Count).ToListAsync();
+                .Take(12 - latestRegion.Count).Select(ArticleCard).ToListAsync();
             latestRegion.AddRange(more);
         }
 
@@ -62,7 +105,7 @@ public class HomeController : Controller
         var aiRegion = await regionQuery
             .Where(a => a.CategoryId == 3)
             .OrderByDescending(a => a.PublishedAt)
-            .Take(3).ToListAsync();
+            .Take(3).Select(ArticleCard).ToListAsync();
 
         if (aiRegion.Count < 3)
         {
@@ -70,7 +113,7 @@ public class HomeController : Controller
             var more = await allQuery
                 .Where(a => a.CategoryId == 3 && !existIds.Contains(a.Id))
                 .OrderByDescending(a => a.PublishedAt)
-                .Take(3 - aiRegion.Count).ToListAsync();
+                .Take(3 - aiRegion.Count).Select(ArticleCard).ToListAsync();
             aiRegion.AddRange(more);
         }
 
@@ -82,7 +125,7 @@ public class HomeController : Controller
             .Select(g => new { Id = g.Key, C = g.Count() })
             .OrderByDescending(x => x.C)
             .Take(5).Select(x => x.Id).ToListAsync();
-        var hotArts = await allQuery.Where(a => hotIds.Contains(a.Id)).ToListAsync();
+        var hotArts = await allQuery.Where(a => hotIds.Contains(a.Id)).Select(ArticleCard).ToListAsync();
         var popularRegion = hotIds
             .Select(id => hotArts.FirstOrDefault(a => a.Id == id))
             .Where(a => a != null).Cast<Article>().ToList();
@@ -93,7 +136,7 @@ public class HomeController : Controller
             var more = await allQuery
                 .Where(a => !existIds.Contains(a.Id))
                 .OrderByDescending(a => a.Views)
-                .Take(5 - popularRegion.Count).ToListAsync();
+                .Take(5 - popularRegion.Count).Select(ArticleCard).ToListAsync();
             popularRegion.AddRange(more);
         }
 
@@ -111,6 +154,29 @@ public class HomeController : Controller
 
             Tags = await _db.Tags.Take(12).ToListAsync()
         };
+
+        // Khối chuyên mục cho trang chủ: mỗi chuyên mục hiển thị + 5 bài mới nhất (mới tạo/mới nhập)
+        var blockCats = await _db.Categories
+            .Where(c => c.IsVisible && c.ParentCategoryId == null)
+            .OrderBy(c => c.SortOrder).Take(10).ToListAsync();
+        foreach (var c in blockCats)
+        {
+            var arts = await allQuery
+                .Where(a => a.CategoryId == c.Id)
+                .OrderByDescending(a => a.CreatedAt).Take(7).Select(ArticleCard).ToListAsync();
+            if (arts.Count > 0)
+                vm.CategoryBlocks.Add(new HomeCategoryBlock { Category = c, Articles = arts });
+        }
+
+        // Video mới nhất cho khu Multimedia
+        vm.LatestVideos = await _db.Videos
+            .OrderByDescending(v => v.PublishedAt).Take(7).ToListAsync();
+
+        // "Dòng tin mới nhất": nạp sẵn 35 bài (mới nhất theo ngày đăng) hiển thị ngay dưới Multimedia.
+        // Hết 35 bài này thì nút "Tải thêm bài" mới lấy tiếp (LoadMore bắt đầu từ skip = 35).
+        vm.FeedArticles = await allQuery
+            .OrderByDescending(a => a.PublishedAt)
+            .Take(35).Select(ArticleCard).ToListAsync();
 
         // Truyền tên vùng hiện tại cho View (nếu muốn hiển thị)
         ViewBag.CurrentRegion = currentRegion;
@@ -464,11 +530,10 @@ public class HomeController : Controller
     {
         const int take = 6;
         var arts = await _db.Articles
-            .Include(a => a.Category)
             .Where(a => a.Status == "published")
             .OrderByDescending(a => a.PublishedAt)
             .Skip(skip).Take(take)
-            .ToListAsync();
+            .Select(ArticleCard).ToListAsync();
 
         // Lấy 1 video ngẫu nhiên (trong 30 video mới nhất) để chèn xen kẽ
         Models.Video? vid = null;
@@ -487,5 +552,37 @@ public class HomeController : Controller
         ViewBag.Video = vid;
         ViewBag.InsertAt = arts.Count > 1 ? new Random().Next(1, arts.Count) : arts.Count;
         return PartialView("_FeedMore", arts);
+    }
+
+    // Mega menu: xem trước bài MỚI NHẤT của 1 chuyên mục (mới tạo hoặc mới nhập RSS)
+    // Trả JSON: 8 bài (3 bài đầu dùng làm thẻ có thumbnail, 5 bài sau làm tiêu đề)
+    // Bảng: Categories, Articles
+    [Route("/danh-muc/{slug}/mega")]
+    public async Task<IActionResult> MegaPreview(string slug)
+    {
+        var cat = await _db.Categories.FirstOrDefaultAsync(c => c.Slug == slug);
+        if (cat == null) return Json(new { ok = false });
+
+        // gồm chính chuyên mục + các danh mục con của nó
+        var catIds = await _db.Categories
+            .Where(c => c.Id == cat.Id || c.ParentCategoryId == cat.Id)
+            .Select(c => c.Id).ToListAsync();
+
+        var rows = await _db.Articles
+            .Where(a => a.Status == "published" && a.CategoryId != null && catIds.Contains(a.CategoryId.Value))
+            .OrderByDescending(a => a.CreatedAt)          // mới tạo / mới nhập lên đầu
+            .Take(8)
+            .Select(a => new { a.Title, a.Slug, a.Thumbnail, a.PublishedAt })
+            .ToListAsync();
+
+        var items = rows.Select(a => new
+        {
+            title = a.Title,
+            url = "/bai-viet/" + a.Slug,
+            thumb = string.IsNullOrWhiteSpace(a.Thumbnail) ? "/images/placeholder.jpg" : a.Thumbnail,
+            date = a.PublishedAt.HasValue ? a.PublishedAt.Value.ToString("dd/MM/yyyy") : ""
+        });
+
+        return Json(new { ok = true, name = cat.Name, url = "/danh-muc/" + cat.Slug, items });
     }
 }

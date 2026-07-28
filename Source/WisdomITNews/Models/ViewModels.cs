@@ -9,6 +9,17 @@ public class HomeViewModel
     public List<Article> PopularArticles { get; set; } = new();
     public List<Category> Categories { get; set; } = new();
     public List<Tag> Tags { get; set; } = new();
+    // Khối chuyên mục cho trang chủ (mỗi chuyên mục kèm bài mới nhất)
+    public List<HomeCategoryBlock> CategoryBlocks { get; set; } = new();
+    public List<Video> LatestVideos { get; set; } = new();
+    // 35 bài "Dòng tin mới nhất" nạp sẵn ngay dưới khu Multimedia; hết mới hiện nút Tải thêm bài.
+    public List<Article> FeedArticles { get; set; } = new();
+}
+
+public class HomeCategoryBlock
+{
+    public Category Category { get; set; } = new();
+    public List<Article> Articles { get; set; } = new();
 }
 
 public class ArticleViewModel

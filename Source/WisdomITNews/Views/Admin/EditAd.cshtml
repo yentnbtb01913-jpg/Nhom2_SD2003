@@ -40,11 +40,10 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
         <div><label style="@lbl">Vị trí</label>
             <select style="@inp" name="Position" id="adPosition" onchange="toggleHomeRailHint()">
-                <option value="header" selected="@(Model.Position=="header")">Header (đầu trang)</option>
-                <option value="sidebar" selected="@(Model.Position=="sidebar" || !isEdit)">Sidebar (cột bên)</option>
-                <option value="in_article" selected="@(Model.Position=="in_article")">Trong bài viết</option>
-                <option value="home_left" selected="@(Model.Position=="home_left")">Trang Chủ (trái)</option>
-                <option value="home_right" selected="@(Model.Position=="home_right")">Trang Chủ (phải)</option>
+                @foreach (var sl in (ViewBag.SlotList as List<WisdomITNews.Models.AdSlot> ?? new List<WisdomITNews.Models.AdSlot>()))
+                {
+                    <option value="@sl.SlotKey" selected="@(Model.Position == sl.SlotKey)">@sl.Name (@sl.Size)</option>
+                }
             </select>
         </div>
         <div><label style="@lbl">Trạng thái</label>

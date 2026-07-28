@@ -1,0 +1,85 @@
+@{
+    ViewData["Title"] = "Liên hệ";
+    var offices = new[]
+    {
+        new { No = 1, Name = "Văn phòng liên lạc tại Thanh Hoá", Address = "Số 1 Nhà Thờ, phường Hạc Thành, tỉnh Thanh Hóa", Phone = "(0237) 3855 748", Fax = "(0237) 3855 748", Email = "thanhhoa@wisdomitnews.vn" },
+        new { No = 2, Name = "Văn phòng đại diện khu vực duyên hải miền Trung", Address = "144 Bạch Đằng, phường Hải Châu, TP. Đà Nẵng", Phone = "(0236) 3824 231", Fax = "(0236) 3871 345", Email = "danang@wisdomitnews.vn" },
+        new { No = 3, Name = "Văn phòng liên lạc tại Gia Lai", Address = "133 Lê Lợi, phường Quy Nhơn, tỉnh Gia Lai", Phone = "(0256) 3824 142", Fax = "(0256) 3815 559", Email = "gialai@wisdomitnews.vn" },
+        new { No = 4, Name = "Văn phòng đại diện khu vực Nam Trung Bộ", Address = "120 Thống Nhất, phường Nha Trang, tỉnh Khánh Hòa", Phone = "(0258) 3819 306", Fax = "(0258) 3819 307", Email = "nhatrang@wisdomitnews.vn" },
+        new { No = 5, Name = "Văn phòng đại diện khu vực Tây Nam Bộ", Address = "99 Trần Văn Hoài, phường Ninh Kiều, TP. Cần Thơ", Phone = "(0292) 3825 244", Fax = "(0292) 3825 245", Email = "cantho@wisdomitnews.vn" },
+    };
+}
+<div class="wi-contact container" style="max-width:1180px;margin:0 auto;padding:24px 16px 60px;">
+
+    <!-- ===== TÒA SOẠN ===== -->
+    <div class="wi-ct-banner">Tòa soạn – Trị sự – Quảng cáo – Phát hành</div>
+
+    <div class="wi-ct-office">
+        <div class="wi-ct-city"><span class="wi-ct-num">1</span> TP. Hồ Chí Minh</div>
+        <div class="wi-ct-addr"><b>Địa chỉ</b><br/>Tầng 5, Tòa nhà Công nghệ, 123 Nguyễn Văn Cừ, phường Bến Nghé, TP. Hồ Chí Minh</div>
+        <div class="wi-ct-cols">
+            <div>
+                <div class="wi-ct-h">Báo WisdomITNews</div>
+                <div class="wi-ct-grid3">
+                    <div><span>Điện thoại</span>(028) 3999 8888</div>
+                    <div><span>Fax</span>(028) 3999 8889</div>
+                    <div><span>Email</span>toasoan@wisdomitnews.vn</div>
+                </div>
+                <div style="margin-top:12px;"><span style="color:#6b7280;font-size:13px;">Website</span><br/><a href="/" style="color:#0e7d85;text-decoration:none;">https://wisdomitnews.vn</a></div>
+            </div>
+            <div>
+                <div class="wi-ct-h">Trung tâm dịch vụ &amp; quảng cáo</div>
+                <div style="line-height:1.9;color:#374151;font-size:14px;">
+                    <b>Quảng cáo:</b><br/>ĐT (028) 3999 8890 – 0908 780 404<br/>Email <a href="/lien-he-quang-cao" style="color:#0e7d85;text-decoration:none;">quangcao@wisdomitnews.vn</a><br/><br/>
+                    <b>Phát hành:</b><br/>ĐT (028) 3999 8891 – 0903 035 758<br/>Email phathanh@wisdomitnews.vn
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="wi-ct-office">
+        <div class="wi-ct-city"><span class="wi-ct-num">2</span> Hà Nội</div>
+        <div class="wi-ct-addr"><b>Địa chỉ</b><br/>Số 88 Tây Sơn, phường Đống Đa, TP. Hà Nội</div>
+        <div class="wi-ct-grid3" style="max-width:640px;">
+            <div><span>Điện thoại</span>(024) 3857 0897</div>
+            <div><span>Fax</span>(024) 3857 0948</div>
+            <div><span>Email</span>hanoi@wisdomitnews.vn</div>
+        </div>
+    </div>
+
+    <!-- ===== VĂN PHÒNG ĐẠI DIỆN ===== -->
+    <div class="wi-ct-banner" style="margin-top:36px;">Văn phòng đại diện</div>
+
+    <div class="wi-ct-vp">
+        @foreach (var vp in offices)
+        {
+            <div class="wi-ct-vp-item">
+                <div class="wi-ct-city"><span class="wi-ct-num">@vp.No</span> @vp.Name</div>
+                <div class="wi-ct-addr"><b>Địa chỉ</b><br/>@vp.Address</div>
+                <div class="wi-ct-grid3">
+                    <div><span>Điện thoại</span>@vp.Phone</div>
+                    <div><span>Fax</span>@vp.Fax</div>
+                    <div><span>Email</span>@vp.Email</div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <p style="color:#94a3b8;font-size:12.5px;margin-top:24px;text-align:center;">* Thông tin liên hệ mô phỏng phục vụ demo dự án tốt nghiệp WisdomITNews.</p>
+</div>
+
+<style>
+    .wi-ct-banner { background: #0ea5cf; color: #fff; text-align: center; font-family: var(--wi-font-display,serif); font-weight: 800; font-size: 22px; padding: 16px; border-radius: 8px; margin-bottom: 8px; }
+    .wi-ct-office { padding: 18px 4px 8px; border-bottom: 1px solid #eef0f2; margin-bottom: 18px; }
+    .wi-ct-city { font-family: var(--wi-font-display,serif); font-weight: 800; font-size: 19px; color: #1f2937; display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .wi-ct-num { width: 24px; height: 24px; border-radius: 50%; background: #0ea5cf; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
+    .wi-ct-addr { font-size: 14px; color: #374151; line-height: 1.7; margin-bottom: 14px; }
+    .wi-ct-addr b { color: #111827; }
+    .wi-ct-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .wi-ct-h { font-family: var(--wi-font-display,serif); font-weight: 800; font-size: 16px; color: #1f2937; margin-bottom: 10px; }
+    .wi-ct-grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; font-size: 14px; color: #111827; }
+    .wi-ct-grid3 span { display: block; color: #6b7280; font-size: 12.5px; margin-bottom: 3px; }
+    .wi-ct-vp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 40px; margin-top: 10px; }
+    .wi-ct-vp-item { padding: 16px 4px; border-bottom: 1px solid #eef0f2; }
+    @@media(max-width:760px){ .wi-ct-cols, .wi-ct-vp, .wi-ct-grid3 { grid-template-columns: 1fr; } }
+</style>

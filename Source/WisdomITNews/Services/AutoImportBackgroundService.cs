@@ -109,12 +109,14 @@ public class AutoImportBackgroundService : BackgroundService
                     var src2 = await db.RssSources.FindAsync(new object?[] { src.Id }, ct);
                     if (src2 == null) return;
 
-                    var r = await importer.ImportRssAsync(
-                        src2.FeedUrl, src2.Name, src2.DefaultCategoryId,
-                        max: Math.Max(maxPerSource, 100),
-                        maxNew: maxPerSource,
-                        onlyNew: cfg.OnlyNew,
-                        delayPerArticleMs: perArticleMs);
+                    var r = src2.SourceType == "video"
+                        ? await importer.ImportVideoRssAsync(src2, maxNew: maxPerSource)
+                        : await importer.ImportRssAsync(
+                            src2.FeedUrl, src2.Name, src2.DefaultCategoryId,
+                            max: Math.Max(maxPerSource, 100),
+                            maxNew: maxPerSource,
+                            onlyNew: cfg.OnlyNew,
+                            delayPerArticleMs: perArticleMs);
 
                     src2.LastImportAt = DateTime.Now;
                     src2.TotalImported += r.added;

@@ -74,6 +74,36 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+
+    // Tự bổ sung các Slot QC mới (idempotent: đã có mã thì bỏ qua) để 4 vùng quảng cáo mới bán được.
+    var wantSlots = new[]
+    {
+        // Các vị trí gốc + dải dọc trái/phải (đảm bảo đủ nếu chưa có / lỡ bị xóa)
+        new WisdomITNews.Models.AdSlot { Name = "Banner Đầu Trang (ngang)", SlotKey = "header",     Description = "Banner ngang 728×90 nằm trên cùng, phía trên cả logo — mọi trang", Size = "Banner728x90", PricePerDay = 500_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Giữa Bài Viết",            SlotKey = "in_article", Description = "Banner 728×90 chèn giữa nội dung bài viết", Size = "Banner728x90", PricePerDay = 400_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Cạnh Bài Viết",            SlotKey = "sidebar",    Description = "Quảng cáo 300×250 ở sidebar cạnh bài viết", Size = "Rectangle300x250", PricePerDay = 250_000m },
+
+        new WisdomITNews.Models.AdSlot { Name = "Billboard Giữa Trang Chủ", SlotKey = "home_billboard", Description = "Banner lớn 970×250 xen giữa trang chủ", Size = "Billboard970x250", PricePerDay = 600_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Banner Cuối Trang Chủ",   SlotKey = "home_bottom",    Description = "Banner ngang 970×90 trước mục Đừng bỏ lỡ", Size = "Banner970x90", PricePerDay = 300_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Billboard Dưới Bài Viết", SlotKey = "article_billboard", Description = "Banner lớn 970×250 dưới nội dung bài", Size = "Billboard970x250", PricePerDay = 500_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Dải Dọc Cạnh Bài Viết",   SlotKey = "article_side600", Description = "Skyscraper 300×600 sticky cạnh bài viết", Size = "Skyscraper300x600", PricePerDay = 350_000m },
+        // Bổ sung danh phận cho các ô placeholder còn lại
+        new WisdomITNews.Models.AdSlot { Name = "Banner Dưới Menu",        SlotKey = "topbanner",       Description = "Banner ngang 970×120 ngay dưới thanh menu — mọi trang", Size = "Banner970x120", PricePerDay = 450_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Hộp Khu Nổi Bật",         SlotKey = "home_focus_rect", Description = "Hộp 300×250 ở sidebar khu tin nổi bật trang chủ", Size = "Rectangle300x250", PricePerDay = 250_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Dải 3 Hộp Trang Chủ #1",  SlotKey = "home_rect_1",     Description = "Hộp 300×250 (ô 1) trong dải 3 quảng cáo trang chủ", Size = "Rectangle300x250", PricePerDay = 200_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Dải 3 Hộp Trang Chủ #2",  SlotKey = "home_rect_2",     Description = "Hộp 300×250 (ô 2) trong dải 3 quảng cáo trang chủ", Size = "Rectangle300x250", PricePerDay = 200_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Dải 3 Hộp Trang Chủ #3",  SlotKey = "home_rect_3",     Description = "Hộp 300×250 (ô 3) trong dải 3 quảng cáo trang chủ", Size = "Rectangle300x250", PricePerDay = 200_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Banner Giữa Cột Trang Chủ", SlotKey = "home_mid_banner", Description = "Banner 970×90 xen giữa cột nội dung trang chủ", Size = "Banner970x90", PricePerDay = 280_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Dải Dọc Chuyên Mục",      SlotKey = "home_side600",    Description = "Skyscraper 300×600 sticky ở sidebar khu chuyên mục", Size = "Skyscraper300x600", PricePerDay = 320_000m },
+        new WisdomITNews.Models.AdSlot { Name = "Hộp 300×250 Trang Bài",   SlotKey = "article_rect",    Description = "Hộp 300×250 ở sidebar trang chi tiết bài", Size = "Rectangle300x250", PricePerDay = 260_000m },
+    };
+    var existingKeys = db.AdSlots.Select(s => s.SlotKey).ToList();
+    var toAdd = wantSlots.Where(s => !existingKeys.Contains(s.SlotKey)).ToList();
+    if (toAdd.Count > 0)
+    {
+        db.AdSlots.AddRange(toAdd);
+        db.SaveChanges();
+    }
 }
 
 if (!app.Environment.IsDevelopment())

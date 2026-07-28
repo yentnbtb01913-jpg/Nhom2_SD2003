@@ -1,0 +1,50 @@
+@{
+    var userName = Context.Session.GetString("UserName");
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · Quảng cáo — WisdomITNews</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background: #f6f8fa; color: #1f2937; }
+        a { color: inherit; }
+        .adc-top { background: #fff; border-bottom: 1px solid #e5e7eb; }
+        .adc-top-inner { max-width: 1100px; margin: 0 auto; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+        .adc-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 900; font-size: 18px; color: #0e7d85; }
+        .adc-brand i { font-size: 22px; }
+        .adc-top-right { display: flex; align-items: center; gap: 18px; font-size: 14px; color: #6b7280; }
+        .adc-top-right a { text-decoration: none; color: #374151; font-weight: 600; }
+        .adc-top-right a:hover { color: #0e7d85; }
+        .adc-strip { height: 4px; background: linear-gradient(90deg,#0e7d85,#14b8a6); }
+    </style>
+</head>
+<body>
+    <div class="adc-top">
+        <div class="adc-top-inner">
+            <a href="/lien-he-quang-cao" class="adc-brand"><i class="fa fa-bullhorn"></i> Quảng cáo · WisdomITNews</a>
+            <div class="adc-top-right">
+                @if (!string.IsNullOrEmpty(userName))
+                {
+                    <span><i class="fa fa-user-circle"></i> @userName</span>
+                }
+                <a href="/"><i class="fa fa-arrow-left"></i> Về trang báo</a>
+            </div>
+        </div>
+    </div>
+    <div class="adc-strip"></div>
+
+    <div style="min-height:72vh;">
+        @RenderBody()
+    </div>
+
+    <div style="background:#0b1220;color:#94a3b8;text-align:center;padding:18px 16px;font-size:13px;margin-top:40px;">
+        © @DateTime.Now.Year WisdomITNews — Liên hệ quảng cáo · Hotline demo: 090 878 0404
+    </div>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -989,7 +989,7 @@ public class NhanVienController : Controller
     // Đây là luồng xử lý thêm nguồn RSS mới
     // Bảng: RssSources
     [HttpPost]
-    public async Task<IActionResult> AddRssSource(string name, string feedUrl, string? websiteUrl, string? description, string? country, int? defaultCategoryId, int maxImport = 30)
+    public async Task<IActionResult> AddRssSource(string name, string feedUrl, string? websiteUrl, string? description, string? country, int? defaultCategoryId, int maxImport = 30, string? sourceType = null)
     {
         if (!IsLoggedIn) return Json(new { success = false });
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(feedUrl))
@@ -1003,6 +1003,7 @@ public class NhanVienController : Controller
             Country = country?.Trim(),
             DefaultCategoryId = defaultCategoryId,
             MaxImport = maxImport > 0 ? maxImport : 30,
+            SourceType = sourceType == "video" ? "video" : "article",
             IsActive = true,
             CreatedAt = DateTime.Now
         });

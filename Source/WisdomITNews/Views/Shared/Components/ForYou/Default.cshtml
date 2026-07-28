@@ -1,0 +1,27 @@
+@model List<WisdomITNews.Models.Article>
+@if (Model.Any())
+{
+    <section class="bm-section wi-foryou" style="margin-top:30px;">
+        <div class="bm-section-head">
+            <h3 style="font-size:18px;font-weight:800;"><span class="hash" style="color:#e11d48;">#</span> DÀNH CHO BẠN</h3>
+            <span style="font-size:12.5px;color:#94a3b8;font-weight:600;">
+                @(ViewBag.ForYouPersonalized == true ? "Theo danh mục bạn quan tâm" : "Tin mới, chưa nhiều người xem")
+            </span>
+        </div>
+        <div class="row">
+            @foreach (var a in Model)
+            {
+                <div class="col-6 col-md-3 wi-foryou-item">
+                    <a href="/bai-viet/@a.Slug" class="wi-foryou-thumb">
+                        <img src="@(string.IsNullOrWhiteSpace(a.Thumbnail) ? "/images/placeholder.jpg" : a.Thumbnail)" alt="@a.Title" loading="lazy" />
+                    </a>
+                    @if (a.Category != null)
+                    {
+                        <div class="wi-foryou-cat">@a.Category.Name</div>
+                    }
+                    <a href="/bai-viet/@a.Slug"><h4 class="wi-lc-title">@a.Title</h4></a>
+                </div>
+            }
+        </div>
+    </section>
+}
