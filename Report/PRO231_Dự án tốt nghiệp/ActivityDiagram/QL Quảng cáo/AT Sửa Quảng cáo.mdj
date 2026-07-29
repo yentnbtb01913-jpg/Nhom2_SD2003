@@ -92,7 +92,7 @@
 											"parentStyle": true,
 											"left": 520,
 											"top": 36,
-											"width": 664,
+											"width": 712,
 											"height": 13,
 											"text": "Hệ thống",
 											"verticalAlignment": 3
@@ -110,7 +110,7 @@
 									"parentStyle": false,
 									"left": 520,
 									"top": 32,
-									"width": 664,
+									"width": 712,
 									"height": 800,
 									"nameLabel": {
 										"$ref": "AAAAAAGfW/UdmhUAlgE="
@@ -2840,6 +2840,118 @@
 									"width": 112,
 									"height": 53,
 									"text": "Chọn thao tác?"
+								},
+								{
+									"_type": "UMLControlFlowView",
+									"_id": "AAAAAAGfqDoghR93GQg=",
+									"_parent": {
+										"$ref": "AAAAAAGfW/RzLA6ysxY="
+									},
+									"model": {
+										"$ref": "AAAAAAGfqDoghR92zy8="
+									},
+									"subViews": [
+										{
+											"_type": "EdgeLabelView",
+											"_id": "AAAAAAGfqDoghR94TZs=",
+											"_parent": {
+												"$ref": "AAAAAAGfqDoghR93GQg="
+											},
+											"model": {
+												"$ref": "AAAAAAGfqDoghR92zy8="
+											},
+											"visible": false,
+											"font": "Arial;13;0",
+											"parentStyle": false,
+											"left": 1185,
+											"top": 453,
+											"height": 13,
+											"alpha": 1.5707963267948966,
+											"distance": 15,
+											"hostEdge": {
+												"$ref": "AAAAAAGfqDoghR93GQg="
+											},
+											"edgePosition": 1
+										},
+										{
+											"_type": "EdgeLabelView",
+											"_id": "AAAAAAGfqDoghR952eE=",
+											"_parent": {
+												"$ref": "AAAAAAGfqDoghR93GQg="
+											},
+											"model": {
+												"$ref": "AAAAAAGfqDoghR92zy8="
+											},
+											"visible": null,
+											"font": "Arial;13;0",
+											"parentStyle": false,
+											"left": 1170,
+											"top": 453,
+											"height": 13,
+											"alpha": 1.5707963267948966,
+											"distance": 30,
+											"hostEdge": {
+												"$ref": "AAAAAAGfqDoghR93GQg="
+											},
+											"edgePosition": 1
+										},
+										{
+											"_type": "EdgeLabelView",
+											"_id": "AAAAAAGfqDoghR96pGc=",
+											"_parent": {
+												"$ref": "AAAAAAGfqDoghR93GQg="
+											},
+											"model": {
+												"$ref": "AAAAAAGfqDoghR92zy8="
+											},
+											"visible": false,
+											"font": "Arial;13;0",
+											"parentStyle": false,
+											"left": 1215,
+											"top": 454,
+											"height": 13,
+											"alpha": -1.5707963267948966,
+											"distance": 15,
+											"hostEdge": {
+												"$ref": "AAAAAAGfqDoghR93GQg="
+											},
+											"edgePosition": 1
+										}
+									],
+									"font": "Arial;13;0",
+									"parentStyle": false,
+									"head": {
+										"$ref": "AAAAAAGfW/ZONBVIyLo="
+									},
+									"tail": {
+										"$ref": "AAAAAAGfW/f88xY2QnQ="
+									},
+									"lineStyle": 1,
+									"points": "1178:689;1200:688;1200:232;984:235",
+									"showVisibility": true,
+									"nameLabel": {
+										"$ref": "AAAAAAGfqDoghR94TZs="
+									},
+									"stereotypeLabel": {
+										"$ref": "AAAAAAGfqDoghR952eE="
+									},
+									"propertyLabel": {
+										"$ref": "AAAAAAGfqDoghR96pGc="
+									}
+								},
+								{
+									"_type": "UMLTextView",
+									"_id": "AAAAAAGfqDpskR+Kcm8=",
+									"_parent": {
+										"$ref": "AAAAAAGfW/RzLA6ysxY="
+									},
+									"font": "Arial;13;0",
+									"parentStyle": false,
+									"left": 816,
+									"top": 592,
+									"width": 100,
+									"height": 25,
+									"text": "Dữ liệu hợp lệ?"
 								}
 							]
 						}
@@ -3169,6 +3281,19 @@
 							},
 							"target": {
 								"$ref": "AAAAAAGfW/ebXxX0cZw="
+							}
+						},
+						{
+							"_type": "UMLControlFlow",
+							"_id": "AAAAAAGfqDoghR92zy8=",
+							"_parent": {
+								"$ref": "AAAAAAGfW/RzLA6xfIU="
+							},
+							"source": {
+								"$ref": "AAAAAAGfW/f88xY0IK4="
+							},
+							"target": {
+								"$ref": "AAAAAAGfW/ZOMxVGr2Q="
 							}
 						}
 					],
