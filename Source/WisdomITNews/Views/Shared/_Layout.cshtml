@@ -57,7 +57,7 @@
     <link rel="stylesheet" href="~/css/site.css?v=20260527e" />
     <link rel="stylesheet" href="~/css/baomoi-skin.css?v=20260710b" />
     <!-- Lớp giao diện MỚI (thanhnien-style) — nạp SAU cùng để bổ sung, không đè -->
-    <link rel="stylesheet" href="~/css/wisdom-site.css?v=20260727n" />
+    <link rel="stylesheet" href="~/css/wisdom-site.css?v=20260728e" />
     <style>
             /* ===== Account Dropdown (in sticky header) ===== */
             .header-account-dropdown {
@@ -588,9 +588,9 @@
         var userName = Context.Session.GetString("UserName");
         var userAvatar = Context.Session.GetString("UserAvatar");
     }
-    <!-- ================= TOP BANNER AD (leaderboard, placeholder) ================= -->
-    <div class="container" style="max-width:1200px;margin:10px auto 0;padding:0 16px;">
-        <div class="wi-ad-slot wi-ad-top" data-ad-label="Quảng cáo · Top Banner 728×90">
+    <!-- ================= TOP BANNER AD (leaderboard khổ chuẩn, canh giữa kiểu Thanh Niên) ================= -->
+    <div style="max-width:1000px;margin:10px auto 0;padding:0 16px;">
+        <div class="wi-ad-slot wi-ad-top wi-ad-topfull" data-ad-label="Quảng cáo · Top Banner (970×120)">
             @await Component.InvokeAsync("AdSlot", new { position = "header" })
         </div>
     </div>

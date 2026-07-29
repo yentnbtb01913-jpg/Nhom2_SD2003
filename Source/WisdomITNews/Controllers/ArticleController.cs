@@ -451,6 +451,22 @@ public class ArticleController : Controller
                     var reason = (mod.Issues != null && mod.Issues.Count > 0)
                         ? string.Join("; ", mod.Issues)
                         : "Nội dung vi phạm quy định cộng đồng.";
+
+                    // Gửi THÔNG BÁO vào hộp thư người bình luận (nếu đã đăng nhập)
+                    if (userId != null)
+                    {
+                        try
+                        {
+                            var notif = HttpContext.RequestServices.GetRequiredService<WisdomITNews.Services.NotificationService>();
+                            await notif.SendToUserAsync(userId.Value,
+                                "Bình luận của bạn đã bị AI xóa",
+                                $"Bình luận \"{content}\" của bạn đã bị hệ thống AI tự động xóa vì: {reason}. "
+                                + "Vui lòng tuân thủ quy định cộng đồng khi bình luận.",
+                                type: "ai_violation", icon: "robot", iconColor: "#f59e0b");
+                        }
+                        catch { /* gửi thông báo lỗi -> bỏ qua, không chặn phản hồi */ }
+                    }
+
                     // Không lưu Comment -> coi như bị xóa ngay lập tức.
                     return Ok(new
                     {

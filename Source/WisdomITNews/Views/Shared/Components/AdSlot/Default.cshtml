@@ -1,7 +1,9 @@
 @model WisdomITNews.Models.AdZoneRender
 @{
     var ads = (Model?.Ads ?? new List<WisdomITNews.Models.Advertisement>())
-              .Where(a => !string.IsNullOrEmpty(a.ImageUrl) || (a.AdType == "html" && !string.IsNullOrEmpty(a.HtmlContent)))
+              .Where(a => !string.IsNullOrEmpty(a.ImageUrl)
+                       || (a.AdType == "html" && !string.IsNullOrEmpty(a.HtmlContent))
+                       || (a.AdType == "video" && !string.IsNullOrEmpty(a.VideoUrl)))
               .ToList();
     if (ads.Count == 0) { return; }
     var rotMs = Model?.RotationMs ?? 5000;
@@ -18,16 +20,18 @@
         var d = new string(size.Substring(i + 1).TakeWhile(char.IsDigit).ToArray());
         return int.TryParse(d, out var h) ? h : 0;
     }
-    int slotH = ParseH(first.AdSlot?.Size);
-    bool hasHtml = ads.Any(a => a.AdType == "html");
-    int boxH = isHomeRail ? 600 : (hasHtml ? (slotH > 0 ? slotH : 250) : 0); // 0 = tự khóa theo ảnh
+    int slotH = ParseH(Model?.SlotSize ?? first.AdSlot?.Size);
+    bool hasFixed = ads.Any(a => a.AdType == "html" || a.AdType == "video");
+    // Chiều cao KHUNG = chiều cao thật của slot (vd 970x120 -> 120). Ảnh/HTML/Video lấp đúng khung, không tràn.
+    int boxH = isHomeRail ? 600 : (slotH > 0 ? slotH : (hasFixed ? 250 : 0));
     // Tính sẵn chuỗi style (tránh nội suy $"" trong thuộc tính -> Razor báo lỗi)
     string boxHeightCss = boxH > 0 ? ("height:" + boxH + "px;") : "";
+    // object-fit:cover -> ảnh LẤP ĐẦY đúng khung slot (không viền trống), cắt phần thừa. Ảnh nên đúng tỉ lệ slot.
     string imgHeightCss = boxH > 0 ? ("height:" + boxH + "px;object-fit:cover;") : "height:auto;";
     int iframeH = boxH > 0 ? boxH : 250;
 }
 <div class="ad-slot ad-@first.Position" style="text-align:center;margin:@(isHomeRail ? "0" : "12px 0");width:100%;">
-    <div id="@uid" class="ad-rot" style="position:relative;width:100%;@(boxHeightCss)overflow:hidden;border-radius:@(isHomeRail ? "8px" : "6px");">
+    <div id="@uid" class="ad-rot" style="position:relative;width:100%;@(boxHeightCss)background:#fff;overflow:hidden;border-radius:@(isHomeRail ? "8px" : "6px");">
         @for (int i = 0; i < ads.Count; i++)
         {
             var ad = ads[i];
@@ -39,6 +43,26 @@
                     @* Mã HTML/JS của khách chạy trong iframe SANDBOX null-origin: cách ly hoàn toàn khỏi site *@
                     <iframe sandbox="allow-scripts allow-popups allow-forms" srcdoc="@ad.HtmlContent" scrolling="no"
                             style="width:100%;height:@(iframeH)px;border:0;display:block;background:#fff;"></iframe>
+                </div>
+            }
+            else if (ad.AdType == "video" && !string.IsNullOrEmpty(ad.VideoUrl))
+            {
+                var _yt = WisdomITNews.Models.YouTubeHelper.ExtractId(ad.VideoUrl);
+                <div class="ad-rot-slide" data-id="@ad.Id"
+                     style="position:@(on ? "relative" : "absolute");top:0;left:0;width:100%;opacity:@(on ? "1" : "0");transition:opacity .6s ease;@(on ? "" : "pointer-events:none;")">
+                    @if (_yt != null)
+                    {
+                        <iframe src="https://www.youtube.com/embed/@_yt?autoplay=1&mute=1&loop=1&playlist=@_yt&controls=0&modestbranding=1&rel=0&playsinline=1"
+                                frameborder="0" allow="autoplay; encrypted-media; picture-in-picture"
+                                style="width:100%;height:@(iframeH)px;border:0;display:block;background:#000;"></iframe>
+                    }
+                    else
+                    {
+                        <a href="/ad/click/@ad.Id" target="_blank" rel="nofollow sponsored noopener" title="@ad.Title" style="display:block;">
+                            <video src="@ad.VideoUrl" autoplay muted loop playsinline
+                                   style="width:100%;height:@(iframeH)px;object-fit:cover;display:block;background:#000;"></video>
+                        </a>
+                    }
                 </div>
             }
             else

@@ -163,9 +163,26 @@
                     var _content = article.Content ?? "";
                     var _ni = _content.IndexOf("📌 Đây là", StringComparison.Ordinal);
                     if (_ni > 0) { var _ps = _content.LastIndexOf("<p", _ni, StringComparison.Ordinal); if (_ps >= 0) { _content = _content.Substring(0, _ps); } }
+
+                    // Chèn quảng cáo GIỮA bài: tách nội dung tại đoạn giữa (theo số thẻ </p>).
+                    // Bài ngắn (< 4 đoạn) -> để nửa sau rỗng, quảng cáo rơi xuống cuối như cũ.
+                    string _firstHalf = _content, _secondHalf = "";
+                    int _pcount = System.Text.RegularExpressions.Regex.Matches(_content, "</p>").Count;
+                    if (_pcount >= 4)
+                    {
+                        int _target = _pcount / 2, _found = 0, _search = 0, _idx = -1;
+                        while (_found < _target)
+                        {
+                            _idx = _content.IndexOf("</p>", _search, StringComparison.Ordinal);
+                            if (_idx < 0) break;
+                            _found++; _search = _idx + 4;
+                        }
+                        if (_idx > 0) { int _cut = _idx + 4; _firstHalf = _content.Substring(0, _cut); _secondHalf = _content.Substring(_cut); }
+                    }
                 }
-                @Html.Raw(_content)
+                @Html.Raw(_firstHalf)
                 @await Component.InvokeAsync("AdSlot", new { position = "in_article" })
+                @Html.Raw(_secondHalf)
             </div>
             @if (Model.Tags.Any())
             {

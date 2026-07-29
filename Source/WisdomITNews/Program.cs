@@ -8,7 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = VideoUploadService.MaxSize);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = VideoUploadService.MaxSize);
 
-builder.Services.AddControllersWithViews().AddNewtonsoftJson();
+builder.Services.AddScoped<WisdomITNews.Filters.AdminAuditFilter>();
+builder.Services.AddControllersWithViews(o => o.Filters.Add<WisdomITNews.Filters.AdminAuditFilter>()).AddNewtonsoftJson();
 builder.Services.AddHttpClient();
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -104,6 +105,7 @@ using (var scope = app.Services.CreateScope())
         db.AdSlots.AddRange(toAdd);
         db.SaveChanges();
     }
+
 }
 
 if (!app.Environment.IsDevelopment())

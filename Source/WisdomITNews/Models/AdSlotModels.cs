@@ -30,6 +30,7 @@ public class AdZoneRender
 {
     public List<Advertisement> Ads { get; set; } = new();
     public int RotationMs { get; set; } = 5000;
+    public string? SlotSize { get; set; }   // kích thước slot của KHU (vd "Billboard970x250") -> dùng cố định chiều cao ô
 }
 
 // ===== Bảng điều khiển bố cục quảng cáo (preview + sắp thứ tự) =====

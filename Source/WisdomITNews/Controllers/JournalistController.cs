@@ -447,6 +447,19 @@ public class JournalistController : Controller
                 await _db.SaveChangesAsync();
             }
 
+            // Thông báo ĐĂNG BÀI THÀNH CÔNG vào hộp thư nhà báo (kèm link bài)
+            try
+            {
+                var notif = HttpContext.RequestServices.GetRequiredService<WisdomITNews.Services.NotificationService>();
+                var link = $"{Request.Scheme}://{Request.Host}/bai-viet/{vm.Article.Slug}";
+                var st = vm.Article.Status == "draft" ? "đã được lưu nháp" : "đã được gửi và đang chờ duyệt";
+                await notif.SendToUserAsync(user.Id,
+                    "🎉 Đăng bài thành công",
+                    $"Chúc mừng! Bài viết \"{vm.Article.Title}\" của bạn {st}. Trang báo hiển thị tại: {link}",
+                    type: "article_posted", icon: "newspaper", iconColor: "#0e7d85");
+            }
+            catch (Exception nex) { _logger.LogWarning(nex, "Gửi thông báo đăng bài (nhà báo) thất bại"); }
+
             TempData["Success"] = "Bài viết đã được tạo thành công!";
             return RedirectToAction("Dashboard");
         }

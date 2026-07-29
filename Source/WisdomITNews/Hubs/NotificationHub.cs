@@ -33,6 +33,10 @@ public class NotificationHub : Hub
         if (role == "Journalist")
             await Groups.AddToGroupAsync(Context.ConnectionId, "journalists");
 
+        // Admin/nhân viên -> nhóm "admins" (nhận thông báo hoạt động quản trị, không lọt sang người dùng)
+        if (!string.IsNullOrEmpty(adminId))
+            await Groups.AddToGroupAsync(Context.ConnectionId, "admins");
+
         await Groups.AddToGroupAsync(Context.ConnectionId, "all");
 
         await base.OnConnectedAsync();

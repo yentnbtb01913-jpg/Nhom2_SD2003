@@ -5,10 +5,11 @@ public class Advertisement
 {
     public int Id { get; set; }
     public string Title { get; set; } = "";
-    // Loại sáng tạo: "image" = banner ảnh (ImageUrl+TargetUrl); "html" = mã HTML/JS (HtmlContent, nhúng iframe sandbox).
+    // Loại sáng tạo: "image" (ImageUrl+TargetUrl) | "html" (HtmlContent, iframe sandbox) | "video" (VideoUrl).
     public string AdType { get; set; } = "image";
     public string? ImageUrl { get; set; }
     public string? HtmlContent { get; set; }              // mã HTML/JS khách gửi (chạy trong iframe cách ly)
+    public string? VideoUrl { get; set; }                 // video QC: link YouTube, URL .mp4, hoặc đường dẫn file đã upload
     public string TargetUrl { get; set; } = "";           // link đích khi click (dùng cho loại ảnh)
     public string Position { get; set; } = "sidebar";     // header / sidebar / in_article
     public DateTime? StartDate { get; set; }              // lịch chạy (null = không giới hạn)

@@ -39,6 +39,28 @@ public class NotificationService
         await _hub.Clients.All.SendAsync("ReceiveNotification", notif);
     }
 
+    // Gửi thông báo tới MỘT người dùng cụ thể (vào hộp thư + realtime).
+    public async Task SendToUserAsync(int userId, string title, string content,
+        string type = "ad_booking", string icon = "bullhorn", string iconColor = "#0e7d85")
+    {
+        var notif = new Notification
+        {
+            Code = GenerateCode(),
+            Title = title,
+            Content = content,
+            Type = type,
+            Icon = icon,
+            IconColor = iconColor,
+            TargetType = "user",
+            TargetUserId = userId,
+            SentBy = "system",
+            CreatedAt = DateTime.Now
+        };
+        _db.Notifications.Add(notif);
+        await _db.SaveChangesAsync();
+        await _hub.Clients.Group($"user_{userId}").SendAsync("ReceiveNotification", notif);
+    }
+
     // Đây là luồng xử lý gửi thông báo bình luận vi phạm (AI phát hiện)
     // Luồng: 1) Tạo Notification Type="ai_violation", TargetUserId=userId, lưu nội dung vi phạm
     //        2) Lưu DB  3) Phát realtime tới group "user_{userId}"

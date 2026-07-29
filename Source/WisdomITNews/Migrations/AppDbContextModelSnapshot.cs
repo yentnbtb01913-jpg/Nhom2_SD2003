@@ -91,12 +91,24 @@ namespace WisdomITNews.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CompanyAddress")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("CompanyName")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ContactName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ContractMonths")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContractNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ContractSignedDate")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -108,11 +120,34 @@ namespace WisdomITNews.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("InvoiceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InvoiceNumber")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Note")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("PaidAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Phone")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Representative")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
@@ -356,7 +391,7 @@ namespace WisdomITNews.Migrations
                             EmploymentStatus = "working",
                             FullName = "Quản Trị Viên",
                             IsActive = true,
-                            PasswordHash = "$2a$11$W63bcN3NNPTt.RDEgUvin.kbg1L.C4jFkSstyXNz3T44yIV0vblXW",
+                            PasswordHash = "$2a$11$sEyJXc3ZdssBzJ0pN1e52OqnOZaQtNg2skyCbj5rAAa/xysjyonze",
                             Role = "superadmin",
                             Username = "admin"
                         });
@@ -447,6 +482,9 @@ namespace WisdomITNews.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VideoUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
@@ -1499,6 +1537,276 @@ namespace WisdomITNews.Migrations
                     b.ToTable("Podcasts");
                 });
 
+            modelBuilder.Entity("WisdomITNews.Models.PrComplianceDoc", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FileName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PrOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrOrderId");
+
+                    b.ToTable("PrComplianceDocs");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.PrIndustry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("RequiresLicense")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PrIndustries");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.PrOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AmountClaimed")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AmountReceived")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("AssignedStaffId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AssignedStaffName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BuyerType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CompanyName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContactEmail")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContactName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContactPhone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DisplayDurationDays")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("IndustryId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OrderCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("PublishedArticleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RequestedPublishTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RevisionReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ScheduledPublishTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TaxCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IndustryId");
+
+                    b.HasIndex("OrderCode")
+                        .IsUnique();
+
+                    b.ToTable("PrOrders");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.PrOrderStatusHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ChangedByName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ChangedByRole")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ChangedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FromStatus")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PrOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrOrderId");
+
+                    b.ToTable("PrOrderStatusHistories");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.PrPaymentReceipt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AmountClaimed")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PrOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UploadedByUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrOrderId");
+
+                    b.ToTable("PrPaymentReceipts");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.PrSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BankAccount")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BankHolder")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CancelFee24to72h")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CancelFeeOver72h")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CancelFeeUnder24h")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OverpayHandling")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PaymentTimeoutDays")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PrSettings");
+                });
+
             modelBuilder.Entity("WisdomITNews.Models.RssSource", b =>
                 {
                     b.Property<int>("Id")
@@ -2404,6 +2712,48 @@ namespace WisdomITNews.Migrations
                     b.Navigation("Article");
                 });
 
+            modelBuilder.Entity("WisdomITNews.Models.PrComplianceDoc", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.PrOrder", "PrOrder")
+                        .WithMany("ComplianceDocs")
+                        .HasForeignKey("PrOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PrOrder");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.PrOrder", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.PrIndustry", "Industry")
+                        .WithMany()
+                        .HasForeignKey("IndustryId");
+
+                    b.Navigation("Industry");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.PrOrderStatusHistory", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.PrOrder", "PrOrder")
+                        .WithMany("History")
+                        .HasForeignKey("PrOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PrOrder");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.PrPaymentReceipt", b =>
+                {
+                    b.HasOne("WisdomITNews.Models.PrOrder", "PrOrder")
+                        .WithMany("Receipts")
+                        .HasForeignKey("PrOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PrOrder");
+                });
+
             modelBuilder.Entity("WisdomITNews.Models.RssSource", b =>
                 {
                     b.HasOne("WisdomITNews.Models.Category", null)
@@ -2588,6 +2938,15 @@ namespace WisdomITNews.Migrations
                     b.Navigation("Replies");
 
                     b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("WisdomITNews.Models.PrOrder", b =>
+                {
+                    b.Navigation("ComplianceDocs");
+
+                    b.Navigation("History");
+
+                    b.Navigation("Receipts");
                 });
 
             modelBuilder.Entity("WisdomITNews.Models.Tag", b =>

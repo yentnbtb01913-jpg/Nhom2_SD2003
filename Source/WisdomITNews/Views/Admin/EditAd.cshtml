@@ -17,24 +17,57 @@
 
 <form method="post" action="/admin/EditAd/@Model.Id" enctype="multipart/form-data" style="background:#fff;border-radius:8px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.06);max-width:680px;">
     <div style="margin-bottom:16px;"><label style="@lbl">Tiêu đề *</label><input style="@inp" name="Title" value="@Model.Title" required maxlength="150" /></div>
-    <div style="margin-bottom:16px;"><label style="@lbl">Link đích (khi click) *</label><input style="@inp" name="TargetUrl" value="@Model.TargetUrl" placeholder="https://... hoặc /danh-muc/..." required /></div>
-    <div style="margin-bottom:16px;">
-        <label style="@lbl">Ảnh banner</label>
-        @if (!string.IsNullOrEmpty(Model.ImageUrl)) { <img src="@Model.ImageUrl" style="max-width:100%;max-height:90px;border-radius:6px;margin-bottom:8px;display:block;" /> }
-        <input style="@inp" type="file" name="imageFile" accept="image/*" />
-        <div style="@hint">Tải ảnh lên, HOẶC dán link ảnh bên dưới. Gợi ý kích thước: Header 728x90, Sidebar 300x250, Trang Chủ (trái/phải) 160x600.</div>
-        <input style="@inp;margin-top:6px;" name="ImageUrl" value="@Model.ImageUrl" placeholder="https://link-anh.png (tuỳ chọn)" />
 
-        <div id="homeRailHint" style="display:none;margin-top:10px;padding:10px 12px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;">
-            <div style="display:flex;gap:12px;align-items:center;">
-                <div style="flex-shrink:0;width:34px;height:128px;border:2px dashed #6366f1;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;">
-                    <span style="writing-mode:vertical-rl;font-size:10px;color:#6366f1;font-weight:700;letter-spacing:1px;">160×600</span>
-                </div>
-                <div style="font-size:12px;color:#3730a3;line-height:1.6;">
-                    <strong>Kích thước khuyến nghị: 160 × 600 px</strong> (hoặc 300 × 600 px) — ảnh dọc dạng banner đứng (skyscraper).<br />
-                    Ảnh càng cao càng lấp đầy khung; khung sẽ tự kéo dài xuống theo chiều dọc và giữ chiều cao tối thiểu dù ảnh thấp.
+    <div style="margin-bottom:16px;">
+        <label style="@lbl">Loại quảng cáo *</label>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
+            <label style="font-weight:600;cursor:pointer;"><input type="radio" name="AdType" value="image" checked="@(Model.AdType != "html" && Model.AdType != "video")" onchange="toggleAdType('image')"> Ảnh banner</label>
+            <label style="font-weight:600;cursor:pointer;"><input type="radio" name="AdType" value="html" checked="@(Model.AdType == "html")" onchange="toggleAdType('html')"> Mã HTML / JS</label>
+            <label style="font-weight:600;cursor:pointer;"><input type="radio" name="AdType" value="video" checked="@(Model.AdType == "video")" onchange="toggleAdType('video')"> Video</label>
+        </div>
+    </div>
+
+    <!-- LOẠI ẢNH -->
+    <div id="adImageBox">
+        <div style="margin-bottom:16px;"><label style="@lbl">Link đích (khi click)</label><input style="@inp" name="TargetUrl" value="@Model.TargetUrl" placeholder="https://... hoặc /danh-muc/..." /></div>
+        <div style="margin-bottom:16px;">
+            <label style="@lbl">Ảnh banner</label>
+            @if (!string.IsNullOrEmpty(Model.ImageUrl)) { <img src="@Model.ImageUrl" style="max-width:100%;max-height:90px;border-radius:6px;margin-bottom:8px;display:block;" /> }
+            <input style="@inp" type="file" name="imageFile" accept="image/*" />
+            <div style="@hint">Tải ảnh lên, HOẶC dán link ảnh bên dưới. Gợi ý kích thước: Header 728x90, Sidebar 300x250, Trang Chủ (trái/phải) 160x600.</div>
+            <input style="@inp;margin-top:6px;" name="ImageUrl" value="@Model.ImageUrl" placeholder="https://link-anh.png (tuỳ chọn)" />
+
+            <div id="homeRailHint" style="display:none;margin-top:10px;padding:10px 12px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;">
+                <div style="display:flex;gap:12px;align-items:center;">
+                    <div style="flex-shrink:0;width:34px;height:128px;border:2px dashed #6366f1;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;">
+                        <span style="writing-mode:vertical-rl;font-size:10px;color:#6366f1;font-weight:700;letter-spacing:1px;">160×600</span>
+                    </div>
+                    <div style="font-size:12px;color:#3730a3;line-height:1.6;">
+                        <strong>Kích thước khuyến nghị: 160 × 600 px</strong> (hoặc 300 × 600 px) — ảnh dọc dạng banner đứng (skyscraper).<br />
+                        Ảnh càng cao càng lấp đầy khung; khung sẽ tự kéo dài xuống theo chiều dọc và giữ chiều cao tối thiểu dù ảnh thấp.
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- LOẠI HTML / JS -->
+    <div id="adHtmlBox" style="display:none;">
+        <div style="margin-bottom:16px;">
+            <label style="@lbl">Dán mã HTML / JS</label>
+            <textarea style="@inp;font-family:monospace;min-height:150px;" name="HtmlContent" placeholder="<div>...</div> <script>...</script>">@Model.HtmlContent</textarea>
+            <div style="@hint"><i class="fa fa-shield-halved"></i> …hoặc tải file .html bên dưới. Mã chạy trong iframe sandbox cách ly, không truy cập dữ liệu site.</div>
+            <input style="@inp;margin-top:6px;" type="file" name="htmlFile" accept=".html,.htm,text/html" />
+        </div>
+    </div>
+
+    <!-- LOẠI VIDEO -->
+    <div id="adVideoBox" style="display:none;">
+        <div style="margin-bottom:16px;">
+            <label style="@lbl">Link video (YouTube) hoặc URL .mp4</label>
+            <input style="@inp" name="VideoUrl" value="@Model.VideoUrl" placeholder="https://youtu.be/... hoặc https://.../video.mp4" />
+            <div style="@hint"><i class="fa fa-circle-play"></i> …hoặc tải file video (.mp4/.webm, tối đa 500MB) bên dưới. Video tự phát, tắt tiếng, lặp lại.</div>
+            <input style="@inp;margin-top:6px;" type="file" name="videoFile" accept="video/mp4,video/webm,.mp4,.webm" />
         </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
@@ -64,5 +97,11 @@
         var v = document.getElementById('adPosition').value;
         document.getElementById('homeRailHint').style.display = (v === 'home_left' || v === 'home_right') ? 'block' : 'none';
     }
+    function toggleAdType(t) {
+        document.getElementById('adImageBox').style.display = t === 'image' ? 'block' : 'none';
+        document.getElementById('adHtmlBox').style.display = t === 'html' ? 'block' : 'none';
+        document.getElementById('adVideoBox').style.display = t === 'video' ? 'block' : 'none';
+    }
     toggleHomeRailHint();
+    toggleAdType(document.querySelector('input[name=AdType]:checked')?.value || 'image');
 </script>

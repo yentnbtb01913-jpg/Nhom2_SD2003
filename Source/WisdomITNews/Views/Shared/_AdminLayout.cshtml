@@ -205,7 +205,7 @@
                     <a href="/admin/Users"><i class="fa fa-users" style="width:16px;"></i> Quản lý tài khoản</a>
                     <a href="/admin/Staff"><i class="fa fa-user-shield" style="width:16px;"></i> Quản lý nhân viên</a>
                 }
-                <a href="/admin/Partners"><i class="fa fa-handshake" style="width:16px;"></i> Đối tác (Nhà Báo)</a>
+                <a href="/admin/Partners"><i class="fa fa-handshake" style="width:16px;"></i> Quản lý Đối tác</a>
             </details>
 
             <details class="nav-group" open>
@@ -299,6 +299,10 @@
 
   connection.start().catch(err => console.error(err));
 
+  // Nạp thông báo NGAY khi mở mọi trang quản trị (không chờ sự kiện realtime)
+  updateBadge();
+  loadRecentNotifications();
+
   async function updateBadge() {
     const res = await fetch('/admin/GetUnreadCount');
     const data = await res.json();
@@ -321,8 +325,14 @@
   let notifShowAll = false;
 
   async function loadRecentNotifications() {
-    const res = await fetch('/admin/GetRecentNotifications');
-    allAdminNotifs = await res.json();
+    try {
+      const res = await fetch('/admin/GetRecentNotifications', { headers: { 'Accept': 'application/json' } });
+      const data = await res.json();
+      allAdminNotifs = Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.error('loadRecentNotifications lỗi:', e);
+      allAdminNotifs = [];
+    }
     renderAdminNotifs();
   }
 

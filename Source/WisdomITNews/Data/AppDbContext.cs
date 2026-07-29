@@ -52,6 +52,7 @@ public class AppDbContext : DbContext
     {
         // Số tiền đơn quảng cáo — khai báo precision rõ ràng để hết cảnh báo decimal
         mb.Entity<AdBooking>().Property(b => b.Amount).HasPrecision(18, 2);
+        mb.Entity<AdBooking>().Property(b => b.PaidAmount).HasPrecision(18, 2);
 
         // ArticleTag composite key
         mb.Entity<ArticleTag>().HasKey(at => new { at.ArticleId, at.TagId });

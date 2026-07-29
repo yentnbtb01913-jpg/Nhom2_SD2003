@@ -1,119 +1,250 @@
 @using WisdomITNews.Models
 @model List<WisdomITNews.Models.User>
 @{
-    ViewData["Title"] = "Quản lý Nhà báo";
+    ViewData["Title"] = "Quản lý Đối tác";
     Layout = "_AdminLayout";
     var counts = ViewBag.ArticleCounts as Dictionary<int, int> ?? new Dictionary<int, int>();
     var profiles = ViewBag.Profiles as Dictionary<int, JournalistProfile> ?? new Dictionary<int, JournalistProfile>();
     var filter = (string)(ViewBag.Filter ?? "all");
     var q = (string)(ViewBag.Q ?? "");
+    var tab = (string)(ViewBag.Tab ?? "content");
+    var partners = ViewBag.AdPartners as List<AdPartnerVM> ?? new List<AdPartnerVM>();
+    var slotNames = ViewBag.SlotNames as Dictionary<string, string> ?? new Dictionary<string, string>();
+    string PosVi(string p) => slotNames.TryGetValue(p ?? "", out var v) ? v : p;
+    string PayVi(string s) => s switch { "paid" => "Đã thanh toán", "partial" => "TT một phần", _ => "Chưa thanh toán" };
+    string PayColor(string s) => s switch { "paid" => "#16a34a", "partial" => "#ca8a04", _ => "#dc2626" };
+    string StVi(string s) => s switch
+    {
+        "PendingConfirmation" or "pending" => "Chờ xác nhận",
+        "AwaitingPayment" or "confirmed" => "Chờ thanh toán",
+        "AwaitingContent" => "Chờ nội dung", "UnderReview" => "Đang duyệt",
+        "Live" or "published" => "Đang chạy", "Completed" => "Hoàn tất",
+        "Rejected" or "cancelled" => "Đã hủy", _ => s
+    };
+    string tabBtn(bool active) => active
+        ? "background:#0e7d85;color:#fff;"
+        : "background:#f0f2f5;color:#374151;";
+    var totalRevenue = partners.Sum(p => p.TotalSpent);
+    var totalDebt = partners.Sum(p => p.Debt);
 }
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-handshake" style="color:#159aa3;"></i> Quản lý Nhà báo (Đối tác)</h1>
-    <a href="/admin/CreateJournalist" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Thêm đối tác</a>
-</div>
-<p style="color:#6c757d;font-size:13px;margin-bottom:16px;">Quản lý hồ sơ nhà báo, duyệt đơn đăng ký (đơn mới ở trạng thái <b>Chờ duyệt</b>), khoá/mở và xóa mềm.</p>
-
-<!-- Tìm + lọc -->
-<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
-    <form method="get" action="/admin/Partners" style="display:flex;gap:6px;">
-        <input type="hidden" name="filter" value="@filter" />
-        <input type="text" name="q" value="@q" placeholder="Tìm tên / email / username..." style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:240px;" />
-        <button type="submit" style="background:#0e7d85;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;"><i class="fa fa-search"></i></button>
-    </form>
-    @{
-        (string,string)[] tabs = new[] { ("all","Tất cả"), ("active","Đang hoạt động"), ("inactive","Chờ duyệt/Khoá"), ("deleted","Đã xóa") };
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <h1 style="font-size:22px;font-weight:800;"><i class="fa fa-handshake" style="color:#159aa3;"></i> Quản lý Đối tác</h1>
+    @if (tab == "content")
+    {
+        <a href="/admin/CreateJournalist" style="background:#159aa3;color:#fff;padding:9px 16px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;"><i class="fa fa-plus"></i> Thêm nhà báo</a>
     }
-    <div style="display:flex;gap:6px;">
-        @foreach (var (key, label) in tabs)
-        {
-            <a href="/admin/Partners?filter=@key&q=@Uri.EscapeDataString(q)" style="padding:7px 14px;border-radius:6px;font-size:13px;text-decoration:none;@(filter==key ? "background:#0e7d85;color:#fff;" : "background:#f0f2f5;color:#374151;")">@label</a>
-        }
-    </div>
 </div>
 
-<div style="background:#fff;border-radius:6px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
-        <thead>
-            <tr style="border-bottom:2px solid #f0f2f5;color:#6c757d;text-align:left;">
-                <th style="padding:10px 8px;">Mã</th>
-                <th style="padding:10px 8px;">Nhà báo</th>
-                <th style="padding:10px 8px;">Email</th>
-                <th style="padding:10px 8px;">Chức danh</th>
-                <th style="padding:10px 8px;">Số bài</th>
-                <th style="padding:10px 8px;">Trạng thái</th>
-                <th style="padding:10px 8px;"></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var u in Model)
+<!-- TAB BAR -->
+<div style="display:flex;gap:8px;border-bottom:2px solid #eef1f4;margin-bottom:18px;">
+    <a href="/admin/Partners?tab=content" style="padding:10px 20px;border-radius:8px 8px 0 0;font-weight:700;font-size:14px;text-decoration:none;@(tab == "content" ? "background:#0e7d85;color:#fff;" : "color:#64748b;")">
+        <i class="fa fa-pen-nib"></i> Đối tác nội dung (Nhà báo)
+    </a>
+    <a href="/admin/Partners?tab=ads" style="padding:10px 20px;border-radius:8px 8px 0 0;font-weight:700;font-size:14px;text-decoration:none;@(tab == "ads" ? "background:#0e7d85;color:#fff;" : "color:#64748b;")">
+        <i class="fa fa-bullhorn"></i> Đối tác quảng cáo (@partners.Count)
+    </a>
+</div>
+
+@* ================= TAB 1: NHÀ BÁO ================= *@
+<div id="tab-content" style="display:@(tab == "content" ? "block" : "none");">
+    <p style="color:#6c757d;font-size:13px;margin-bottom:14px;">Quản lý hồ sơ nhà báo, duyệt đơn đăng ký (đơn mới ở trạng thái <b>Chờ duyệt</b>), khoá/mở và xóa mềm.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+        <form method="get" action="/admin/Partners" style="display:flex;gap:6px;">
+            <input type="hidden" name="tab" value="content" />
+            <input type="hidden" name="filter" value="@filter" />
+            <input type="text" name="q" value="@q" placeholder="Tìm tên / email / username..." style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:240px;" />
+            <button type="submit" style="background:#0e7d85;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;"><i class="fa fa-search"></i></button>
+        </form>
+        @{ (string, string)[] jtabs = new[] { ("all", "Tất cả"), ("active", "Đang hoạt động"), ("inactive", "Chờ duyệt/Khoá"), ("deleted", "Đã xóa") }; }
+        <div style="display:flex;gap:6px;">
+            @foreach (var (key, label) in jtabs)
             {
-                profiles.TryGetValue(u.Id, out var pf);
-                <tr id="jr-@u.Id" style="border-bottom:1px solid #f0f2f5;">
-                    <td style="padding:10px 8px;font-weight:700;color:#0e7d85;">JP@(u.Id.ToString("D4"))</td>
-                    <td style="padding:10px 8px;">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <img src="@(string.IsNullOrEmpty(u.AvatarUrl) ? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(u.FullName)}&background=159aa3&color=fff" : u.AvatarUrl)" style="width:38px;height:38px;border-radius:50%;object-fit:cover;" />
-                            <div>
-                                <div style="font-weight:600;">@u.FullName</div>
-                                <div style="font-size:12px;color:#94a3b8;">@(string.IsNullOrWhiteSpace(pf?.PenName) ? "@" + u.Username : "Bút danh: " + pf.PenName)</div>
+                <a href="/admin/Partners?tab=content&filter=@key&q=@Uri.EscapeDataString(q)" style="padding:7px 14px;border-radius:6px;font-size:13px;text-decoration:none;@tabBtn(filter == key)">@label</a>
+            }
+        </div>
+    </div>
+
+    <div style="background:#fff;border-radius:6px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+            <thead>
+                <tr style="border-bottom:2px solid #f0f2f5;color:#6c757d;text-align:left;">
+                    <th style="padding:10px 8px;">Mã</th><th style="padding:10px 8px;">Nhà báo</th>
+                    <th style="padding:10px 8px;">Email</th><th style="padding:10px 8px;">Chức danh</th>
+                    <th style="padding:10px 8px;">Số bài</th><th style="padding:10px 8px;">Trạng thái</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in Model)
+                {
+                    profiles.TryGetValue(u.Id, out var pf);
+                    <tr id="jr-@u.Id" style="border-bottom:1px solid #f0f2f5;">
+                        <td style="padding:10px 8px;font-weight:700;color:#0e7d85;">JP@(u.Id.ToString("D4"))</td>
+                        <td style="padding:10px 8px;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <img src="@(string.IsNullOrEmpty(u.AvatarUrl) ? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(u.FullName)}&background=159aa3&color=fff" : u.AvatarUrl)" style="width:38px;height:38px;border-radius:50%;object-fit:cover;" />
+                                <div>
+                                    <div style="font-weight:600;">@u.FullName</div>
+                                    <div style="font-size:12px;color:#94a3b8;">@(string.IsNullOrWhiteSpace(pf?.PenName) ? "@" + u.Username : "Bút danh: " + pf.PenName)</div>
+                                </div>
                             </div>
-                        </div>
-                    </td>
-                    <td style="padding:10px 8px;color:#6c757d;">@u.Email</td>
-                    <td style="padding:10px 8px;color:#374151;">@(pf?.JobTitle ?? "—")</td>
-                    <td style="padding:10px 8px;">@(counts.ContainsKey(u.Id) ? counts[u.Id] : 0)</td>
-                    <td style="padding:10px 8px;">
-                        @if (u.IsDeleted)
-                        {
-                            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b;">Đã xóa</span>
-                        }
-                        else if (u.IsActive)
-                        {
-                            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#dcfce7;color:#16a34a;">Đang hoạt động</span>
-                        }
-                        else
-                        {
-                            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fef9c3;color:#ca8a04;">Chờ duyệt</span>
-                        }
-                    </td>
-                    <td style="padding:10px 8px;white-space:nowrap;">
-                        @if (u.IsDeleted)
-                        {
-                            <button onclick="restoreJ(@u.Id)" style="background:#dcfce7;color:#16a34a;border:none;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-rotate-left"></i> Khôi phục</button>
-                        }
-                        else
-                        {
-                            <a href="/admin/JournalistDetail/@u.Id" title="Xem" style="background:#f0f2f5;color:#374151;padding:6px 9px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-eye"></i></a>
-                            <a href="/admin/EditJournalist/@u.Id" title="Sửa" style="background:#159aa3;color:#fff;padding:6px 9px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
-                            @if (!u.IsActive)
+                        </td>
+                        <td style="padding:10px 8px;color:#6c757d;">@u.Email</td>
+                        <td style="padding:10px 8px;color:#374151;">@(pf?.JobTitle ?? "—")</td>
+                        <td style="padding:10px 8px;">@(counts.ContainsKey(u.Id) ? counts[u.Id] : 0)</td>
+                        <td style="padding:10px 8px;">
+                            @if (u.IsDeleted)
+                            { <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b;">Đã xóa</span> }
+                            else if (u.IsActive)
+                            { <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#dcfce7;color:#16a34a;">Đang hoạt động</span> }
+                            else
+                            { <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fef9c3;color:#ca8a04;">Chờ duyệt</span> }
+                        </td>
+                        <td style="padding:10px 8px;white-space:nowrap;">
+                            @if (u.IsDeleted)
                             {
-                                <button onclick="approveJ(@u.Id)" title="Duyệt" style="background:#16a34a;color:#fff;border:none;padding:6px 9px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-check"></i></button>
+                                <button onclick="restoreJ(@u.Id)" style="background:#dcfce7;color:#16a34a;border:none;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-rotate-left"></i> Khôi phục</button>
                             }
                             else
                             {
-                                <button onclick="lockJ(@u.Id)" title="Khoá" style="background:#fef9c3;color:#ca8a04;border:none;padding:6px 9px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-ban"></i></button>
+                                <a href="/admin/JournalistDetail/@u.Id" title="Xem" style="background:#f0f2f5;color:#374151;padding:6px 9px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-eye"></i></a>
+                                <a href="/admin/EditJournalist/@u.Id" title="Sửa" style="background:#159aa3;color:#fff;padding:6px 9px;border-radius:5px;font-size:12px;text-decoration:none;"><i class="fa fa-pen"></i></a>
+                                @if (!u.IsActive)
+                                { <button onclick="approveJ(@u.Id)" title="Duyệt" style="background:#16a34a;color:#fff;border:none;padding:6px 9px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-check"></i></button> }
+                                else
+                                { <button onclick="lockJ(@u.Id)" title="Khoá" style="background:#fef9c3;color:#ca8a04;border:none;padding:6px 9px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-ban"></i></button> }
+                                <button onclick="softDelJ(@u.Id)" title="Xóa" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 9px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i></button>
                             }
-                            <button onclick="softDelJ(@u.Id)" title="Xóa" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 9px;border-radius:5px;font-size:12px;cursor:pointer;"><i class="fa fa-trash"></i></button>
-                        }
-                    </td>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                { <tr><td colspan="7" style="padding:24px;text-align:center;color:#94a3b8;">Không có nhà báo nào.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@* ================= TAB 2: ĐỐI TÁC QUẢNG CÁO ================= *@
+<div id="tab-ads" style="display:@(tab == "ads" ? "block" : "none");">
+    <p style="color:#6c757d;font-size:13px;margin-bottom:14px;">Mỗi đối tác có bảng đơn hàng riêng — bấm vào dòng để mở bảng, xem/ xuất <b>hợp đồng</b> và <b>hóa đơn</b> từng đơn.</p>
+
+    <!-- Thẻ tổng -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+        <div style="background:#fff;border:1px solid #eef1f4;border-radius:10px;padding:14px 16px;"><div style="font-size:12.5px;color:#6b7280;">Tổng đối tác</div><div style="font-size:24px;font-weight:800;color:#0e7d85;">@partners.Count</div></div>
+        <div style="background:#fff;border:1px solid #eef1f4;border-radius:10px;padding:14px 16px;"><div style="font-size:12.5px;color:#6b7280;">Tổng doanh thu</div><div style="font-size:24px;font-weight:800;color:#16a34a;">@totalRevenue.ToString("#,##0")đ</div></div>
+        <div style="background:#fff;border:1px solid #eef1f4;border-radius:10px;padding:14px 16px;"><div style="font-size:12.5px;color:#6b7280;">Tổng công nợ</div><div style="font-size:24px;font-weight:800;color:#dc2626;">@totalDebt.ToString("#,##0")đ</div></div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+        <input id="pSearch" onkeyup="filterPartners()" placeholder="Tìm đối tác: tên / email / MST…" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:320px;max-width:100%;" />
+    </div>
+
+    <div style="background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+                <tr style="background:#f8fafc;color:#6b7280;text-align:left;border-bottom:2px solid #eef1f4;">
+                    <th style="padding:11px 14px;">Đối tác</th><th>Liên hệ</th><th>Loại</th>
+                    <th style="text-align:center;">Đơn hàng</th><th>Tổng chi</th><th>Công nợ</th><th></th>
                 </tr>
-            }
-            @if (!Model.Any())
-            {
-                <tr><td colspan="7" style="padding:24px;text-align:center;color:#94a3b8;">Không có nhà báo nào.</td></tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @if (!partners.Any())
+                { <tr><td colspan="7" style="padding:28px;text-align:center;color:#94a3b8;">Chưa có đối tác quảng cáo nào.</td></tr> }
+                @for (int pi = 0; pi < partners.Count; pi++)
+                {
+                    var p = partners[pi];
+                    var pkey = (p.Name + " " + p.Email + " " + p.TaxCode).ToLowerInvariant();
+                    <tr class="p-row" data-key="@pkey" onclick="togglePartner(@pi)" style="border-bottom:1px solid #f1f5f9;cursor:pointer;">
+                        <td style="padding:11px 14px;font-weight:700;color:#111827;">
+                            <i id="pchev-@pi" class="fa fa-chevron-right" style="color:#94a3b8;font-size:11px;margin-right:8px;transition:transform .2s;"></i>@p.Name
+                        </td>
+                        <td style="color:#475569;">@p.Email<br><span style="font-size:11.5px;color:#94a3b8;">@p.Phone</span></td>
+                        <td>
+                            @if (p.IsCompany)
+                            { <span style="background:#eef2ff;color:#4338ca;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;">Công ty</span><br><span style="font-size:11px;color:#94a3b8;">MST: @p.TaxCode</span> }
+                            else
+                            { <span style="background:#ecfdf5;color:#047857;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;">Cá nhân</span> }
+                        </td>
+                        <td style="text-align:center;font-weight:700;">@p.OrderCount</td>
+                        <td style="font-weight:700;color:#16a34a;">@p.TotalSpent.ToString("#,##0")đ</td>
+                        <td style="font-weight:700;color:@(p.Debt > 0 ? "#dc2626" : "#94a3b8");">@p.Debt.ToString("#,##0")đ</td>
+                        <td style="text-align:right;padding-right:14px;color:#0e7d85;font-size:12px;">Mở bảng »</td>
+                    </tr>
+                    <tr id="pbody-@pi" class="p-body" style="display:none;background:#fafbfc;">
+                        <td colspan="7" style="padding:12px 18px 18px;">
+                            <div style="overflow-x:auto;">
+                                <table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid #d0d7de;">
+                                    <thead>
+                                        <tr style="background:#f6f8fa;color:#374151;text-align:left;">
+                                            <th style="border:1px solid #d0d7de;padding:7px 9px;">Mã đơn</th>
+                                            <th style="border:1px solid #d0d7de;padding:7px 9px;">Ngày</th>
+                                            <th style="border:1px solid #d0d7de;padding:7px 9px;">Vị trí</th>
+                                            <th style="border:1px solid #d0d7de;padding:7px 9px;">Thời lượng</th>
+                                            <th style="border:1px solid #d0d7de;padding:7px 9px;text-align:right;">Số tiền</th>
+                                            <th style="border:1px solid #d0d7de;padding:7px 9px;text-align:right;">Đã đóng</th>
+                                            <th style="border:1px solid #d0d7de;padding:7px 9px;text-align:right;">Còn lại</th>
+                                            <th style="border:1px solid #d0d7de;padding:7px 9px;">Thanh toán</th>
+                                            <th style="border:1px solid #d0d7de;padding:7px 9px;">Trạng thái</th>
+                                            <th style="border:1px solid #d0d7de;padding:7px 9px;">Chứng từ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var o in p.Orders)
+                                        {
+                                            var remain = Math.Max(0m, o.Amount - o.PaidAmount);
+                                            <tr>
+                                                <td style="border:1px solid #d0d7de;padding:7px 9px;font-weight:700;">#@o.Id</td>
+                                                <td style="border:1px solid #d0d7de;padding:7px 9px;">@o.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                                <td style="border:1px solid #d0d7de;padding:7px 9px;">@PosVi(o.AdPosition)</td>
+                                                <td style="border:1px solid #d0d7de;padding:7px 9px;">@o.DurationDays ngày</td>
+                                                <td style="border:1px solid #d0d7de;padding:7px 9px;text-align:right;font-weight:600;">@o.Amount.ToString("#,##0")</td>
+                                                <td style="border:1px solid #d0d7de;padding:7px 9px;text-align:right;color:#16a34a;">@o.PaidAmount.ToString("#,##0")</td>
+                                                <td style="border:1px solid #d0d7de;padding:7px 9px;text-align:right;color:@(remain > 0 ? "#dc2626" : "#94a3b8");">@remain.ToString("#,##0")</td>
+                                                <td style="border:1px solid #d0d7de;padding:7px 9px;color:@PayColor(o.PaymentStatus);font-weight:600;">@PayVi(o.PaymentStatus)</td>
+                                                <td style="border:1px solid #d0d7de;padding:7px 9px;">@StVi(o.Status)</td>
+                                                <td style="border:1px solid #d0d7de;padding:7px 9px;white-space:nowrap;">
+                                                    <a href="/admin/AdBookingContract/@o.Id" target="_blank" title="Hợp đồng" style="background:#2563eb;color:#fff;padding:4px 8px;border-radius:5px;text-decoration:none;font-size:11.5px;"><i class="fa fa-file-signature"></i></a>
+                                                    <a href="/admin/AdBookingInvoice/@o.Id" target="_blank" title="Hóa đơn" style="background:#0e7d85;color:#fff;padding:4px 8px;border-radius:5px;text-decoration:none;font-size:11.5px;"><i class="fa fa-receipt"></i></a>
+                                                    <a href="/admin/AdBookingsDetail/@o.Id" title="Chi tiết" style="background:#f0f2f5;color:#374151;padding:4px 8px;border-radius:5px;text-decoration:none;font-size:11.5px;"><i class="fa fa-up-right-from-square"></i></a>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 </div>
 
 @section Scripts {
 <script>
+    // Tab 1 (nhà báo)
     async function postJ(url, id){ const r=await fetch(url+id,{method:'POST'}); return (await r.json()); }
     async function approveJ(id){ if(!await confirmSwal('Duyệt nhà báo này?')) return; const d=await postJ('/admin/ApproveJournalist/',id); if(d.success){swalToast('success','Đã duyệt');setTimeout(()=>location.reload(),600);} else Swal.fire(d.message||'Lỗi'); }
     async function lockJ(id){ if(!await confirmSwal('Khoá nhà báo này?')) return; const d=await postJ('/admin/LockJournalist/',id); if(d.success){swalToast('success','Đã khoá');setTimeout(()=>location.reload(),600);} else Swal.fire(d.message||'Lỗi'); }
     async function softDelJ(id){ if(!await confirmSwal('Xóa (mềm) nhà báo này? Có thể khôi phục lại.')) return; const d=await postJ('/admin/SoftDeleteJournalist/',id); if(d.success){document.getElementById('jr-'+id).remove();swalToast('success','Đã xóa');} else Swal.fire('Lỗi'); }
     async function restoreJ(id){ if(!await confirmSwal('Khôi phục nhà báo này?')) return; const d=await postJ('/admin/RestoreJournalist/',id); if(d.success){swalToast('success','Đã khôi phục');setTimeout(()=>location.reload(),600);} else Swal.fire('Lỗi'); }
+
+    // Tab 2 (đối tác QC)
+    function togglePartner(i){
+        var body=document.getElementById('pbody-'+i), chev=document.getElementById('pchev-'+i);
+        var open = body.style.display!=='none';
+        body.style.display = open?'none':'table-row';
+        chev.style.transform = open?'rotate(0deg)':'rotate(90deg)';
+    }
+    function filterPartners(){
+        var kw=(document.getElementById('pSearch').value||'').toLowerCase();
+        document.querySelectorAll('#tab-ads .p-row').forEach(function(row){
+            var match=(row.getAttribute('data-key')||'').indexOf(kw)>=0;
+            row.style.display=match?'':'none';
+            var body=row.nextElementSibling;
+            if(body && !match) body.style.display='none';
+        });
+    }
 </script>
 }

@@ -57,5 +57,24 @@ public class AdBooking
     public string? AdminNote { get; set; }                   // ghi chú NỘI BỘ của admin (đã nhận tiền, khách gửi banner…)
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+    // ===== Công ty (bổ sung cho hóa đơn VAT) =====
+    public string? Representative { get; set; }              // người đại diện pháp luật
+    public string? CompanyAddress { get; set; }              // địa chỉ công ty (xuất hóa đơn)
+
+    // ===== Hợp đồng quảng cáo =====
+    public string? ContractNumber { get; set; }              // số hợp đồng
+    public DateTime? ContractSignedDate { get; set; }        // ngày ký
+    public int? ContractMonths { get; set; }                 // thời hạn hợp đồng (tháng)
+
+    // ===== Thanh toán =====
+    public string PaymentStatus { get; set; } = "unpaid";    // unpaid | partial | paid
+    public decimal PaidAmount { get; set; } = 0;             // số tiền đã đóng
+    public DateTime? PaidAt { get; set; }                    // ngày thanh toán gần nhất
+    public string? PaymentMethod { get; set; }               // tiền mặt / chuyển khoản…
+
+    // ===== Hóa đơn =====
+    public string? InvoiceNumber { get; set; }               // số hóa đơn / phiếu thu
+    public DateTime? InvoiceDate { get; set; }               // ngày xuất
+
     public User? User { get; set; }
 }

@@ -32,6 +32,10 @@ public class AdSlotViewComponent : ViewComponent
         var sec = setting?.RotationSeconds ?? 5;
         if (sec < 1) sec = 1;
 
-        return View(new AdZoneRender { Ads = ads, RotationMs = sec * 1000 });
+        // Kích thước slot của KHU này (theo mã vị trí) -> luôn có để cố định chiều cao ô,
+        // KỂ CẢ khi quảng cáo tạo tay không gắn AdSlotId.
+        var slotSize = await _db.AdSlots.Where(s => s.SlotKey == position).Select(s => s.Size).FirstOrDefaultAsync();
+
+        return View(new AdZoneRender { Ads = ads, RotationMs = sec * 1000, SlotSize = slotSize });
     }
 }

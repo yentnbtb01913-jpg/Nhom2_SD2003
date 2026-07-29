@@ -43,7 +43,13 @@
 .wi-ad-slot::after{content:attr(data-ad-label);}
 .wi-ad-slot > *{position:relative;z-index:1;}   /* quảng cáo thật đè lên nhãn */
 .wi-ad-slot:has(> *)::after{display:none;}    /* chỉ ẩn nhãn khi có QUẢNG CÁO THẬT (thẻ con), bỏ qua khoảng trắng */
+/* Khi ĐÃ CÓ quảng cáo thật (.ad-slot) -> bỏ hẳn khung placeholder (gạch, viền, min-height) để ad KHỚP đúng khung, không lộ vằn vện quanh ad */
+.wi-ad-slot:has(.ad-slot){background:none !important;border:none !important;min-height:0 !important;padding:0 !important;}
 .wi-ad-top{width:100%;min-height:90px;margin:10px 0;}       /* leaderboard 728x90 */
+/* Banner đầu header FULL-WIDTH: ép quảng cáo lấp đầy toàn bộ khung (kiểu Thanh Niên) */
+.wi-ad-topfull .ad-slot,.wi-ad-topfull .ad-rot,.wi-ad-topfull .ad-rot-slide{width:100% !important;}
+/* Ảnh lấp đầy khung theo ĐÚNG chiều cao slot (object-fit:cover), không kéo dài tràn */
+.wi-ad-topfull .ad-rot-slide img{width:100% !important;height:100% !important;object-fit:cover;display:block;}
 .wi-ad-sidebar{width:100%;min-height:250px;margin-bottom:20px;} /* MPU 300x250 */
 .wi-ad-inline{width:100%;min-height:110px;margin:18px 0;}   /* trong luồng bài */
 
@@ -207,19 +213,19 @@ nav.wi-nav.wi-nav-stuck{background:#ffffff !important;box-shadow:0 2px 12px rgba
 .wi-nav-list{
   list-style:none;margin:0;padding:0;
   display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;
-  gap:4px;min-height:48px;
+  gap:1px;min-height:40px;
 }
 .wi-nav-home{
-  display:flex;align-items:center;justify-content:center;width:38px;height:38px;
-  color:var(--wi-accent);font-size:17px;text-decoration:none;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;width:32px;height:32px;
+  color:var(--wi-accent);font-size:15px;text-decoration:none;border-radius:7px;
 }
 .wi-nav-home.active,.wi-nav-home:hover{background:var(--wi-accent-soft);}
 .wi-nav > .container{position:relative;}   /* neo mega theo khung nav */
 .wi-nav-item{position:static;}              /* để mega bám khung nav, không lệch theo con trỏ */
 .wi-nav-link{
-  display:block;padding:12px 12px;text-decoration:none;white-space:nowrap;
-  font-family:var(--wi-font-display);font-weight:600;font-size:15px;color:var(--wi-ink);
-  border-bottom:3px solid transparent;transition:color .15s,border-color .15s;
+  display:block;padding:8px 8px;text-decoration:none;white-space:nowrap;
+  font-family:var(--wi-font-display);font-weight:600;font-size:13.5px;letter-spacing:-.01em;color:var(--wi-ink);
+  border-bottom:2px solid transparent;transition:color .15s,border-color .15s;
 }
 .wi-nav-link:hover,.wi-nav-item:hover > .wi-nav-link,.wi-nav-link.active{
   color:var(--wi-accent);border-bottom-color:var(--wi-accent);

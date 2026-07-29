@@ -6,23 +6,31 @@
     var slotNames = ViewBag.SlotNames as Dictionary<string, string> ?? new Dictionary<string, string>();
     string PosVi(string p) => slotNames.TryGetValue(p ?? "", out var v) ? v : p;
 
-    // Ánh xạ trạng thái cũ -> chuẩn
+    // Nhãn trạng thái thanh toán (hiển thị phụ ở header)
+    (string label, string color, string bg) PayVi(string ps) => ps switch
+    {
+        "paid" => ("Đã thanh toán", "#166534", "#dcfce7"),
+        "partial" => ("Thanh toán một phần", "#92400e", "#fef3c7"),
+        _ => ("Chưa thanh toán", "#991b1b", "#fee2e2"),
+    };
+
+    // Ánh xạ trạng thái cũ -> chuẩn ("Scheduled" đã bỏ -> gộp về Đang duyệt)
     string Canon(string s) => s switch
     {
         "pending" => "PendingConfirmation",
         "confirmed" => "AwaitingPayment",
         "published" => "Live",
         "cancelled" => "Rejected",
+        "Scheduled" => "UnderReview",
         _ => string.IsNullOrEmpty(s) ? "PendingConfirmation" : s
     };
-    // 7 bước theo thứ tự + nhãn
+    // 6 bước theo thứ tự + nhãn (đã bỏ "Đã lên lịch")
     var steps = new (string key, string label)[]
     {
         ("PendingConfirmation","Chờ xác nhận"),
         ("AwaitingPayment","Chờ thanh toán"),
         ("AwaitingContent","Chờ nội dung"),
         ("UnderReview","Đang duyệt"),
-        ("Scheduled","Đã lên lịch"),
         ("Live","Đang chạy"),
         ("Completed","Hoàn tất"),
     };
@@ -35,6 +43,34 @@
 @if (TempData["Ok"] != null)
 { <div style="background:#dcfce7;color:#166534;padding:10px 14px;border-radius:6px;margin-bottom:14px;">@TempData["Ok"]</div> }
 
+<!-- TÌM KIẾM + LỌC NGÀY -->
+<form method="get" action="/admin/AdBookings" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:16px;background:#fff;padding:14px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
+    <div style="flex:1;min-width:220px;">
+        <label style="font-size:12px;font-weight:600;color:#475569;">Tìm kiếm</label>
+        <input type="text" name="q" value="@(ViewBag.Q as string)" placeholder="Tên / công ty / email / SĐT / số HĐ / mã đơn" style="width:100%;padding:9px 12px;border:1px solid #d7dde3;border-radius:8px;font-size:14px;" />
+    </div>
+    <div>
+        <label style="font-size:12px;font-weight:600;color:#475569;">Từ ngày</label>
+        <input type="date" name="fromDate" value="@(ViewBag.FromDate as string)" style="padding:8px 10px;border:1px solid #d7dde3;border-radius:8px;" />
+    </div>
+    <div>
+        <label style="font-size:12px;font-weight:600;color:#475569;">Đến ngày</label>
+        <input type="date" name="toDate" value="@(ViewBag.ToDate as string)" style="padding:8px 10px;border:1px solid #d7dde3;border-radius:8px;" />
+    </div>
+    @{ var payF = ViewBag.Pay as string; }
+    <div>
+        <label style="font-size:12px;font-weight:600;color:#475569;">Thanh toán</label>
+        <select name="pay" style="padding:9px 10px;border:1px solid #d7dde3;border-radius:8px;">
+            <option value="" selected="@(string.IsNullOrEmpty(payF))">Tất cả</option>
+            <option value="unpaid" selected="@(payF == "unpaid")">Chưa thanh toán</option>
+            <option value="partial" selected="@(payF == "partial")">Thanh toán một phần</option>
+            <option value="paid" selected="@(payF == "paid")">Đã thanh toán</option>
+        </select>
+    </div>
+    <button type="submit" style="background:#0e7d85;color:#fff;border:none;padding:9px 18px;border-radius:8px;font-weight:600;cursor:pointer;"><i class="fa fa-search"></i> Lọc</button>
+    <a href="/admin/AdBookings" style="background:#e2e8f0;color:#334155;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;">Xóa lọc</a>
+</form>
+
 @if (!Model.Any())
 { <div style="background:#fff;border-radius:10px;padding:40px;text-align:center;color:#64748b;">Chưa có đơn đăng ký nào.</div> }
 
@@ -44,63 +80,103 @@
         var cur = Canon(b.Status);
         var rejected = cur == "Rejected";
         var curIdx = StepIndex(cur);
+        var confirmed = curIdx > 0;                 // đã xác nhận bước 1 (không còn Chờ xác nhận)
+        var pay = PayVi(b.PaymentStatus);
         <div class="bk-card" id="bk-@b.Id">
-            <!-- Header -->
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;border-bottom:1px solid #eef1f4;padding-bottom:12px;margin-bottom:12px;">
-                <div>
-                    <span style="font-weight:800;font-size:16px;">Đơn #@b.Id</span>
-                    <span style="color:#94a3b8;font-size:12px;margin-left:8px;">@b.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
-                    <div style="margin-top:4px;color:#475569;font-size:13px;">
-                        <b>@(b.BuyerType == "company" ? b.CompanyName : b.ContactName)</b>
-                        · @b.Email · @b.Phone
-                    </div>
-                </div>
-                <div style="text-align:right;font-size:13px;color:#475569;">
-                    <div>Vị trí: <b>@PosVi(b.AdPosition)</b> · @b.DurationDays ngày</div>
-                    <div>Tạm tính: <b style="color:#dc2626;">@b.Amount.ToString("#,##0")đ</b></div>
-                </div>
+            <!-- Header (luôn hiện) — bấm để sổ xuống -->
+            <div class="bk-head" onclick="toggleBk(@b.Id)">
+                <button type="button" class="bk-toggle" id="bktg-@b.Id" aria-label="Mở/đóng"><i class="fa fa-chevron-down"></i></button>
+                <span style="font-weight:800;font-size:16px;">Đơn #@b.Id</span>
+                <span style="color:#94a3b8;font-size:12px;">@b.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                @if (rejected)
+                {
+                    <span class="bk-badge" style="color:#991b1b;background:#fee2e2;">Đã từ chối</span>
+                }
+                else
+                {
+                    <span class="bk-badge" style="color:@pay.color;background:@pay.bg;">@pay.label</span>
+                }
+                <a href="/admin/AdBookingsDetail/@b.Id" onclick="event.stopPropagation();" style="margin-left:auto;font-size:12px;color:#2563eb;text-decoration:none;font-weight:600;"><i class="fa fa-up-right-from-square"></i> Chi tiết</a>
             </div>
 
-            <!-- Thanh trạng thái 7 bước -->
-            @if (rejected)
-            {
-                <div style="background:#fee2e2;color:#991b1b;font-weight:700;padding:8px 14px;border-radius:8px;display:inline-block;margin-bottom:6px;"><i class="fa fa-ban"></i> Đơn đã bị từ chối</div>
-                <button onclick="setSt(@b.Id,'PendingConfirmation')" style="margin-left:8px;background:#e2e8f0;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;">Khôi phục đơn</button>
-            }
-            else
-            {
-                <div class="bk-steps">
-                    @for (int i = 0; i < steps.Length; i++)
-                    {
-                        var done = i < curIdx;
-                        var active = i == curIdx;
-                        var cls = active ? "on" : (done ? "done" : "");
-                        <button class="bk-step @cls" onclick="setSt(@b.Id,'@steps[i].key')" title="Chuyển sang: @steps[i].label">
-                            <span class="bk-dot">@(done ? "✓" : (i + 1).ToString())</span>
-                            <span class="bk-lbl">@steps[i].label</span>
-                        </button>
-                    }
+            <!-- Thân (mặc định ẩn, sổ xuống mới hiện) -->
+            <div class="bk-body" id="bkbody-@b.Id" style="display:none;">
+                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0;color:#475569;font-size:13px;">
+                    <div><b>@(b.BuyerType == "company" ? b.CompanyName : b.ContactName)</b> · @b.Email · @b.Phone</div>
+                    <div style="text-align:right;">
+                        <div>Vị trí: <b>@PosVi(b.AdPosition)</b> · @b.DurationDays ngày</div>
+                        <div>Tạm tính: <b style="color:#dc2626;">@b.Amount.ToString("#,##0")đ</b></div>
+                    </div>
                 </div>
-            }
 
-            <!-- Ghi chú + hành động -->
-            <div style="display:grid;grid-template-columns:1fr 220px;gap:14px;margin-top:14px;align-items:start;">
-                <div>
-                    @if (!string.IsNullOrWhiteSpace(b.Note))
-                    {
-                        <div style="font-size:12px;color:#475569;background:#f8fafc;border:1px solid #eef1f4;border-radius:6px;padding:6px 10px;margin-bottom:8px;"><b>Ghi chú của khách:</b> @b.Note</div>
-                    }
-                    <label style="font-size:12px;font-weight:600;color:#475569;">Ghi chú nội bộ (đã nhận tiền, khách gửi banner qua đâu…)</label>
-                    <textarea id="note-@b.Id" rows="2" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d7dde3;border-radius:8px;font-size:13px;">@b.AdminNote</textarea>
-                    <button onclick="saveNote(@b.Id)" style="margin-top:6px;background:#0e7d85;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;"><i class="fa fa-floppy-disk"></i> Lưu ghi chú</button>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:8px;">
-                    <button onclick="confirmBk(@b.Id)" style="background:#2563eb;color:#fff;border:none;padding:8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fa fa-envelope-circle-check"></i> Xác nhận & gửi mail</button>
-                    <button onclick="openPublish(@b.Id, '@Html.Raw(PosVi(b.AdPosition).Replace("'", "\\'"))')" style="background:#16a34a;color:#fff;border:none;padding:8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fa fa-upload"></i> Đưa lên trang</button>
-                    @if (!rejected)
-                    {
-                        <button onclick="rejectBk(@b.Id)" style="background:#fff;color:#991b1b;border:1px solid #fca5a5;padding:8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fa fa-ban"></i> Từ chối</button>
-                    }
+                <!-- Ghi chú thanh toán TỰ ĐỘNG cho nhân viên -->
+                @{
+                    var remain = b.Amount - b.PaidAmount;
+                    var payDate = b.PaidAt?.ToString("dd/MM/yyyy");
+                }
+                @if (b.PaymentStatus == "partial")
+                {
+                    <div style="background:#fef9c3;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px;">
+                        💰 <b>Thanh toán một phần</b> — đã thu <b>@b.PaidAmount.ToString("#,##0")đ</b>@(payDate != null ? " ngày " + payDate : "")@(string.IsNullOrWhiteSpace(b.PaymentMethod) ? "" : " (" + b.PaymentMethod + ")"), <b>còn lại @remain.ToString("#,##0")đ</b>.
+                    </div>
+                }
+                else if (b.PaymentStatus == "paid")
+                {
+                    <div style="background:#dcfce7;border:1px solid #a7f3d0;color:#166534;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px;">
+                        ✓ <b>Đã thanh toán đủ</b> @b.Amount.ToString("#,##0")đ@(payDate != null ? " ngày " + payDate : "")@(string.IsNullOrWhiteSpace(b.PaymentMethod) ? "" : " (" + b.PaymentMethod + ")").
+                    </div>
+                }
+                else
+                {
+                    <div style="background:#fee2e2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px;">
+                        ✗ <b>Chưa thanh toán</b> — cần thu <b>@b.Amount.ToString("#,##0")đ</b>.
+                    </div>
+                }
+
+                <!-- Thanh trạng thái 6 bước -->
+                @if (rejected)
+                {
+                    <div style="background:#fee2e2;color:#991b1b;font-weight:700;padding:8px 14px;border-radius:8px;display:inline-block;margin-bottom:6px;"><i class="fa fa-ban"></i> Đơn đã bị từ chối</div>
+                    <button onclick="setSt(@b.Id,'PendingConfirmation')" style="margin-left:8px;background:#e2e8f0;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;">Khôi phục đơn</button>
+                }
+                else
+                {
+                    <div class="bk-steps">
+                        @for (int i = 0; i < steps.Length; i++)
+                        {
+                            var done = i < curIdx;
+                            var active = i == curIdx;
+                            var cls = active ? "on" : (done ? "done" : "");
+                            <button class="bk-step @cls" onclick="setSt(@b.Id,'@steps[i].key')" title="Chuyển sang: @steps[i].label">
+                                <span class="bk-dot">@(done ? "✓" : (i + 1).ToString())</span>
+                                <span class="bk-lbl">@steps[i].label</span>
+                            </button>
+                        }
+                    </div>
+                }
+
+                <!-- Ghi chú + hành động -->
+                <div style="display:grid;grid-template-columns:1fr 220px;gap:14px;margin-top:14px;align-items:start;">
+                    <div>
+                        @if (!string.IsNullOrWhiteSpace(b.Note))
+                        {
+                            <div style="font-size:12px;color:#475569;background:#f8fafc;border:1px solid #eef1f4;border-radius:6px;padding:6px 10px;margin-bottom:8px;"><b>Ghi chú của khách:</b> @b.Note</div>
+                        }
+                        <label style="font-size:12px;font-weight:600;color:#475569;">Ghi chú nội bộ (đã nhận tiền, khách gửi banner qua đâu…)</label>
+                        <textarea id="note-@b.Id" rows="2" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d7dde3;border-radius:8px;font-size:13px;">@b.AdminNote</textarea>
+                        <button onclick="saveNote(@b.Id)" style="margin-top:6px;background:#0e7d85;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;"><i class="fa fa-floppy-disk"></i> Lưu ghi chú</button>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        @if (!confirmed && !rejected)
+                        {
+                            <button onclick="confirmBk(@b.Id)" style="background:#2563eb;color:#fff;border:none;padding:8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fa fa-envelope-circle-check"></i> Xác nhận & gửi mail</button>
+                            <button onclick="rejectBk(@b.Id)" style="background:#fff;color:#991b1b;border:1px solid #fca5a5;padding:8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fa fa-ban"></i> Từ chối</button>
+                        }
+                        @if (confirmed && !rejected)
+                        {
+                            <button onclick="openPublish(@b.Id, '@Html.Raw(PosVi(b.AdPosition).Replace("'", "\\'"))')" style="background:#16a34a;color:#fff;border:none;padding:8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fa fa-upload"></i> Đưa lên trang</button>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
@@ -119,9 +195,10 @@
         <div style="padding:18px;">
             <p style="font-size:13px;color:#475569;margin:0 0 12px;">Vị trí: <b id="pubPos"></b>. Chọn loại quảng cáo khách gửi.</p>
 
-            <div style="display:flex;gap:18px;margin-bottom:14px;">
+            <div style="display:flex;gap:18px;margin-bottom:14px;flex-wrap:wrap;">
                 <label style="font-weight:600;cursor:pointer;"><input type="radio" name="adType" value="image" checked onchange="pubType('image')"> Ảnh banner</label>
                 <label style="font-weight:600;cursor:pointer;"><input type="radio" name="adType" value="html" onchange="pubType('html')"> Mã HTML / JS</label>
+                <label style="font-weight:600;cursor:pointer;"><input type="radio" name="adType" value="video" onchange="pubType('video')"> Video</label>
             </div>
 
             <!-- Loại ẢNH -->
@@ -141,6 +218,15 @@
                 <div style="font-size:11.5px;color:#94a3b8;margin-bottom:8px;"><i class="fa fa-shield-halved"></i> Mã sẽ chạy trong iframe cách ly (sandbox), không truy cập được dữ liệu site.</div>
             </div>
 
+            <!-- Loại VIDEO -->
+            <div id="pubVideo" style="display:none;">
+                <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Link video (YouTube) hoặc URL .mp4</label>
+                <input type="text" name="videoUrl" placeholder="https://youtu.be/... hoặc https://.../video.mp4" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;margin-bottom:10px;" />
+                <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">…hoặc tải file video (.mp4/.webm)</label>
+                <input type="file" name="videoFile" accept="video/mp4,video/webm,.mp4,.webm" style="width:100%;margin-bottom:8px;" />
+                <div style="font-size:11.5px;color:#94a3b8;margin-bottom:8px;"><i class="fa fa-circle-play"></i> Video tự phát, tắt tiếng, lặp lại trong khung quảng cáo.</div>
+            </div>
+
             <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;">
                 <button type="button" onclick="closePub()" style="border:1px solid #d1d5db;background:#fff;padding:9px 16px;border-radius:8px;cursor:pointer;">Hủy</button>
                 <button type="submit" style="background:#16a34a;color:#fff;border:none;padding:9px 20px;border-radius:8px;font-weight:700;cursor:pointer;">Đưa lên trang (Live)</button>
@@ -151,6 +237,11 @@
 
 <style>
     .bk-card { background:#fff;border:1px solid #e5eaf0;border-radius:12px;padding:16px 18px;box-shadow:0 1px 6px rgba(0,0,0,.04); }
+    .bk-head { display:flex;align-items:center;gap:10px;cursor:pointer;flex-wrap:wrap;user-select:none; }
+    .bk-toggle { background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;width:28px;height:28px;flex:0 0 auto;cursor:pointer;color:#334155; }
+    .bk-toggle i { transition:transform .2s; }
+    .bk-card.open .bk-toggle i { transform:rotate(180deg); }
+    .bk-badge { font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px; }
     .bk-steps { display:flex;gap:6px;flex-wrap:wrap; }
     .bk-step { flex:1;min-width:92px;background:#f3f5f8;border:1px solid #e5eaf0;border-radius:8px;padding:8px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:.15s; }
     .bk-step:hover { border-color:#0e7d85; }
@@ -167,6 +258,12 @@
 
 @section Scripts {
 <script>
+    function toggleBk(id){
+        var card=document.getElementById('bk-'+id), body=document.getElementById('bkbody-'+id);
+        var open = body.style.display!=='none';
+        body.style.display = open?'none':'block';
+        card.classList.toggle('open', !open);
+    }
     async function post(url){ const r = await fetch(url,{method:'POST'}); return await r.json(); }
     async function setSt(id, status){
         const d = await fetch('/admin/SetBookingStatus?id='+id+'&status='+status,{method:'POST'}).then(r=>r.json());
@@ -183,6 +280,6 @@
     async function rejectBk(id){ if(!await confirmSwal('Từ chối đơn này?')) return; const d = await post('/admin/CancelAdBooking/'+id); if(d.success){ swalToast('success','Đã từ chối'); setTimeout(()=>location.reload(),600);} else Swal.fire('Lỗi'); }
     function openPublish(id, pos){ document.getElementById('pubId').value=id; document.getElementById('pubPos').textContent=pos; pubType('image'); document.querySelector('input[name=adType][value=image]').checked=true; var m=document.getElementById('pubModal'); m.style.display='flex'; m.style.alignItems='flex-start'; m.style.justifyContent='center'; }
     function closePub(){ document.getElementById('pubModal').style.display='none'; }
-    function pubType(t){ document.getElementById('pubImage').style.display = t==='image'?'block':'none'; document.getElementById('pubHtml').style.display = t==='html'?'block':'none'; }
+    function pubType(t){ document.getElementById('pubImage').style.display = t==='image'?'block':'none'; document.getElementById('pubHtml').style.display = t==='html'?'block':'none'; document.getElementById('pubVideo').style.display = t==='video'?'block':'none'; }
 </script>
 }

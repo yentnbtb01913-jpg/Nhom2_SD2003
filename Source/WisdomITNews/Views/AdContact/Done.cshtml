@@ -1,44 +1,28 @@
 @model WisdomITNews.Models.AdBooking
 @{
-    ViewData["Title"] = "Đã đặt đơn quảng cáo";
-    var posLabel = ViewBag.PositionLabel as string ?? Model.AdPosition;
+    ViewData["Title"] = "Đăng ký quảng cáo thành công";
     var emailConfigured = ViewBag.EmailConfigured as bool? ?? false;
 }
-<div class="container" style="max-width:600px;margin:0 auto;padding:40px 16px 60px;text-align:center;">
+<div class="container" style="max-width:560px;margin:0 auto;padding:44px 16px 60px;text-align:center;">
     <div style="width:72px;height:72px;border-radius:50%;background:#e6f4f5;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
         <i class="fa fa-check" style="color:#0e7d85;font-size:34px;"></i>
     </div>
-    <h1 style="color:#0e7d85;font-weight:800;font-size:24px;margin-bottom:6px;">Đã ghi nhận đơn #@Model.Id</h1>
-    <p style="color:#6b7280;margin-bottom:22px;">
+    <h1 style="color:#0e7d85;font-weight:800;font-size:24px;margin-bottom:8px;">Đăng ký thành công!</h1>
+    <p style="color:#374151;font-size:15px;margin-bottom:6px;">
+        Mã số hóa đơn của bạn: <b style="color:#dc2626;">@Model.InvoiceNumber</b>
+    </p>
+    <p style="color:#6b7280;font-size:14px;margin-bottom:26px;">
         @if (emailConfigured)
         {
-            <text>Hệ thống đã gửi email hướng dẫn thanh toán tới <b>@Model.Email</b>. Vui lòng kiểm tra hộp thư (kể cả mục Spam).</text>
+            <text>Chúng tôi đã gửi email xác nhận kèm đầy đủ thông tin và hướng dẫn liên hệ thanh toán tới <b>@Model.Email</b> (kiểm tra cả mục Spam), đồng thời gửi một thông báo vào hộp thư của bạn.</text>
         }
         else
         {
-            <text>Đơn đã được lưu. (Máy chủ email chưa cấu hình SMTP nên bản demo hiển thị hướng dẫn thanh toán ngay bên dưới.)</text>
+            <text>Đơn đã được ghi nhận và một thông báo đã được gửi vào hộp thư của bạn. Chúng tôi sẽ liên hệ để trao đổi về việc thanh toán.</text>
         }
     </p>
-
-    <div style="text-align:left;border:1px solid #e5e7eb;border-radius:12px;padding:18px 20px;margin-bottom:18px;">
-        <div style="font-weight:700;margin-bottom:10px;color:#1f2937;">Tóm tắt đơn</div>
-        <div style="color:#374151;font-size:14px;line-height:1.9;">
-            Vị trí: <b>@posLabel</b><br/>
-            Thời lượng: <b>@Model.DurationDays ngày</b><br/>
-            Tạm tính: <b style="color:#0e7d85;">@Model.Amount.ToString("#,##0") đ</b><br/>
-            Trạng thái: <b>Chờ thanh toán</b>
-        </div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+        <a href="/Account/Inbox" style="display:inline-block;background:#0e7d85;color:#fff;font-weight:700;padding:11px 28px;border-radius:8px;text-decoration:none;">Xem hộp thư</a>
+        <a href="/" style="display:inline-block;background:#e2e8f0;color:#334155;font-weight:700;padding:11px 28px;border-radius:8px;text-decoration:none;">Về trang chủ</a>
     </div>
-
-    <div style="text-align:left;background:#f0fdfa;border:1px dashed #0e7d85;border-radius:10px;padding:16px 18px;margin-bottom:24px;">
-        <div style="font-weight:800;color:#0e7d85;margin-bottom:6px;"><i class="fa fa-building-columns"></i> Hướng dẫn thanh toán (DEMO)</div>
-        <div style="color:#374151;font-size:14px;line-height:1.9;">
-            Ngân hàng: <b>Vietcombank</b><br/>
-            Số tài khoản: <b>0123 456 789</b> — Chủ TK: <b>WISDOM IT NEWS</b><br/>
-            Nội dung chuyển khoản: <b>QC @Model.Id</b><br/>
-            <span style="color:#94a3b8;font-size:12.5px;">* Thông tin mô phỏng phục vụ demo dự án tốt nghiệp.</span>
-        </div>
-    </div>
-
-    <a href="/" style="display:inline-block;background:#0e7d85;color:#fff;font-weight:700;padding:11px 26px;border-radius:8px;text-decoration:none;">Về trang chủ</a>
 </div>

@@ -82,12 +82,18 @@ public class HomeController : Controller
             .Include(a => a.Category)
             .Where(a => a.Status == "published");
 
-        // Tin nổi bật tự động (khu vực lớn Trang chủ) — TOP 4 theo Ghim > Lượt xem > Ngày đăng > Ngày cập nhật,
-        // tính lúc đọc (không lưu vị trí cố định) nên tự đồng bộ ngay khi lượt xem thay đổi.
-        var featuredRegion = await _featured.GetHomepageTop4Async();
+        // Tin nổi bật (khu vực lớn Trang chủ) — bài MỚI NHẤT (ghim tay ưu tiên lên đầu nếu có),
+        // KHÔNG theo lượt xem. Tôn trọng cờ FeaturedHidden (biên tập loại khỏi khu nổi bật).
+        var featuredRegion = await allQuery
+            .Where(a => !a.FeaturedHidden)
+            .OrderByDescending(a => a.FeaturedPinned)
+            .ThenByDescending(a => a.PublishedAt)
+            .Take(4).Select(ArticleCard).ToListAsync();
+        var featIds = featuredRegion.Select(a => a.Id).ToList();
 
-        // Latest: ưu tiên vùng, fallback chung
+        // Latest (cột "Tin mới"): mới nhất nhưng LOẠI các bài đã ở khu nổi bật (giống Thanh Niên → không trùng)
         var latestRegion = await regionQuery
+            .Where(a => !featIds.Contains(a.Id))
             .OrderByDescending(a => a.PublishedAt)
             .Take(12).Select(ArticleCard).ToListAsync();
 
@@ -95,7 +101,7 @@ public class HomeController : Controller
         {
             var existIds = latestRegion.Select(a => a.Id).ToList();
             var more = await allQuery
-                .Where(a => !existIds.Contains(a.Id))
+                .Where(a => !existIds.Contains(a.Id) && !featIds.Contains(a.Id))
                 .OrderByDescending(a => a.PublishedAt)
                 .Take(12 - latestRegion.Count).Select(ArticleCard).ToListAsync();
             latestRegion.AddRange(more);

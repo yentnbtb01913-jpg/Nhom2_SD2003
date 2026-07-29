@@ -1116,9 +1116,45 @@ public class AdminController : Controller
     // Bảng: Users (Role=Journalist), JournalistProfiles, Articles
     // ========================================================================
     // Đây là luồng xử lý danh sách đối tác nhà báo (lọc + tìm kiếm)
-    public async Task<IActionResult> Partners(string filter = "all", string q = "")
+    public async Task<IActionResult> Partners(string filter = "all", string q = "", string tab = "content")
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
+
+        // ===== TAB 2: ĐỐI TÁC QUẢNG CÁO — gom AdBookings theo từng khách =====
+        var allBookings = await _db.AdBookings.OrderByDescending(b => b.CreatedAt).ToListAsync();
+        bool Alive(AdBooking x) => x.Status != "Rejected" && x.Status != "cancelled";
+        var partners = allBookings
+            .GroupBy(b => !string.IsNullOrWhiteSpace(b.TaxCode)
+                ? "T:" + b.TaxCode!.Trim().ToLowerInvariant()
+                : "E:" + (b.Email ?? "").Trim().ToLowerInvariant())
+            .Select(g =>
+            {
+                var first = g.First();
+                var isCompany = g.Any(x => x.BuyerType == "company");
+                var name = isCompany
+                    ? (g.Select(x => x.CompanyName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? first.ContactName)
+                    : first.ContactName;
+                return new AdPartnerVM
+                {
+                    Key = g.Key,
+                    Name = name,
+                    IsCompany = isCompany,
+                    Email = first.Email,
+                    Phone = first.Phone,
+                    TaxCode = g.Select(x => x.TaxCode).FirstOrDefault(t => !string.IsNullOrWhiteSpace(t)),
+                    OrderCount = g.Count(),
+                    TotalSpent = g.Where(Alive).Sum(x => x.Amount),
+                    Debt = g.Where(x => Alive(x) && x.PaymentStatus != "paid").Sum(x => Math.Max(0m, x.Amount - x.PaidAmount)),
+                    Orders = g.OrderByDescending(x => x.CreatedAt).ToList()
+                };
+            })
+            .OrderByDescending(p => p.TotalSpent)
+            .ToList();
+        ViewBag.AdPartners = partners;
+        ViewBag.SlotNames = await _db.AdSlots.ToDictionaryAsync(s => s.SlotKey, s => s.Name);
+        ViewBag.Tab = tab == "ads" ? "ads" : "content";
+
+        // ===== TAB 1: ĐỐI TÁC NỘI DUNG (NHÀ BÁO) =====
         var query = _db.Users.Where(u => u.Role == "Journalist");
         if (filter == "deleted") query = query.Where(u => u.IsDeleted);
         else
@@ -2612,26 +2648,63 @@ public class AdminController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateAd(Advertisement form, IFormFile? imageFile)
+    public async Task<IActionResult> CreateAd(Advertisement form, IFormFile? imageFile, IFormFile? htmlFile, IFormFile? videoFile)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
-        if (string.IsNullOrWhiteSpace(form.Title) || string.IsNullOrWhiteSpace(form.TargetUrl))
+
+        async Task<IActionResult> Err(string msg)
         {
-            ViewBag.Error = "Vui lòng nhập tiêu đề và link đích.";
+            ViewBag.Error = msg;
+            ViewBag.SlotList = await _db.AdSlots.OrderBy(s => s.Id).ToListAsync();
             return View(form);
         }
-        string? img = form.ImageUrl;
-        if (imageFile != null && imageFile.Length > 0)
+
+        if (string.IsNullOrWhiteSpace(form.Title)) return await Err("Vui lòng nhập tiêu đề.");
+
+        var adType = (form.AdType == "html" || form.AdType == "video") ? form.AdType : "image";
+        string? img = null, html = null, video = null;
+
+        if (adType == "html")
         {
-            var up = await _imageUpload.SaveAsync(imageFile);
-            if (up.Success) img = up.RelativePath;
+            if (htmlFile != null && htmlFile.Length > 0)
+            {
+                using var r = new StreamReader(htmlFile.OpenReadStream());
+                html = await r.ReadToEndAsync();
+            }
+            else html = form.HtmlContent;
+            if (string.IsNullOrWhiteSpace(html)) return await Err("Vui lòng dán mã HTML/JS hoặc chọn file .html.");
         }
+        else if (adType == "video")
+        {
+            if (videoFile != null && videoFile.Length > 0)
+            {
+                var vu = await _videoUpload.SaveAsync(videoFile);
+                if (!vu.Success) return await Err(vu.Error ?? "Không lưu được file video.");
+                video = vu.RelativePath;
+            }
+            else video = form.VideoUrl?.Trim();
+            if (string.IsNullOrWhiteSpace(video)) return await Err("Vui lòng nhập link video (YouTube/MP4) hoặc tải file video.");
+        }
+        else
+        {
+            img = form.ImageUrl;
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                var up = await _imageUpload.SaveAsync(imageFile);
+                if (up.Success) img = up.RelativePath;
+            }
+            if (string.IsNullOrWhiteSpace(img)) return await Err("Vui lòng tải ảnh banner hoặc dán link ảnh.");
+        }
+
         var validPos = await _db.AdSlots.Select(s => s.SlotKey).ToListAsync();
         _db.Advertisements.Add(new Advertisement
         {
             Title = form.Title.Trim(),
+            AdType = adType,
             ImageUrl = img,
-            TargetUrl = form.TargetUrl.Trim(),
+            HtmlContent = html,
+            VideoUrl = video,
+            TargetUrl = (form.TargetUrl ?? "").Trim(),
             Position = validPos.Contains(form.Position) ? form.Position : "sidebar",
             StartDate = form.StartDate,
             EndDate = form.EndDate,
@@ -2656,17 +2729,46 @@ public class AdminController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> EditAd(int id, Advertisement form, IFormFile? imageFile)
+    public async Task<IActionResult> EditAd(int id, Advertisement form, IFormFile? imageFile, IFormFile? htmlFile, IFormFile? videoFile)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
         var ad = await _db.Advertisements.FindAsync(id);
         if (ad == null) return RedirectToAction("Advertisements");
-        if (imageFile != null && imageFile.Length > 0)
+
+        var adType = (form.AdType == "html" || form.AdType == "video") ? form.AdType : "image";
+        ad.AdType = adType;
+
+        if (adType == "html")
         {
-            var up = await _imageUpload.SaveAsync(imageFile);
-            if (up.Success) ad.ImageUrl = up.RelativePath;
+            if (htmlFile != null && htmlFile.Length > 0)
+            {
+                using var r = new StreamReader(htmlFile.OpenReadStream());
+                ad.HtmlContent = await r.ReadToEndAsync();
+            }
+            else if (!string.IsNullOrWhiteSpace(form.HtmlContent)) ad.HtmlContent = form.HtmlContent;
+            ad.ImageUrl = null; ad.VideoUrl = null;
         }
-        else if (!string.IsNullOrWhiteSpace(form.ImageUrl)) ad.ImageUrl = form.ImageUrl.Trim();
+        else if (adType == "video")
+        {
+            if (videoFile != null && videoFile.Length > 0)
+            {
+                var vu = await _videoUpload.SaveAsync(videoFile);
+                if (vu.Success) ad.VideoUrl = vu.RelativePath;
+            }
+            else if (!string.IsNullOrWhiteSpace(form.VideoUrl)) ad.VideoUrl = form.VideoUrl.Trim();
+            ad.ImageUrl = null; ad.HtmlContent = null;
+        }
+        else
+        {
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                var up = await _imageUpload.SaveAsync(imageFile);
+                if (up.Success) ad.ImageUrl = up.RelativePath;
+            }
+            else if (!string.IsNullOrWhiteSpace(form.ImageUrl)) ad.ImageUrl = form.ImageUrl.Trim();
+            ad.HtmlContent = null; ad.VideoUrl = null;
+        }
+
         ad.Title = (form.Title ?? "").Trim();
         ad.TargetUrl = (form.TargetUrl ?? "").Trim();
         var validPos = await _db.AdSlots.Select(s => s.SlotKey).ToListAsync();
@@ -2804,12 +2906,120 @@ public class AdminController : Controller
     // ĐƠN ĐĂNG KÝ QUẢNG CÁO (AdBooking) — admin/nhân viên duyệt đơn của khách,
     // xác nhận (gửi mail), rồi ĐƯA quảng cáo lên trang (tạo Advertisement thật).
     // ========================================================================
-    public async Task<IActionResult> AdBookings()
+    public async Task<IActionResult> AdBookings(string? q, DateTime? fromDate, DateTime? toDate, string? pay)
     {
         if (!IsLoggedIn) return RedirectToAction("Login");
-        var bookings = await _db.AdBookings.OrderByDescending(b => b.CreatedAt).ToListAsync();
+        var query = _db.AdBookings.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var kw = q.Trim();
+            query = query.Where(b => b.ContactName.Contains(kw)
+                || (b.CompanyName != null && b.CompanyName.Contains(kw))
+                || b.Email.Contains(kw) || b.Phone.Contains(kw)
+                || (b.ContractNumber != null && b.ContractNumber.Contains(kw))
+                || (b.InvoiceNumber != null && b.InvoiceNumber.Contains(kw))
+                || (b.TaxCode != null && b.TaxCode.Contains(kw))
+                || b.Id.ToString() == kw);
+        }
+        // Lọc theo trạng thái thanh toán
+        if (new[] { "unpaid", "partial", "paid" }.Contains(pay))
+            query = query.Where(b => b.PaymentStatus == pay);
+        if (fromDate.HasValue) query = query.Where(b => b.CreatedAt >= fromDate.Value);
+        if (toDate.HasValue) query = query.Where(b => b.CreatedAt < toDate.Value.AddDays(1));
+
+        var bookings = await query.OrderByDescending(b => b.CreatedAt).ToListAsync();
         ViewBag.SlotNames = await _db.AdSlots.ToDictionaryAsync(s => s.SlotKey, s => s.Name);
+        ViewBag.Q = q;
+        ViewBag.Pay = pay;
+        ViewBag.FromDate = fromDate?.ToString("yyyy-MM-dd");
+        ViewBag.ToDate = toDate?.ToString("yyyy-MM-dd");
         return View(bookings);
+    }
+
+    // ===== CHI TIẾT ĐƠN QUẢNG CÁO: khách hàng, hợp đồng, thanh toán, hóa đơn, lịch sử mua =====
+    public async Task<IActionResult> AdBookingsDetail(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var b = await _db.AdBookings.FirstOrDefaultAsync(x => x.Id == id);
+        if (b == null) return RedirectToAction("AdBookings");
+
+        // Lịch sử mua của CÙNG khách: ghép theo email; nếu là công ty thì ghép thêm theo MST.
+        var history = await _db.AdBookings
+            .Where(x => x.Email == b.Email || (b.TaxCode != null && x.TaxCode == b.TaxCode))
+            .OrderByDescending(x => x.CreatedAt).ToListAsync();
+
+        ViewBag.History = history;
+        ViewBag.TotalSpent = history.Where(x => x.Status != "Rejected").Sum(x => x.Amount);
+        ViewBag.SlotName = (await _db.AdSlots.FirstOrDefaultAsync(s => s.SlotKey == b.AdPosition))?.Name ?? b.AdPosition;
+        ViewBag.SlotSize = (await _db.AdSlots.FirstOrDefaultAsync(s => s.SlotKey == b.AdPosition))?.Size;
+        return View(b);
+    }
+
+    // Lưu thông tin nghiệp vụ (hợp đồng / thanh toán / hóa đơn / thông tin công ty)
+    [HttpPost]
+    public async Task<IActionResult> SaveBookingBusiness(int id, AdBooking form)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var b = await _db.AdBookings.FindAsync(id);
+        if (b == null) return RedirectToAction("AdBookings");
+
+        // Công ty
+        b.CompanyName = form.CompanyName?.Trim();
+        b.TaxCode = form.TaxCode?.Trim();
+        b.Representative = form.Representative?.Trim();
+        b.CompanyAddress = form.CompanyAddress?.Trim();
+        b.Website = form.Website?.Trim();
+        // Hợp đồng
+        b.ContractNumber = form.ContractNumber?.Trim();
+        b.ContractSignedDate = form.ContractSignedDate;
+        b.ContractMonths = form.ContractMonths;
+        // Thanh toán — nhớ giá trị cũ để phát hiện thay đổi (ghi note cho thanh toán một phần)
+        var oldPaid = b.PaidAmount;
+        var oldPaidAt = b.PaidAt;
+        var oldStatus = b.PaymentStatus;
+        b.PaymentStatus = new[] { "unpaid", "partial", "paid" }.Contains(form.PaymentStatus) ? form.PaymentStatus : "unpaid";
+        b.PaidAmount = form.PaidAmount < 0 ? 0 : form.PaidAmount;
+        b.PaidAt = form.PaidAt;
+        b.PaymentMethod = form.PaymentMethod?.Trim();
+        // Hóa đơn
+        b.InvoiceNumber = form.InvoiceNumber?.Trim();
+        b.InvoiceDate = form.InvoiceDate;
+
+        // Thanh toán MỘT PHẦN: tự ghi 1 dòng nhật ký (ngày + số tiền đã đóng) vào ghi chú nội bộ,
+        // chỉ khi có thay đổi số tiền/ngày/trạng thái để không lặp lại mỗi lần lưu.
+        if (b.PaymentStatus == "partial" && b.PaidAmount > 0
+            && (oldStatus != "partial" || oldPaid != b.PaidAmount || oldPaidAt != b.PaidAt))
+        {
+            var dateStr = (b.PaidAt ?? DateTime.Now).ToString("dd/MM/yyyy");
+            var remain = b.Amount - b.PaidAmount;
+            var line = $"[TT một phần {dateStr}] đã đóng {b.PaidAmount:#,##0}đ, còn lại {remain:#,##0}đ"
+                       + (string.IsNullOrWhiteSpace(b.PaymentMethod) ? "" : $" ({b.PaymentMethod})");
+            b.AdminNote = string.IsNullOrWhiteSpace(b.AdminNote) ? line : b.AdminNote.TrimEnd() + "\n" + line;
+        }
+
+        await _db.SaveChangesAsync();
+        TempData["Ok"] = "Đã lưu thông tin đơn #" + b.Id;
+        return RedirectToAction("AdBookingsDetail", new { id });
+    }
+
+    // Trang IN HÓA ĐƠN (công ty -> hóa đơn VAT; cá nhân -> phiếu thu)
+    public async Task<IActionResult> AdBookingInvoice(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var b = await _db.AdBookings.FirstOrDefaultAsync(x => x.Id == id);
+        if (b == null) return RedirectToAction("AdBookings");
+        ViewBag.SlotName = (await _db.AdSlots.FirstOrDefaultAsync(s => s.SlotKey == b.AdPosition))?.Name ?? b.AdPosition;
+        return View(b);
+    }
+
+    // Trang IN HỢP ĐỒNG quảng cáo
+    public async Task<IActionResult> AdBookingContract(int id)
+    {
+        if (!IsLoggedIn) return RedirectToAction("Login");
+        var b = await _db.AdBookings.FirstOrDefaultAsync(x => x.Id == id);
+        if (b == null) return RedirectToAction("AdBookings");
+        ViewBag.SlotName = (await _db.AdSlots.FirstOrDefaultAsync(s => s.SlotKey == b.AdPosition))?.Name ?? b.AdPosition;
+        return View(b);
     }
 
     // Xác nhận đơn + GỬI MAIL cho khách
@@ -2885,14 +3095,14 @@ public class AdminController : Controller
     //  adType = "html" : dán mã HTML/JS hoặc upload file .html (chạy trong iframe sandbox).
     [HttpPost]
     public async Task<IActionResult> PublishAdBooking(int id, string? adType, string? targetUrl,
-        IFormFile? bannerFile, string? htmlContent, IFormFile? htmlFile)
+        IFormFile? bannerFile, string? htmlContent, IFormFile? htmlFile, string? videoUrl, IFormFile? videoFile)
     {
         if (!IsLoggedIn) { TempData["Ok"] = "Chưa đăng nhập."; return RedirectToAction("AdBookings"); }
         var b = await _db.AdBookings.FindAsync(id);
         if (b == null) return RedirectToAction("AdBookings");
 
-        adType = adType == "html" ? "html" : "image";
-        string? img = null, html = null;
+        adType = (adType == "html" || adType == "video") ? adType : "image";
+        string? img = null, html = null, video = null;
 
         if (adType == "html")
         {
@@ -2904,6 +3114,17 @@ public class AdminController : Controller
             }
             else html = htmlContent;
             if (string.IsNullOrWhiteSpace(html)) { TempData["Ok"] = "⚠ Vui lòng dán mã HTML/JS hoặc chọn file .html."; return RedirectToAction("AdBookings"); }
+        }
+        else if (adType == "video")
+        {
+            if (videoFile != null && videoFile.Length > 0)
+            {
+                var vu = await _videoUpload.SaveAsync(videoFile);
+                if (vu.Success) video = vu.RelativePath;
+                else { TempData["Ok"] = "⚠ " + (vu.Error ?? "Không lưu được file video."); return RedirectToAction("AdBookings"); }
+            }
+            else video = videoUrl?.Trim();
+            if (string.IsNullOrWhiteSpace(video)) { TempData["Ok"] = "⚠ Vui lòng nhập link video hoặc tải file video."; return RedirectToAction("AdBookings"); }
         }
         else
         {
@@ -2923,6 +3144,7 @@ public class AdminController : Controller
             AdType = adType,
             ImageUrl = img,
             HtmlContent = html,
+            VideoUrl = video,
             TargetUrl = string.IsNullOrWhiteSpace(targetUrl) ? (b.Website ?? "#") : targetUrl.Trim(),
             Position = b.AdPosition,
             AdSlotId = slot?.Id,

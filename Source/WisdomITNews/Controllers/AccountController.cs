@@ -78,6 +78,19 @@ public class AccountController : Controller
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
 
+            // Thông báo CHÀO MỪNG vào hộp thư (best-effort)
+            try
+            {
+                var notif = HttpContext.RequestServices.GetRequiredService<WisdomITNews.Services.NotificationService>();
+                await notif.SendToUserAsync(user.Id,
+                    "🎉 Chào mừng đến với Wisdom IT News",
+                    $"Chúc mừng {user.FullName}, bạn đã đăng ký tài khoản thành công trên Báo Wisdom IT News! "
+                    + "Giờ đây bạn có thể theo dõi chuyên mục yêu thích, lưu và bình luận bài viết, nhận thông báo tin mới nhất mỗi ngày. "
+                    + "Chúc bạn có những trải nghiệm đọc báo thật thú vị!",
+                    type: "welcome", icon: "circle-check", iconColor: "#0e7d85");
+            }
+            catch (Exception nex) { _logger.LogWarning(nex, "Gửi thông báo chào mừng đăng ký thất bại"); }
+
             // Auto login sau khi đăng ký
             HttpContext.Session.SetInt32("UserId", user.Id);
             HttpContext.Session.SetString("UserName", user.FullName);
